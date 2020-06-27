@@ -45,7 +45,7 @@ type
     GeneString
     GeneSymbol
     GeneKeyword
-    GeneList
+    GeneGene
     GeneMap
     GeneVector
     GeneSet
@@ -86,7 +86,7 @@ type
     of GeneKeyword:
       keyword*: tuple[ns, name: string]
       is_namespaced*: bool
-    of GeneList:
+    of GeneGene:
       list*: seq[GeneNode]
       list_meta*: HMap
     of GeneMap:
@@ -328,7 +328,7 @@ proc read_string(p: var Parser): GeneNode =
 
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneNode =
   let quoted = read(p)
-  result = GeneNode(kind: GeneList)
+  result = GeneNode(kind: GeneGene)
   result.list = @[new_gene_symbol("", quote_name), quoted]
 
 proc read_quoted*(p: var Parser): GeneNode =
@@ -606,7 +606,7 @@ proc maybe_add_comments(node: GeneNode, list_result: DelimitedListResult): GeneN
     return node
 
 proc read_list(p: var Parser): GeneNode =
-  result = GeneNode(kind: GeneList)
+  result = GeneNode(kind: GeneGene)
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col_meta(p, result)
@@ -709,7 +709,7 @@ proc read_set(p: var Parser): GeneNode =
     
 proc read_anonymous_fn*(p: var Parser): GeneNode =
   # TODO: extract arglist from fn body
-  result = GeneNode(kind: GeneList)
+  result = GeneNode(kind: GeneGene)
   var arglist = GeneNode(kind: GeneVector, vec:  @[])
   result.list = @[new_gene_symbol("", "fn")]
   # remember this one came from a macro
@@ -741,7 +741,7 @@ proc read_reader_conditional(p: var Parser): GeneNode =
     is_spliced = false
     
   let exp = read(p)
-  if exp.kind != GeneList:
+  if exp.kind != GeneGene:
     raise new_exception(ParseError, READER_COND_MSG & $exp.kind)
   var
     i = 0
@@ -804,7 +804,7 @@ proc add_meta*(node: GeneNode, meta: HMap): GeneNode =
   case node.kind
   of GeneSymbol:
     node.symbol_meta = meta
-  of GeneList:
+  of GeneGene:
     node.list_meta = meta
   of GeneMap:
     node.map_meta = meta
@@ -818,7 +818,7 @@ proc get_meta*(node: GeneNode): HMap =
   case node.kind
   of GeneSymbol:
     return node.symbol_meta
-  of GeneList:
+  of GeneGene:
     return node.list_meta
   of GeneMap:
     return node.map_meta
@@ -915,7 +915,7 @@ proc hash*(node: GeneNode): Hash =
   of GeneKeyword:
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
-  of GeneList:
+  of GeneGene:
     h = h !& hash(node.list)
   of GeneMap:
     for entry in node.map:
@@ -962,7 +962,7 @@ proc `==`*(this, that: GeneNode): bool =
       return this.symbol == that.symbol
     of GeneKeyword:
       return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
-    of GeneList:
+    of GeneGene:
       return this.list == that.list
     of GeneMap:
       return this.map == that.map
