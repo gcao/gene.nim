@@ -7,7 +7,7 @@ import genepkg/parser, options, tables, strutils
 test "everything":
   var node: EdnNode
 
-  node = read(" nil")
+  node = read("nil")
   check node.kind == EdnNil
 
   node = read("10")
@@ -34,9 +34,11 @@ test "everything":
   check node.kind == EdnList
   check node.list.len == 3
 
-  node = read("""(
-                  ;; comment in a list
-                   )""")
+  node = read("""
+    (
+      ;; comment in a list
+    )
+  """)
   check node.kind == EdnList
   check node.comments.len == 0
 
@@ -48,68 +50,87 @@ test "everything":
     opts.suppress_read = false
     opts.conditional_exprs = asError
     opts.comments_handling = keepComments
-    node = read(""";; this is a coment
-    ()
+    node = read("""
+      ;; this is a coment
+      ()
     """, opts)
     check node.kind == EdnCommentLine
     check node.comments.len == 0
 
-    node = read("""(
-    ;; this is a coment
-    ())
+    node = read("""
+      (
+        ;; this is a coment
+      ())
     """, opts)
     check node.kind == EdnList
     check node.list[0].comments.len > 0
     
-    node = read(""";; this is a comment
-    (1 2
-    ;; last elem
-    3)""", opts)
+    node = read("""
+      ;; this is a comment
+      (1 2
+        ;; last elem
+      3)
+    """, opts)
     check node.kind == EdnCommentLine
 
     # the comment should be returned on subsequent read().
     # not very clean, but does not require a look-ahead read()
-    node = read("""()
-;; comment after a list""", opts)
+    node = read("""
+      ()
+      ;; comment after a list
+    """, opts)
     check node.kind == EdnList
     check node.comments.len == 0
 
-    node = read("""(
-                  ;; comment in a list
-                   )""", opts)
+    node = read("""
+      (
+        ;; comment in a list
+      )
+    """, opts)
     check node.kind == EdnList
     check node.comments.len == 1
     check node.comments[0].placement == Inside
     
-    node = read(""";; this is a comment
-    (1 2
-    ;; last elem
-    3)""", opts)
+    node = read("""
+      ;; this is a comment
+      (1 2
+        ;; last elem
+      3)
+    """, opts)
     check node.kind == EdnCommentLine
     check node.comments.len == 0
 
-    node = read("""{:x 1
-                    ;;comment 
-                    :y 2} """, opts)
+    node = read("""
+      {:x 1
+      ;;comment 
+      :y 2}
+    """, opts)
     check node.kind == EdnMap
 
-    node = read("""{:view s/Keyword
-                    ;;comment 
-                    (s/optional-key :label) s/Str
-                    (foo 1) 2} """, opts)
+    node = read("""
+      {:view s/Keyword
+      ;;comment 
+      (s/optional-key :label) s/Str
+      (foo 1) 2}
+    """, opts)
     check node.kind == EdnMap
 
 
-  node = read("""{:view s/Keyword
-                  ;;comment 
-                  (s/optional-key :label) s/Str
-                  (foo 1) 2} """)
+  node = read("""
+    {:view s/Keyword
+      ;;comment 
+      (s/optional-key :label) s/Str
+      (foo 1) 2
+    }
+  """)
   check node.kind == EdnMap
 
-  node = read(""";; this is a comment
-  (1 2
-  ;; last elem
-  3)""")
+  node = read("""
+    ;; this is a comment
+    (1 2
+      ;; last elem
+    3)
+  """)
   check node.kind == EdnList
   check node.comments.len == 0
   check node.list[2].comments.len == 0
