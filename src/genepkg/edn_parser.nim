@@ -9,7 +9,7 @@ type
     tkInt,
     tkFloat
 
-  GeneError* = enum
+  EdnError* = enum
     errNone,
     errInvalidToken,
     errEofExpected,
@@ -23,35 +23,35 @@ type
 
   ParseOptions* = object
     eof_is_error*: bool
-    eof_value*: GeneNode
+    eof_value*: EdnNode
     suppress_read*: bool
     conditional_exprs*: ConditionalExpressionsHandling
     comments_handling*: CommentsHandling
 
-  Parser* = object of BaseLexer
+  EdnParser* = object of BaseLexer
     a: string
     token*: TokenKind
-    err: GeneError
+    err: EdnError
     filename: string
     options*: ParseOptions
 
-  GeneNodeKind* = enum
-    GeneNil
-    GeneBool
-    GeneCharacter
-    GeneInt
-    GeneRatio
-    GeneFloat
-    GeneString
-    GeneSymbol
-    GeneKeyword
-    GeneList
-    GeneMap
-    GeneVector
-    GeneSet
-    GeneTaggedValue
-    GeneCommentLine
-    GeneRegex
+  EdnNodeKind* = enum
+    EdnNil
+    EdnBool
+    EdnCharacter
+    EdnInt
+    EdnRatio
+    EdnFloat
+    EdnString
+    EdnSymbol
+    EdnKeyword
+    EdnList
+    EdnMap
+    EdnVector
+    EdnSet
+    EdnTaggedValue
+    EdnCommentLine
+    EdnRegex
 
   CommentPlacement* = enum
     Before
@@ -63,54 +63,54 @@ type
     comment_lines*: seq[string]
   Comment* = ref CommentsObj
 
-  GeneNode* = ref GeneNodeObj
-  GeneNodeObj* {.acyclic.} = object
-    case kind*: GeneNodeKind
-    of GeneNil:
+  EdnNode* = ref EdnNodeObj
+  EdnNodeObj* {.acyclic.} = object
+    case kind*: EdnNodeKind
+    of EdnNil:
       nil
-    of GeneBool:
+    of EdnBool:
       boolVal*: bool
-    of GeneCharacter:
+    of EdnCharacter:
       character*: char
-    of GeneInt:
+    of EdnInt:
       num*: BiggestInt
-    of GeneRatio:
+    of EdnRatio:
       rnum*: tuple[numerator, denominator: BiggestInt]
-    of GeneFloat:
+    of EdnFloat:
       fnum*: float
-    of GeneString:
+    of EdnString:
       str*: string
-    of GeneSymbol:
+    of EdnSymbol:
       symbol*: tuple[ns, name: string]
       symbol_meta*: HMap
-    of GeneKeyword:
+    of EdnKeyword:
       keyword*: tuple[ns, name: string]
       is_namespaced*: bool
-    of GeneList:
-      list*: seq[GeneNode]
+    of EdnList:
+      list*: seq[EdnNode]
       list_meta*: HMap
-    of GeneMap:
+    of EdnMap:
       map*: HMap
       map_meta*: HMap
-    of GeneVector:
-      vec*: seq[GeneNode]
+    of EdnVector:
+      vec*: seq[EdnNode]
       vec_meta*: HMap
-    of GeneSet:
+    of EdnSet:
       set_elems*: HMap
       set_meta*: HMap
-    of GeneTaggedValue:
+    of EdnTaggedValue:
       tag*:  tuple[ns, name: string]
-      value*: GeneNode
-    of GeneCommentLine:
+      value*: EdnNode
+    of EdnCommentLine:
       comment*: string
-    of GeneRegex:
+    of EdnRegex:
       regex*: string
     line*: int
     column*: int
     comments*: seq[Comment]
 
 
-  HMapEntryObj = tuple[key: GeneNode, value: GeneNode]
+  HMapEntryObj = tuple[key: EdnNode, value: EdnNode]
   HMapEntry = ref HMapEntryObj
   HMapObj* = object
     count*: int
@@ -120,7 +120,7 @@ type
   ParseError* = object of Exception
   ParseInfo = tuple[line, col: int]
 
-  MacroReader = proc(p: var Parser): GeneNode
+  MacroReader = proc(p: var EdnParser): EdnNode
   MacroArray = array[char, MacroReader]
 
 const non_constituents = ['@', '`', '~']
@@ -147,11 +147,11 @@ proc get_macro(ch: char): MacroReader =
 
 proc new_hmap*(capacity: int = 16): HMap
 
-proc `[]=`*(m: HMap, key: GeneNode, val: GeneNode)
+proc `[]=`*(m: HMap, key: EdnNode, val: EdnNode)
 
-proc val_at*(m: HMap, key: GeneNode, default: GeneNode = nil): GeneNode
+proc val_at*(m: HMap, key: EdnNode, default: EdnNode = nil): EdnNode
 
-proc `[]`*(m: HMap, key: GeneNode): Option[GeneNode]
+proc `[]`*(m: HMap, key: EdnNode): Option[EdnNode]
 
 proc len*(m: HMap): int = m.count
 
@@ -163,75 +163,75 @@ iterator items*(m: HMap): HMapEntry =
 
 proc merge_maps*(m1, m2 :HMap): void
 
-proc add_meta*(node: GeneNode, meta: HMap): GeneNode
+proc add_meta*(node: EdnNode, meta: HMap): EdnNode
 
 ## ============== NEW OBJ FACTORIES =================
 
 let
-  gene_true*  = GeneNode(kind: GeneBool, bool_val: true)
-  gene_false* = GeneNode(kind: GeneBool, bool_val: false)
+  edn_true*  = EdnNode(kind: EdnBool, bool_val: true)
+  edn_false* = EdnNode(kind: EdnBool, bool_val: false)
 
-proc new_gene_string_move(s: string): GeneNode =
-  result = GeneNode(kind: GeneString)
+proc new_edn_string_move(s: string): EdnNode =
+  result = EdnNode(kind: EdnString)
   shallowCopy(result.str, s)
 
-proc new_gene_int*(s: string): GeneNode =
-  return GeneNode(kind: GeneInt, num: parseBiggestInt(s))
+proc new_edn_int*(s: string): EdnNode =
+  return EdnNode(kind: EdnInt, num: parseBiggestInt(s))
 
-proc new_gene_int*(val: int): GeneNode =
-  return GeneNode(kind: GeneInt, num: val)
+proc new_edn_int*(val: int): EdnNode =
+  return EdnNode(kind: EdnInt, num: val)
 
-proc new_gene_ratio*(nom, denom: BiggestInt): GeneNode =
-  return GeneNode(kind: GeneRatio, rnum: (nom, denom))
+proc new_edn_ratio*(nom, denom: BiggestInt): EdnNode =
+  return EdnNode(kind: EdnRatio, rnum: (nom, denom))
 
-proc new_gene_float*(s: string): GeneNode =
-  return GeneNode(kind: GeneFloat, fnum: parseFloat(s))
+proc new_edn_float*(s: string): EdnNode =
+  return EdnNode(kind: EdnFloat, fnum: parseFloat(s))
 
-proc new_gene_float*(val: float): GeneNode =
-  return GeneNode(kind: GeneFloat, fnum: val)
+proc new_edn_float*(val: float): EdnNode =
+  return EdnNode(kind: EdnFloat, fnum: val)
 
-proc new_gene_bool*(val: bool): GeneNode =
+proc new_edn_bool*(val: bool): EdnNode =
   case val
-  of true: return gene_true
-  of false: return gene_false
-  # of true: return GeneNode(kind: GeneBool, boolVal: true)
-  # of false: return GeneNode(kind: GeneBool, boolVal: false)
+  of true: return edn_true
+  of false: return edn_false
+  # of true: return EdnNode(kind: EdnBool, boolVal: true)
+  # of false: return EdnNode(kind: EdnBool, boolVal: false)
 
-proc new_gene_bool*(s: string): GeneNode =
+proc new_edn_bool*(s: string): EdnNode =
   let parsed: bool = parseBool(s)
-  return new_gene_bool(parsed)
+  return new_edn_bool(parsed)
 
-proc new_gene_symbol*(ns, name: string): GeneNode =
-  return GeneNode(kind: GeneSymbol, symbol: (ns, name))
+proc new_edn_symbol*(ns, name: string): EdnNode =
+  return EdnNode(kind: EdnSymbol, symbol: (ns, name))
 
-proc new_gene_keyword*(ns, name: string): GeneNode =
-  return GeneNode(kind: GeneKeyword, keyword: (ns, name))
+proc new_edn_keyword*(ns, name: string): EdnNode =
+  return EdnNode(kind: EdnKeyword, keyword: (ns, name))
 
-proc new_gene_nil*(): GeneNode =
+proc new_edn_nil*(): EdnNode =
   new(result)
 
 ### === VALS ===
 
 let
-  GeneTrue: GeneNode  = gene_true
-  GeneFalse: GeneNode = gene_false
-  KeyTag*: GeneNode   = new_gene_keyword("", "tag")
-  CljTag: GeneNode   = new_gene_keyword("", "clj")
-  CljsTag: GeneNode  = new_gene_keyword("", "cljs")
-  DefaultTag: GeneNode = new_gene_keyword("", "default")
+  EdnTrue: EdnNode  = edn_true
+  EdnFalse: EdnNode = edn_false
+  KeyTag*: EdnNode   = new_edn_keyword("", "tag")
+  CljTag: EdnNode   = new_edn_keyword("", "clj")
+  CljsTag: EdnNode  = new_edn_keyword("", "cljs")
+  DefaultTag: EdnNode = new_edn_keyword("", "default")
 
-  LineKw: GeneNode   = new_gene_keyword("gene.nim", "line")
-  ColumnKw: GeneNode   = new_gene_keyword("gene.nim", "column")
-  SplicedQKw*: GeneNode = new_gene_keyword("gene.nim", "spliced?")
+  LineKw: EdnNode   = new_edn_keyword("edn.nim", "line")
+  ColumnKw: EdnNode   = new_edn_keyword("edn.nim", "column")
+  SplicedQKw*: EdnNode = new_edn_keyword("edn.nim", "spliced?")
 
 ### === ERROR HANDLING UTILS ===
 
-proc err_info(p: Parser): ParseInfo =
+proc err_info(p: EdnParser): ParseInfo =
   result = (p.line_number, get_col_number(p, p.bufpos))
 
 ### === MACRO READERS ===
 
-proc read*(p: var Parser): GeneNode
+proc read*(p: var EdnParser): EdnNode
 
 proc valid_utf8_alpha(c: char): bool =
   return c.isAlphaAscii() or c >= 0xc0
@@ -252,7 +252,7 @@ proc parse_escaped_utf16(buf: cstring, pos: var int): int =
     else:
       return -1
 
-proc parse_string(p: var Parser): TokenKind =
+proc parse_string(p: var EdnParser): TokenKind =
   result = tkString
   var pos = p.bufpos
   var buf = p.buf
@@ -319,35 +319,35 @@ proc parse_string(p: var Parser): TokenKind =
       inc(pos)
   p.bufpos = pos
 
-proc read_string(p: var Parser): GeneNode =
+proc read_string(p: var EdnParser): EdnNode =
   discard parse_string(p)
   if p.err != errNone:
     raise newException(ParseError, "read_string failure: " & $p.err)
-  result = new_gene_string_move(p.a)
+  result = new_edn_string_move(p.a)
   p.a = ""
 
-proc read_quoted_internal(p: var Parser, quote_name: string): GeneNode =
+proc read_quoted_internal(p: var EdnParser, quote_name: string): EdnNode =
   let quoted = read(p)
-  result = GeneNode(kind: GeneList)
-  result.list = @[new_gene_symbol("", quote_name), quoted]
+  result = EdnNode(kind: EdnList)
+  result.list = @[new_edn_symbol("", quote_name), quoted]
 
-proc read_quoted*(p: var Parser): GeneNode =
+proc read_quoted*(p: var EdnParser): EdnNode =
   return read_quoted_internal(p, "quote")
 
-proc read_quasiquoted*(p: var Parser): GeneNode =
+proc read_quasiquoted*(p: var EdnParser): EdnNode =
   return read_quoted_internal(p, "quasiquote")
 
-proc read_unquoted*(p: var Parser): GeneNode =
+proc read_unquoted*(p: var EdnParser): EdnNode =
   return read_quoted_internal(p, "unquote")
 
-proc read_deref*(p: var Parser): GeneNode =
+proc read_deref*(p: var EdnParser): EdnNode =
   return read_quoted_internal(p, "deref")
 
 # TODO: read comment as continuous blocks, not just lines
-proc read_comment(p: var Parser): GeneNode =
+proc read_comment(p: var EdnParser): EdnNode =
   var pos = p.bufpos
   var buf = p.buf
-  result = GeneNode(kind: GeneCommentLine)
+  result = EdnNode(kind: EdnCommentLine)
   if p.options.comments_handling == keepComments:
     while true:
       case buf[pos]
@@ -380,7 +380,7 @@ proc read_comment(p: var Parser): GeneNode =
         inc(pos)
     p.bufpos = pos
 
-proc read_token(p: var Parser, lead_constituent: bool): string =
+proc read_token(p: var EdnParser, lead_constituent: bool): string =
   var pos = p.bufpos
   var ch = p.buf[pos]
   if lead_constituent and non_constituent(ch):
@@ -398,14 +398,14 @@ proc read_token(p: var Parser, lead_constituent: bool): string =
     result.add(ch)
   p.bufpos = pos
 
-proc read_character(p: var Parser): GeneNode =
+proc read_character(p: var EdnParser): EdnNode =
   var pos = p.bufpos
   #var buf = p.buf
   let ch = p.buf[pos]
   if ch == EndOfFile:
     raise new_exception(ParseError, "EOF while reading character")
 
-  result = GeneNode(kind: GeneCharacter)
+  result = EdnNode(kind: EdnCharacter)
   let token = read_token(p, false)
   if token.len == 1:
     result.character = token[0]
@@ -428,8 +428,8 @@ proc read_character(p: var Parser): GeneNode =
     # TODO: impl unicode char reading
     raise new_exception(ParseError, "Not implemented: reading unicode chars")
 
-proc skip_ws(p: var Parser) =
-  # commas are whitespace in gene collections
+proc skip_ws(p: var EdnParser) =
+  # commas are whitespace in edn collections
   var pos = p.bufpos
   var buf = p.buf
   while true:
@@ -446,7 +446,7 @@ proc skip_ws(p: var Parser) =
       break
   p.bufpos = pos
 
-proc match_symbol(s: string): GeneNode =
+proc match_symbol(s: string): EdnNode =
   let
     ns_pat   = re"[:]?([\D].*)"
     name_pat = re"(\D.*)"
@@ -473,7 +473,7 @@ proc match_symbol(s: string): GeneNode =
     if name_m.is_some():
       name = name_m.get().captures[0]
   if s[0] == ':':
-    result = GeneNode(kind: GeneKeyword)
+    result = EdnNode(kind: EdnKeyword)
     # locally namespaced kw (e.g. ::foo)
     if split_sym.len == 1:
       if 2 < s.high() and s[1] == ':':
@@ -486,18 +486,18 @@ proc match_symbol(s: string): GeneNode =
       result.keyword = (ns, name)
       result.is_namespaced = false
   else:
-    result = GeneNode(kind: GeneSymbol)
+    result = EdnNode(kind: EdnSymbol)
     result.symbol = (ns, name)
 
-proc interpret_token(token: string): GeneNode =
+proc interpret_token(token: string): EdnNode =
   result = nil
   case token
   of "nil":
-    result = new_gene_nil()
+    result = new_edn_nil()
   of "true":
-    result = new_gene_bool(token)
+    result = new_edn_bool(token)
   of "false":
-    result = new_gene_bool(token)
+    result = new_edn_bool(token)
   else:
     result = nil
 
@@ -507,7 +507,7 @@ proc interpret_token(token: string): GeneNode =
     raise new_exception(ParseError, "Invalid token: " & token)
 
 
-proc attach_comment_lines(node: GeneNode, comment_lines: seq[string], placement: CommentPlacement): void =
+proc attach_comment_lines(node: EdnNode, comment_lines: seq[string], placement: CommentPlacement): void =
   var co = new(Comment)
   co.placement = placement
   co.comment_lines = comment_lines
@@ -515,14 +515,14 @@ proc attach_comment_lines(node: GeneNode, comment_lines: seq[string], placement:
   else: node.comments.add(co)
   
 type DelimitedListResult = object
-  list: seq[GeneNode]
+  list: seq[EdnNode]
   comment_lines: seq[string]
   comment_placement: CommentPlacement
 
 proc read_delimited_list(
-  p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
+  p: var EdnParser, delimiter: char, is_recursive: bool): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.
-  var list: seq[GeneNode] = @[]
+  var list: seq[EdnNode] = @[]
   var comment_lines: seq[string] = @[]
   var count = 0
   let with_comments = keepComments == p.options.comments_handling
@@ -550,7 +550,7 @@ proc read_delimited_list(
       p.bufpos = pos
       let node = m(p)
       if node != nil:
-        if ch == ';' and node.kind == GeneCommentLine:
+        if ch == ';' and node.kind == EdnCommentLine:
           if with_comments:
             comment_lines.add(node.comment)
           else:
@@ -567,7 +567,7 @@ proc read_delimited_list(
       if node != nil:
         if with_comments:
           case node.kind
-          of GeneCommentLine:
+          of EdnCommentLine:
             comment_lines.add(node.comment)
           else:
             if comment_lines.len > 0:
@@ -577,7 +577,7 @@ proc read_delimited_list(
             list.add(node)
         else: # discardComments
           case node.kind
-          of GeneCommentLine:
+          of EdnCommentLine:
             discard
           else:
             inc(count)
@@ -590,13 +590,13 @@ proc read_delimited_list(
     result.comment_placement = Inside
   result.list = list
 
-proc add_line_col_meta(p: var Parser, node: var GeneNode): void =
+proc add_line_col_meta(p: var EdnParser, node: var EdnNode): void =
   let m = new_hmap()
   node.line = p.line_number
   node.column = getColNumber(p, p.bufpos)
   discard add_meta(node, m)
 
-proc maybe_add_comments(node: GeneNode, list_result: DelimitedListResult): GeneNode =
+proc maybe_add_comments(node: EdnNode, list_result: DelimitedListResult): EdnNode =
   if list_result.comment_lines.len > 0:
     var co = new(Comment)
     co.placement = Inside
@@ -605,8 +605,8 @@ proc maybe_add_comments(node: GeneNode, list_result: DelimitedListResult): GeneN
     else: node.comments.add(co)
     return node
 
-proc read_list(p: var Parser): GeneNode =
-  result = GeneNode(kind: GeneList)
+proc read_list(p: var EdnParser): EdnNode =
+  result = EdnNode(kind: EdnList)
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col_meta(p, result)
@@ -617,14 +617,14 @@ proc read_list(p: var Parser): GeneNode =
 const
   MAP_EVEN = "Map literal must contain even number of forms "
 
-proc read_map(p: var Parser): GeneNode =
-  result = GeneNode(kind: GeneMap)
+proc read_map(p: var EdnParser): EdnNode =
+  result = EdnNode(kind: EdnMap)
   var list_result = read_delimited_list(p, '}', true)
   var list = list_result.list
   var index = 0
   if (list.len and 1) == 1:
     for x in list:
-      if index mod 2 == 0 and x.kind == GeneKeyword:
+      if index mod 2 == 0 and x.kind == EdnKeyword:
         echo "MAP ELEM " & $x.kind & " " & $x.keyword
       else:
         echo "MAP ELEM " & $x.kind
@@ -645,9 +645,9 @@ const
   NS_MAP_INVALID = "Namespaced map must specify a valid namespace: kind $#, namespace $#, $#:$#"
   NS_MAP_EVEN = "Namespaced map literal must contain an even number of forms"
 
-proc read_ns_map(p: var Parser): GeneNode =
+proc read_ns_map(p: var EdnParser): EdnNode =
   let n = read(p)
-  if n.kind != GeneSymbol or n.symbol.ns != "":
+  if n.kind != EdnSymbol or n.symbol.ns != "":
     let ns_str = if n.symbol.ns == "": "nil" else: n.symbol.ns
     raise new_exception(ParseError, format(NS_MAP_INVALID, n.kind, ns_str, p.filename, p.line_number))
 
@@ -669,34 +669,34 @@ proc read_ns_map(p: var Parser): GeneNode =
     var value = list[i]
     inc(i)
     case key.kind
-    of GeneKeyword:
+    of EdnKeyword:
       if key.keyword.ns == "":
-        map[new_gene_keyword(n.symbol.name, key.keyword.name)] = value
+        map[new_edn_keyword(n.symbol.name, key.keyword.name)] = value
       elif key.keyword.ns == "_":
-        map[new_gene_keyword("", key.keyword.name)] = value
+        map[new_edn_keyword("", key.keyword.name)] = value
       else:
         map[key] = value
-    of GeneSymbol:
+    of EdnSymbol:
       if key.symbol.ns == "":
-        map[new_gene_symbol(n.symbol.name, key.symbol.name)] = value
+        map[new_edn_symbol(n.symbol.name, key.symbol.name)] = value
       elif key.keyword.ns == "_":
-        map[new_gene_keyword("", key.symbol.name)] = value
+        map[new_edn_keyword("", key.symbol.name)] = value
       else:
         map[key] = value
     else:
       map[key] = value
 
-    result = GeneNode(kind: GeneMap, map: map)
+    result = EdnNode(kind: EdnMap, map: map)
     discard maybe_add_comments(result, list_result)
 
-proc read_vector(p: var Parser): GeneNode =
-  result = GeneNode(kind: GeneVector)
+proc read_vector(p: var EdnParser): EdnNode =
+  result = EdnNode(kind: EdnVector)
   let list_result = read_delimited_list(p, ']', true)
   result.vec = list_result.list
   discard maybe_add_comments(result, list_result)
 
-proc read_set(p: var Parser): GeneNode =
-  result = GeneNode(kind: GeneSet)
+proc read_set(p: var EdnParser): EdnNode =
+  result = EdnNode(kind: EdnSet)
   let list_result = read_delimited_list(p, '}', true)
   var elements = list_result.list
   discard maybe_add_comments(result, list_result)
@@ -704,17 +704,17 @@ proc read_set(p: var Parser): GeneNode =
   # TODO: hmap_capacity(len(elements))
   result.set_elems = new_hmap()
   while i <= elements.high:
-    result.set_elems[elements[i]] = new_gene_bool(true)
+    result.set_elems[elements[i]] = new_edn_bool(true)
     inc(i)
     
-proc read_anonymous_fn*(p: var Parser): GeneNode =
+proc read_anonymous_fn*(p: var EdnParser): EdnNode =
   # TODO: extract arglist from fn body
-  result = GeneNode(kind: GeneList)
-  var arglist = GeneNode(kind: GeneVector, vec:  @[])
-  result.list = @[new_gene_symbol("", "fn")]
+  result = EdnNode(kind: EdnList)
+  var arglist = EdnNode(kind: EdnVector, vec:  @[])
+  result.list = @[new_edn_symbol("", "fn")]
   # remember this one came from a macro
   let meta = new_hmap()
-  meta[new_gene_keyword("", "from-reader-macro")] = new_gene_bool(true)
+  meta[new_edn_keyword("", "from-reader-macro")] = new_edn_bool(true)
   result.list_meta = meta
 
   var list_result = read_delimited_list(p, ')', true)
@@ -723,14 +723,14 @@ proc read_anonymous_fn*(p: var Parser): GeneNode =
   discard maybe_add_comments(result, list_result)
   return result
 
-proc safely_add_meta(node: GeneNode, meta: HMap): GeneNode
+proc safely_add_meta(node: EdnNode, meta: HMap): EdnNode
 
 const
   READER_COND_MSG = "reader conditional should be a list: "
   READER_COND_FEAT_KW = "feature should be a keyword: "
   READER_COND_AS_TAGGED_ERR = "'asTagged' option not available for reader conditionals"
 
-proc read_reader_conditional(p: var Parser): GeneNode =
+proc read_reader_conditional(p: var EdnParser): EdnNode =
   # '#? (:clj ...)'
   let pos = p.bufpos
   var is_spliced: bool
@@ -741,21 +741,21 @@ proc read_reader_conditional(p: var Parser): GeneNode =
     is_spliced = false
     
   let exp = read(p)
-  if exp.kind != GeneList:
+  if exp.kind != EdnList:
     raise new_exception(ParseError, READER_COND_MSG & $exp.kind)
   var
     i = 0
     m = new_hmap()
   while i <= exp.list.high:
     let feature = exp.list[i]
-    if feature.kind != GeneKeyword:
+    if feature.kind != EdnKeyword:
       raise new_exception(ParseError, READER_COND_FEAT_KW & $feature.kind & " line " & $p.line_number)
     inc(i)
-    var val: GeneNode
+    var val: EdnNode
     if i <= exp.list.high:
       val = exp.list[i]
       # TODO: does not verify if we're trying to splice at toplevel
-      if is_spliced and (val.kind != GeneVector):
+      if is_spliced and (val.kind != EdnVector):
         raise new_exception(ParseError, "Trying to splice a conditional expression with: " & $val.kind & ", element " & $i)
       inc(i)
     else:
@@ -789,7 +789,7 @@ proc read_reader_conditional(p: var Parser): GeneNode =
   #TODO: better handle splicing - new node type or sth else?
   if result != nil and is_spliced:
     var hmap = new_hmap()
-    hmap[SplicedQKw] = GeneTrue
+    hmap[SplicedQKw] = EdnTrue
     discard add_meta(result, hmap)
   
   return result
@@ -800,34 +800,34 @@ proc read_reader_conditional(p: var Parser): GeneNode =
 const META_CANNOT_APPLY_MSG =
   "Metadata can be applied only to symbols, lists, vectors and map. Got :"
 
-proc add_meta*(node: GeneNode, meta: HMap): GeneNode =
+proc add_meta*(node: EdnNode, meta: HMap): EdnNode =
   case node.kind
-  of GeneSymbol:
+  of EdnSymbol:
     node.symbol_meta = meta
-  of GeneList:
+  of EdnList:
     node.list_meta = meta
-  of GeneMap:
+  of EdnMap:
     node.map_meta = meta
-  of GeneVector:
+  of EdnVector:
     node.vec_meta = meta
   else:
     raise new_exception(ParseError, META_CANNOT_APPLY_MSG & $node.kind)
   result = node
 
-proc get_meta*(node: GeneNode): HMap =
+proc get_meta*(node: EdnNode): HMap =
   case node.kind
-  of GeneSymbol:
+  of EdnSymbol:
     return node.symbol_meta
-  of GeneList:
+  of EdnList:
     return node.list_meta
-  of GeneMap:
+  of EdnMap:
     return node.map_meta
-  of GeneVector:
+  of EdnVector:
     return node.vec_meta
   else:
     raise new_exception(ParseError, "Given type does not support metadata")
 
-proc safely_add_meta(node: GeneNode, meta: HMap): GeneNode =
+proc safely_add_meta(node: EdnNode, meta: HMap): EdnNode =
   var node_meta = get_meta(node)
   if node_meta == nil:
     return add_meta(node, meta)
@@ -836,24 +836,24 @@ proc safely_add_meta(node: GeneNode, meta: HMap): GeneNode =
     return node
 
 const META_INVALID_MSG =
-  "Metadata must be GeneSymbol, GeneKeyword, GeneString or GeneMap"
+  "Metadata must be EdnSymbol, EdnKeyword, EdnString or EdnMap"
 
-proc read_metadata(p: var  Parser): GeneNode =
+proc read_metadata(p: var  EdnParser): EdnNode =
   var m: HMap
   let old_opts = p.options
   p.options.eof_is_error = true
   var meta = read(p)
   case meta.kind
-  of GeneSymbol:
+  of EdnSymbol:
     m = new_hmap()
     m[KeyTag] = meta
-  of GeneKeyword:
+  of EdnKeyword:
     m = new_hmap()
-    m[meta] = GeneTrue
-  of GeneString:
+    m[meta] = EdnTrue
+  of EdnString:
     m = new_hmap()
     m[KeyTag] = meta
-  of GeneMap:
+  of EdnMap:
     m = meta.map
   else:
     p.options = old_opts
@@ -865,78 +865,78 @@ proc read_metadata(p: var  Parser): GeneNode =
   finally:
     p.options = old_opts
 
-proc read_tagged(p: var Parser): GeneNode =
+proc read_tagged(p: var EdnParser): EdnNode =
   var node = read(p)
-  if node.kind != GeneSymbol:
+  if node.kind != EdnSymbol:
     raise new_exception(ParseError, "tag should be a symbol: " & $node.kind)
-  result = GeneNode(kind: GeneTaggedValue, tag: node.symbol, value: read(p))
+  result = EdnNode(kind: EdnTaggedValue, tag: node.symbol, value: read(p))
 
-proc read_cond_as_tagged(p: var Parser): GeneNode =
-  # reads forms like #+clj foo as GeneTaggedValue
+proc read_cond_as_tagged(p: var EdnParser): EdnNode =
+  # reads forms like #+clj foo as EdnTaggedValue
   var tagged = read_tagged(p)
   tagged.tag = ("", "+" & tagged.tag.name)
   return tagged
 
-proc read_cond_matching(p: var Parser, tag: string): GeneNode =
+proc read_cond_matching(p: var EdnParser, tag: string): EdnNode =
   var tagged = read_cond_as_tagged(p)
-  if tagged.kind == GeneTaggedValue:
+  if tagged.kind == EdnTaggedValue:
     if tagged.tag.name == tag:
       return tagged.value
     else:
       return nil
   raise new_exception(ParseError, "Expected a tagged value, got: " & $tagged.kind)
 
-proc read_cond_clj(p:var Parser): GeneNode =
+proc read_cond_clj(p:var EdnParser): EdnNode =
   return read_cond_matching(p, "+clj")
 
-proc read_cond_cljs(p:var Parser): GeneNode =
+proc read_cond_cljs(p:var EdnParser): EdnNode =
   return read_cond_matching(p, "+cljs")
 
-proc hash*(node: GeneNode): Hash =
+proc hash*(node: EdnNode): Hash =
   var h: Hash = 0
   h = h !& hash(node.kind)
   case node.kind
-  of GeneNil:
+  of EdnNil:
     h = h !& hash(0)
-  of GeneBool:
+  of EdnBool:
     h = h !& hash(node.bool_val)
-  of GeneCharacter:
+  of EdnCharacter:
     h = h !& hash(node.character)
-  of GeneInt:
+  of EdnInt:
     h = h !& hash(node.num)
-  of GeneRatio:
+  of EdnRatio:
     h = h !& hash(node.rnum)
-  of GeneFloat:
+  of EdnFloat:
     h = h !& hash(node.fnum)
-  of GeneString:
+  of EdnString:
     h = h !& hash(node.str)
-  of GeneSymbol:
+  of EdnSymbol:
     h = h !& hash(node.symbol)
-  of GeneKeyword:
+  of EdnKeyword:
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
-  of GeneList:
+  of EdnList:
     h = h !& hash(node.list)
-  of GeneMap:
+  of EdnMap:
     for entry in node.map:
       h = h !& hash(entry.key)
       h = h !& hash(entry.value)
-  of GeneVector:
+  of EdnVector:
     h = h !& hash(node.vec)
-  of GeneSet:
+  of EdnSet:
     for entry in node.set_elems:
       h = h !& hash(entry.key)
       h = h !& hash(entry.value)
-  of GeneTaggedValue:
+  of EdnTaggedValue:
     h = h !& hash(node.tag)
     h = h !& hash(node.value)
-  of GeneCommentLine:
+  of EdnCommentLine:
     h = h !& hash(node.comment)
-  of GeneRegex:
+  of EdnRegex:
     h = h !& hash(node.regex)
   result = !$h
 
-proc `==`*(this, that: GeneNode): bool =
+proc `==`*(this, that: EdnNode): bool =
   if this.is_nil:
     if that.is_nil: return true
     return false
@@ -944,51 +944,51 @@ proc `==`*(this, that: GeneNode): bool =
     return false
   else:
     case this.kind
-    of GeneNil:
-      return that.kind == GeneNil
-    of GeneBool:
+    of EdnNil:
+      return that.kind == EdnNil
+    of EdnBool:
       return this.boolVal == that.boolVal
-    of GeneCharacter:
+    of EdnCharacter:
       return this.character == that.character
-    of GeneInt:
+    of EdnInt:
       return this.num == that.num
-    of GeneRatio:
+    of EdnRatio:
       return this.rnum == that.rnum
-    of GeneFloat:
+    of EdnFloat:
       return this.fnum == that.fnum
-    of GeneString:
+    of EdnString:
       return this.str == that.str
-    of GeneSymbol:
+    of EdnSymbol:
       return this.symbol == that.symbol
-    of GeneKeyword:
+    of EdnKeyword:
       return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
-    of GeneList:
+    of EdnList:
       return this.list == that.list
-    of GeneMap:
+    of EdnMap:
       return this.map == that.map
-    of GeneVector:
+    of EdnVector:
       return this.vec == that.vec
-    of GeneSet:
+    of EdnSet:
       return this.set_elems == that.set_elems
-    of GeneTaggedValue:
+    of EdnTaggedValue:
       return this.tag == that.tag and this.value == that.value
-    of GeneCommentLine:
+    of EdnCommentLine:
       return this.comment == that.comment
-    of GeneRegex:
+    of EdnRegex:
       return this.regex == that.regex
 
-proc read_regex(p: var Parser): GeneNode =
+proc read_regex(p: var EdnParser): EdnNode =
   let s = read_string(p)
-  result = GeneNode(kind: GeneRegex, regex: s.str)
+  result = EdnNode(kind: EdnRegex, regex: s.str)
 
-proc read_unmatched_delimiter(p: var Parser): GeneNode =
+proc read_unmatched_delimiter(p: var EdnParser): EdnNode =
   raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
 
-proc read_discard(p: var Parser): GeneNode =
+proc read_discard(p: var EdnParser): EdnNode =
   discard read(p)
   result = nil
 
-proc read_dispatch(p: var Parser): GeneNode =
+proc read_dispatch(p: var EdnParser): EdnNode =
   var pos = p.bufpos
   let ch = p.buf[pos]
   if ch == EndOfFile:
@@ -1030,11 +1030,11 @@ proc init_dispatch_macro_array() =
   dispatch_macros['?'] = read_reader_conditional
   dispatch_macros['"'] = read_regex
 
-proc init_gene_readers() =
+proc init_edn_readers() =
   init_macro_array()
   init_dispatch_macro_array()
 
-proc init_gene_readers*(options: ParseOptions) =
+proc init_edn_readers*(options: ParseOptions) =
   case options.conditional_exprs
   of asError:
     discard # the default will throw on #+clj / #+cljs
@@ -1045,7 +1045,7 @@ proc init_gene_readers*(options: ParseOptions) =
   of cljsSource:
     dispatch_macros['+'] = read_cond_cljs
 
-init_gene_readers()
+init_edn_readers()
 
 ### === HMap: a simple hash map ====
 
@@ -1055,7 +1055,7 @@ proc new_hmap(capacity: int = 16): HMap =
   result.buckets = new_seq[seq[HMapEntry]](capacity)
   result.count = 0
 
-proc `[]=`*(m: HMap, key: GeneNode, val: GeneNode) =
+proc `[]=`*(m: HMap, key: EdnNode, val: EdnNode) =
   let h = hash(key)
   if m.count + 1 > int(0.75 * float(m.buckets.high)):
     var
@@ -1085,7 +1085,7 @@ proc `[]=`*(m: HMap, key: GeneNode, val: GeneNode) =
         m.buckets[bucket_index].add(entry)
         inc(m.count)
 
-proc val_at*(m: HMap, key: GeneNode, default: GeneNode = nil): GeneNode =
+proc val_at*(m: HMap, key: EdnNode, default: EdnNode = nil): EdnNode =
   let
     h = hash(key)
     bucket_index = h and m.buckets.high
@@ -1099,14 +1099,14 @@ proc val_at*(m: HMap, key: GeneNode, default: GeneNode = nil): GeneNode =
 
 
       
-proc `[]`*(m: HMap, key: GeneNode): Option[GeneNode] =
+proc `[]`*(m: HMap, key: EdnNode): Option[EdnNode] =
   let
-    default = GeneNode(kind: GeneBool, bool_val: true)
+    default = EdnNode(kind: EdnBool, bool_val: true)
     found = val_at(m, key, default)
     pf = cast[pointer](found)
     pd = cast[pointer](default)
   if pd == pf:
-    return none(GeneNode)
+    return none(EdnNode)
   else:
     return some(found)
 
@@ -1116,24 +1116,24 @@ proc merge_maps*(m1, m2 :HMap): void =
 
 ### === TODO: name for this section ====
 
-proc open*(p: var Parser, input: Stream, filename: string) =
+proc open*(p: var EdnParser, input: Stream, filename: string) =
   lexbase.open(p, input)
   p.filename = filename
   p.a = ""
 
-proc close*(p: var Parser) {.inline.} =
+proc close*(p: var EdnParser) {.inline.} =
   lexbase.close(p)
 
-proc get_line(p: Parser): int {.inline.} =
+proc get_line(p: EdnParser): int {.inline.} =
   result = p.line_number
 
-proc get_column(p: Parser): int {.inline.} =
+proc get_column(p: EdnParser): int {.inline.} =
   result = get_col_number(p, p.bufpos)
 
-proc get_filename(p: Parser): string =
+proc get_filename(p: EdnParser): string =
   result = p.filename
 
-proc parse_number(p: var Parser): TokenKind =
+proc parse_number(p: var EdnParser): TokenKind =
   result = TokenKind.tkEof
   var
     pos = p.bufpos
@@ -1170,7 +1170,7 @@ proc parse_number(p: var Parser): TokenKind =
       inc(pos)
   p.bufpos = pos
 
-proc read_num(p: var Parser): GeneNode =
+proc read_num(p: var EdnParser): EdnNode =
   var num_result = parse_number(p)
   let opts = p.options
   case num_result
@@ -1184,25 +1184,25 @@ proc read_num(p: var Parser): GeneNode =
       if not isDigit(p.buf[p.bufpos+1]):
         let e = err_info(p)
         raise new_exception(ParseError, "error reading a ratio: " & $e)
-      var numerator = new_gene_int(p.a)
+      var numerator = new_edn_int(p.a)
       inc(p.bufpos)
       p.a = ""
       var denom_tok = parse_number(p)
       if denom_tok == tkInt:
-        var denom = new_gene_int(p.a)
-        result = new_gene_ratio(numerator.num, denom.num)
+        var denom = new_edn_int(p.a)
+        result = new_edn_ratio(numerator.num, denom.num)
       else:
         raise new_exception(ParseError, "error reading a ratio: " & p.a)
     else:
-      result = new_gene_int(p.a)
+      result = new_edn_int(p.a)
   of tkFloat:
-    result = new_gene_float(p.a)
+    result = new_edn_float(p.a)
   of tkError:
     raise new_exception(ParseError, "error reading a number: " & p.a)
   else:
     raise new_exception(ParseError, "error reading a number (?): " & p.a)
 
-proc read_internal(p: var Parser): GeneNode =
+proc read_internal(p: var EdnParser): EdnNode =
   setLen(p.a, 0)
   skip_ws(p)
   let ch = p.buf[p.bufpos]
@@ -1236,14 +1236,14 @@ proc read_internal(p: var Parser): GeneNode =
   else:
     result = interpret_token(token)
 
-proc read*(p: var Parser): GeneNode =
+proc read*(p: var EdnParser): EdnNode =
   result = read_internal(p)
   let noComments = p.options.comments_handling == discardComments
-  while result != nil and noComments and result.kind == GeneCommentLine:
+  while result != nil and noComments and result.kind == EdnCommentLine:
     result = read_internal(p)
 
-proc read*(s: Stream, filename: string): GeneNode =
-  var p: Parser
+proc read*(s: Stream, filename: string): EdnNode =
+  var p: EdnParser
   var opts: ParseOptions
   opts.eof_is_error = true
   opts.suppress_read = false
@@ -1254,28 +1254,28 @@ proc read*(s: Stream, filename: string): GeneNode =
   defer: p.close()
   result = read(p)
 
-proc read*(buffer: string): GeneNode =
+proc read*(buffer: string): EdnNode =
   result = read(new_string_stream(buffer), "*input*")
 
-proc read*(buffer: string, options: ParseOptions): GeneNode =
+proc read*(buffer: string, options: ParseOptions): EdnNode =
   var
-    p: Parser
+    p: EdnParser
     s = new_string_stream(buffer)
   p.options = options
   p.open(s, "*input*")
   defer: p.close()
   result = read(p)
 
-proc `$`*(node: GeneNode): string =
+proc `$`*(node: EdnNode): string =
   case node.kind
-  of GeneKeyword:
+  of EdnKeyword:
     if node.is_namespaced:
       result = "::" & node.keyword.name
     elif node.keyword.ns == "":
       result = ":" & node.keyword.name
     else:
       result = ":" & node.keyword.ns & "/" & node.keyword.name
-  of GeneSymbol:
+  of EdnSymbol:
     if node.symbol.ns == "":
       result = node.symbol.name
     else:
