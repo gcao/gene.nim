@@ -3,8 +3,9 @@
 import unittest
 import genepkg/parser, options, tables, strutils
 
-test "everything":
+test "Parser":
   var node: GeneNode
+  var nodes: seq[GeneNode]
 
   node = read("nil")
   check node.kind == GeneNil
@@ -12,6 +13,11 @@ test "everything":
   node = read("10")
   check node.kind == GeneInt
   check node.num == 10
+
+  nodes = read_all("10 11")
+  check nodes.len == 2
+  check nodes[0].num == 10
+  check nodes[1].num == 11
 
   node = read("10e10")
   check node.kind == GeneFloat

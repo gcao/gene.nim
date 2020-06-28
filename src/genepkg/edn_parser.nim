@@ -16,7 +16,7 @@ type
     errQuoteExpected
 
   ConditionalExpressionsHandling* = enum
-    asError, asTagged, cljSource, cljsSource
+    asError, asTagged, cljSource, cljsSource, ignoreConditionals
 
   CommentsHandling* = enum
     discardComments, keepComments
@@ -52,11 +52,18 @@ type
     EdnTaggedValue
     EdnCommentLine
     EdnRegex
+    EdnVarQuote
 
   CommentPlacement* = enum
     Before
     After
     Inside
+
+  KeywordNamespacing* = enum
+    NoNamespace                 # just :foo
+    LocalNamespace              # e.g. ::foo
+    NonLocalNamespace           # e.g  ::some-ns/foo
+    FullNamespace               # e.g  :some.namespace/foo
 
   CommentsObj* = object
     placement*: CommentPlacement
@@ -71,7 +78,7 @@ type
     of EdnBool:
       boolVal*: bool
     of EdnCharacter:
-      character*: char
+      character*: string        # to support unicode chars
     of EdnInt:
       num*: BiggestInt
     of EdnRatio:
@@ -85,7 +92,7 @@ type
       symbol_meta*: HMap
     of EdnKeyword:
       keyword*: tuple[ns, name: string]
-      is_namespaced*: bool
+      namespacing*: KeywordNamespacing
     of EdnList:
       list*: seq[EdnNode]
       list_meta*: HMap
@@ -105,6 +112,8 @@ type
       comment*: string
     of EdnRegex:
       regex*: string
+    of EdnVarQuote:
+      var_symbol: EdnNode
     line*: int
     column*: int
     comments*: seq[Comment]
@@ -118,7 +127,7 @@ type
   HMap* = ref HMapObj
 
   ParseError* = object of Exception
-  ParseInfo = tuple[line, col: int]
+  ParseInfo* = tuple[line, col: int]
 
   MacroReader = proc(p: var EdnParser): EdnNode
   MacroArray = array[char, MacroReader]
@@ -226,7 +235,7 @@ let
 
 ### === ERROR HANDLING UTILS ===
 
-proc err_info(p: EdnParser): ParseInfo =
+proc err_info*(p: EdnParser): ParseInfo =
   result = (p.line_number, get_col_number(p, p.bufpos))
 
 ### === MACRO READERS ===
@@ -408,22 +417,21 @@ proc read_character(p: var EdnParser): EdnNode =
   result = EdnNode(kind: EdnCharacter)
   let token = read_token(p, false)
   if token.len == 1:
-    result.character = token[0]
-  elif token == "newline":
-    result.character = '\c'
+    result.character = token
+  if token == "newline":
+    result.character = "\c"
   elif token == "space":
-    result.character = ' '
+    result.character = " "
   elif token == "tab":
-    result.character = '\t'
+    result.character = "\t"
   elif token == "backspace":
-    result.character = '\b'
+    result.character = "\b"
   elif token == "formfeed":
-    result.character = '\f'
+    result.character = "\f"
   elif token == "return":
-    result.character = '\r'
+    result.character = "\r"
   elif token.startsWith("u"):
-    # TODO: impl unicode char reading
-    raise new_exception(ParseError, "Not implemented: reading unicode chars")
+    result.character = parse_hex_str(token.substr(1))
   elif token.startsWith("o"):
     # TODO: impl unicode char reading
     raise new_exception(ParseError, "Not implemented: reading unicode chars")
@@ -478,13 +486,16 @@ proc match_symbol(s: string): EdnNode =
     if split_sym.len == 1:
       if 2 < s.high() and s[1] == ':':
         result.keyword = (ns, name.substr(2, name.len))
-        result.is_namespaced = true
+        result.namespacing = LocalNamespace
       else:
         result.keyword = (ns, name.substr(1,name.len))
-        result.is_namespaced = false
+        result.namespacing = NoNamespace
     else:
-      result.keyword = (ns, name)
-      result.is_namespaced = false
+      result.keyword = (ns.replace(":", ""), name)
+      if s[1] == ':':
+        result.namespacing = NonLocalNamespace
+      else:
+        result.namespacing = FullNamespace
   else:
     result = EdnNode(kind: EdnSymbol)
     result.symbol = (ns, name)
@@ -513,18 +524,22 @@ proc attach_comment_lines(node: EdnNode, comment_lines: seq[string], placement: 
   co.comment_lines = comment_lines
   if node.comments.len == 0: node.comments = @[co]
   else: node.comments.add(co)
-  
+
 type DelimitedListResult = object
   list: seq[EdnNode]
   comment_lines: seq[string]
   comment_placement: CommentPlacement
 
+type DelimitedListReadOptions = enum
+  Recursive
+
 proc read_delimited_list(
-  p: var EdnParser, delimiter: char, is_recursive: bool): DelimitedListResult =
+  p: var EdnParser, delimiter: char, opts: Table[DelimitedListReadOptions, bool]): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.
   var list: seq[EdnNode] = @[]
   var comment_lines: seq[string] = @[]
   var count = 0
+  let is_recursive: bool = opts.get_or_default(Recursive, false)
   let with_comments = keepComments == p.options.comments_handling
   while true:
     skip_ws(p)
@@ -582,7 +597,7 @@ proc read_delimited_list(
           else:
             inc(count)
             list.add(node)
-              
+
   if comment_lines.len == 0:
     result.comment_lines = @[]
   else:
@@ -590,11 +605,9 @@ proc read_delimited_list(
     result.comment_placement = Inside
   result.list = list
 
-proc add_line_col_meta(p: var EdnParser, node: var EdnNode): void =
-  let m = new_hmap()
+proc add_line_col_info(p: var EdnParser, node: var EdnNode): void =
   node.line = p.line_number
   node.column = getColNumber(p, p.bufpos)
-  discard add_meta(node, m)
 
 proc maybe_add_comments(node: EdnNode, list_result: DelimitedListResult): EdnNode =
   if list_result.comment_lines.len > 0:
@@ -605,23 +618,71 @@ proc maybe_add_comments(node: EdnNode, list_result: DelimitedListResult): EdnNod
     else: node.comments.add(co)
     return node
 
+proc get_meta*(node: EdnNode): HMap
+
+proc is_element_spliced(node: EdnNode): bool =
+  case node.kind
+  of EdnVector, EdnList:
+    let meta = node.get_meta()
+    if meta == nil: return false
+
+    let is_spliced = meta[SplicedQKw]
+    if is_spliced.is_none(): return false
+    else: return is_spliced.get() == EdnTrue
+
+  else:
+    return false
+
+proc splice_conditional_exprs(list_result: DelimitedListResult): seq[EdnNode] =
+  var indices: seq[int] = @[]
+  var index = 0
+  var spliced_result: Option[seq[EdnNode]] = none(seq[EdnNode])
+
+  for item in list_result.list:
+    if is_element_spliced(item):
+      indices.add(index)
+      if spliced_result.is_none():
+        #backfill previous elems
+        spliced_result = some[seq[EdnNode]](@[])
+        var j = 0
+        while j < index:
+          spliced_result.get().add(list_result.list[j])
+          inc(j)
+      var elems_to_splice: seq[EdnNode]
+      case item.kind
+      of EdnVector:
+        elems_to_splice = item.vec
+      of EdnList:
+        elems_to_splice = item.list
+      else:
+        raise new_exception(ParseError, "Only vectors or list can be spliced in conditional reader expressions: " & $item.kind)
+      for to_splice in elems_to_splice:
+        spliced_result.get().add(to_splice)
+    elif spliced_result.is_some():
+      spliced_result.get().add(item)
+    inc(index)
+
+  if spliced_result.is_some():
+    return spliced_result.get()
+  else:
+    return list_result.list
+
 proc read_list(p: var EdnParser): EdnNode =
   result = EdnNode(kind: EdnList)
-  #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
-  #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
-  add_line_col_meta(p, result)
-  var result_list = read_delimited_list(p, ')', true)
-  result.list = result_list.list
-  discard maybe_add_comments(result, result_list)
+  add_line_col_info(p, result)
+  var delimited_result = read_delimited_list(p, ')', {Recursive: true}.to_table())
+  result.list = splice_conditional_exprs(delimited_result)
+  discard maybe_add_comments(result, delimited_result)
 
 const
   MAP_EVEN = "Map literal must contain even number of forms "
 
 proc read_map(p: var EdnParser): EdnNode =
   result = EdnNode(kind: EdnMap)
-  var list_result = read_delimited_list(p, '}', true)
-  var list = list_result.list
-  var index = 0
+  var list_result = read_delimited_list(p, '}', {Recursive: true}.to_table())
+  var
+    list = splice_conditional_exprs(list_result)
+    index = 0
   if (list.len and 1) == 1:
     for x in list:
       if index mod 2 == 0 and x.kind == EdnKeyword:
@@ -638,7 +699,7 @@ proc read_map(p: var EdnParser): EdnNode =
     while i <= list.high - 1:
       result.map[list[i]] = list[i+1]
       i = i + 2
-  add_line_col_meta(p, result)
+  add_line_col_info(p, result)
   discard maybe_add_comments(result, list_result)
 
 const
@@ -656,8 +717,8 @@ proc read_ns_map(p: var EdnParser): EdnNode =
   if p.buf[p.bufpos] != '{':
     raise new_exception(ParseError, "Namespaced map must specify a map")
   inc(p.bufpos)
-  let list_result = read_delimited_list(p, '}', true)
-  let list = list_result.list
+  let list_result = read_delimited_list(p, '}', {Recursive: true}.to_table())
+  let list = list_result.list #TODO: handle conditional splicing here
   if (list.len and 1) == 1:
     raise new_exception(ParseError, NS_MAP_EVEN)
   var
@@ -691,13 +752,15 @@ proc read_ns_map(p: var EdnParser): EdnNode =
 
 proc read_vector(p: var EdnParser): EdnNode =
   result = EdnNode(kind: EdnVector)
-  let list_result = read_delimited_list(p, ']', true)
-  result.vec = list_result.list
-  discard maybe_add_comments(result, list_result)
+  add_line_col_info(p, result)
+  let delimited_result = read_delimited_list(p, ']', {Recursive: true}.to_table())
+  result.vec = splice_conditional_exprs(delimited_result)
+  discard maybe_add_comments(result, delimited_result)
 
 proc read_set(p: var EdnParser): EdnNode =
   result = EdnNode(kind: EdnSet)
-  let list_result = read_delimited_list(p, '}', true)
+  add_line_col_info(p, result)
+  let list_result = read_delimited_list(p, '}', {Recursive: true}.to_table())
   var elements = list_result.list
   discard maybe_add_comments(result, list_result)
   var i = 0
@@ -706,7 +769,7 @@ proc read_set(p: var EdnParser): EdnNode =
   while i <= elements.high:
     result.set_elems[elements[i]] = new_edn_bool(true)
     inc(i)
-    
+
 proc read_anonymous_fn*(p: var EdnParser): EdnNode =
   # TODO: extract arglist from fn body
   result = EdnNode(kind: EdnList)
@@ -717,7 +780,7 @@ proc read_anonymous_fn*(p: var EdnParser): EdnNode =
   meta[new_edn_keyword("", "from-reader-macro")] = new_edn_bool(true)
   result.list_meta = meta
 
-  var list_result = read_delimited_list(p, ')', true)
+  var list_result = read_delimited_list(p, ')', {Recursive: true}.to_table())
   for item in list_result.list:
     result.list.add(item)
   discard maybe_add_comments(result, list_result)
@@ -739,7 +802,7 @@ proc read_reader_conditional(p: var EdnParser): EdnNode =
     inc(p.bufpos)
   else:
     is_spliced = false
-    
+
   let exp = read(p)
   if exp.kind != EdnList:
     raise new_exception(ParseError, READER_COND_MSG & $exp.kind)
@@ -779,6 +842,8 @@ proc read_reader_conditional(p: var EdnParser): EdnNode =
     if is_some(val):
       result = val.get
     else: result = nil
+  of ignoreConditionals:
+    return nil
 
   # try the :default case
   if result == nil:
@@ -791,14 +856,14 @@ proc read_reader_conditional(p: var EdnParser): EdnNode =
     var hmap = new_hmap()
     hmap[SplicedQKw] = EdnTrue
     discard add_meta(result, hmap)
-  
+
   return result
 
 
 
 
 const META_CANNOT_APPLY_MSG =
-  "Metadata can be applied only to symbols, lists, vectors and map. Got :"
+ "Metadata can be applied only to symbols, lists, vectors and maps and sets. Got :"
 
 proc add_meta*(node: EdnNode, meta: HMap): EdnNode =
   case node.kind
@@ -810,6 +875,8 @@ proc add_meta*(node: EdnNode, meta: HMap): EdnNode =
     node.map_meta = meta
   of EdnVector:
     node.vec_meta = meta
+  of EdnSet:
+    node.set_meta = meta
   else:
     raise new_exception(ParseError, META_CANNOT_APPLY_MSG & $node.kind)
   result = node
@@ -824,8 +891,10 @@ proc get_meta*(node: EdnNode): HMap =
     return node.map_meta
   of EdnVector:
     return node.vec_meta
+  of EdnSet:
+    return node.set_meta
   else:
-    raise new_exception(ParseError, "Given type does not support metadata")
+    raise new_exception(ParseError, "Given type does not support metadata: " & $node.kind)
 
 proc safely_add_meta(node: EdnNode, meta: HMap): EdnNode =
   var node_meta = get_meta(node)
@@ -854,6 +923,8 @@ proc read_metadata(p: var  EdnParser): EdnNode =
     m = new_hmap()
     m[KeyTag] = meta
   of EdnMap:
+    m = meta.map
+  of EdnSet:
     m = meta.map
   else:
     p.options = old_opts
@@ -914,7 +985,7 @@ proc hash*(node: EdnNode): Hash =
     h = h !& hash(node.symbol)
   of EdnKeyword:
     h = h !& hash(node.keyword)
-    h = h !& hash(node.is_namespaced)
+    h = h !& hash(node.namespacing)
   of EdnList:
     h = h !& hash(node.list)
   of EdnMap:
@@ -934,6 +1005,8 @@ proc hash*(node: EdnNode): Hash =
     h = h !& hash(node.comment)
   of EdnRegex:
     h = h !& hash(node.regex)
+  of EdnVarQuote:
+    h = h !& hash(node.var_symbol)
   result = !$h
 
 proc `==`*(this, that: EdnNode): bool =
@@ -961,7 +1034,7 @@ proc `==`*(this, that: EdnNode): bool =
     of EdnSymbol:
       return this.symbol == that.symbol
     of EdnKeyword:
-      return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
+      return this.keyword == that.keyword and this.namespacing == that.namespacing
     of EdnList:
       return this.list == that.list
     of EdnMap:
@@ -976,6 +1049,16 @@ proc `==`*(this, that: EdnNode): bool =
       return this.comment == that.comment
     of EdnRegex:
       return this.regex == that.regex
+    of EdnVarQuote:
+      return this.var_symbol == that.var_symbol
+
+proc read_var_quote(p: var EdnParser): EdnNode =
+  let node = read(p)
+  case node.kind
+  of EdnSymbol:
+    result = EdnNode(kind: EdnVarQuote, var_symbol: node)
+  else:
+    raise new_exception(ParseError, "Attempted to read a var qote, but got" & $node.kind)
 
 proc read_regex(p: var EdnParser): EdnNode =
   let s = read_string(p)
@@ -1029,6 +1112,7 @@ proc init_dispatch_macro_array() =
   dispatch_macros['('] = read_anonymous_fn
   dispatch_macros['?'] = read_reader_conditional
   dispatch_macros['"'] = read_regex
+  dispatch_macros['\''] = read_var_quote
 
 proc init_edn_readers() =
   init_macro_array()
@@ -1044,6 +1128,8 @@ proc init_edn_readers*(options: ParseOptions) =
     dispatch_macros['+'] = read_cond_clj
   of cljsSource:
     dispatch_macros['+'] = read_cond_cljs
+  of ignoreConditionals:
+    discard
 
 init_edn_readers()
 
@@ -1098,7 +1184,7 @@ proc val_at*(m: HMap, key: EdnNode, default: EdnNode = nil): EdnNode =
         break
 
 
-      
+
 proc `[]`*(m: HMap, key: EdnNode): Option[EdnNode] =
   let
     default = EdnNode(kind: EdnBool, bool_val: true)
@@ -1110,7 +1196,7 @@ proc `[]`*(m: HMap, key: EdnNode): Option[EdnNode] =
   else:
     return some(found)
 
-proc merge_maps*(m1, m2 :HMap): void = 
+proc merge_maps*(m1, m2 :HMap): void =
   for entry in m2:
     m1[entry.key] = entry.value
 
@@ -1193,9 +1279,14 @@ proc read_num(p: var EdnParser): EdnNode =
         result = new_edn_ratio(numerator.num, denom.num)
       else:
         raise new_exception(ParseError, "error reading a ratio: " & p.a)
+    elif p.buf[p.bufpos] == 'M': #TODO: for now...
+      inc(p.bufpos)
+      result = new_edn_int(p.a)
     else:
       result = new_edn_int(p.a)
   of tkFloat:
+    if p.buf[p.bufpos] == 'M': #TODO: for now...
+      inc(p.bufpos)
     result = new_edn_float(p.a)
   of tkError:
     raise new_exception(ParseError, "error reading a number: " & p.a)
@@ -1226,15 +1317,24 @@ proc read_internal(p: var EdnParser): EdnNode =
     if isDigit(p.buf[p.bufpos + 1]):
       return read_num(p)
     else:
+      let column = getColNumber(p, p.bufpos)
       token = read_token(p, false)
+      let line_num = p.line_number
       result = interpret_token(token)
+      result.line = line_num
+      result.column = column
       return result
 
+
+  let column = getColNumber(p, p.bufpos)
   token = read_token(p, true)
   if opts.suppress_read:
     result = nil
   else:
+    let line_num = p.line_number
     result = interpret_token(token)
+    result.line = line_num
+    result.column = column
 
 proc read*(p: var EdnParser): EdnNode =
   result = read_internal(p)
@@ -1269,11 +1369,14 @@ proc read*(buffer: string, options: ParseOptions): EdnNode =
 proc `$`*(node: EdnNode): string =
   case node.kind
   of EdnKeyword:
-    if node.is_namespaced:
-      result = "::" & node.keyword.name
-    elif node.keyword.ns == "":
+    case node.namespacing
+    of NoNamespace:
       result = ":" & node.keyword.name
-    else:
+    of LocalNamespace:
+      result = "::" & node.keyword.name
+    of NonLocalNamespace:
+      result = "::" & node.keyword.ns & "/" & node.keyword.name
+    of FullNamespace:
       result = ":" & node.keyword.ns & "/" & node.keyword.name
   of EdnSymbol:
     if node.symbol.ns == "":

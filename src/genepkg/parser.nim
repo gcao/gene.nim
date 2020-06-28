@@ -1257,6 +1257,14 @@ proc read*(s: Stream, filename: string): GeneNode =
 proc read*(buffer: string): GeneNode =
   result = read(new_string_stream(buffer), "*input*")
 
+proc read_all*(buffer: string): seq[GeneNode] =
+  while true:
+    var node = read(buffer)
+    if node == nil:
+      return result
+    else:
+      result.add(node)
+
 proc read*(buffer: string, options: ParseOptions): GeneNode =
   var
     p: Parser

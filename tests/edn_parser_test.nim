@@ -7,7 +7,7 @@ import genepkg/edn_parser, options, tables, strutils
 test "everything":
   var node: EdnNode
 
-  node = read("nil")
+  node = read(" nil")
   check node.kind == EdnNil
 
   node = read("10")
@@ -34,103 +34,82 @@ test "everything":
   check node.kind == EdnList
   check node.list.len == 3
 
-  node = read("""
-    (
-      ;; comment in a list
-    )
-  """)
+  node = read("""(
+                  ;; comment in a list
+                   )""")
   check node.kind == EdnList
   check node.comments.len == 0
 
   block:
     # comment related tests
-    
+
     var opts: ParseOptions
     opts.eof_is_error = true
     opts.suppress_read = false
     opts.conditional_exprs = asError
     opts.comments_handling = keepComments
-    node = read("""
-      ;; this is a coment
-      ()
+    node = read(""";; this is a coment
+    ()
     """, opts)
     check node.kind == EdnCommentLine
     check node.comments.len == 0
 
-    node = read("""
-      (
-        ;; this is a coment
-      ())
+    node = read("""(
+    ;; this is a coment
+    ())
     """, opts)
     check node.kind == EdnList
     check node.list[0].comments.len > 0
-    
-    node = read("""
-      ;; this is a comment
-      (1 2
-        ;; last elem
-      3)
-    """, opts)
+
+    node = read(""";; this is a comment
+    (1 2
+    ;; last elem
+    3)""", opts)
     check node.kind == EdnCommentLine
 
     # the comment should be returned on subsequent read().
     # not very clean, but does not require a look-ahead read()
-    node = read("""
-      ()
-      ;; comment after a list
-    """, opts)
+    node = read("""()
+;; comment after a list""", opts)
     check node.kind == EdnList
     check node.comments.len == 0
 
-    node = read("""
-      (
-        ;; comment in a list
-      )
-    """, opts)
+    node = read("""(
+                  ;; comment in a list
+                   )""", opts)
     check node.kind == EdnList
     check node.comments.len == 1
     check node.comments[0].placement == Inside
-    
-    node = read("""
-      ;; this is a comment
-      (1 2
-        ;; last elem
-      3)
-    """, opts)
+
+    node = read(""";; this is a comment
+    (1 2
+    ;; last elem
+    3)""", opts)
     check node.kind == EdnCommentLine
     check node.comments.len == 0
 
-    node = read("""
-      {:x 1
-      ;;comment 
-      :y 2}
-    """, opts)
+    node = read("""{:x 1
+                    ;;comment
+                    :y 2} """, opts)
     check node.kind == EdnMap
 
-    node = read("""
-      {:view s/Keyword
-      ;;comment 
-      (s/optional-key :label) s/Str
-      (foo 1) 2}
-    """, opts)
+    node = read("""{:view s/Keyword
+                    ;;comment
+                    (s/optional-key :label) s/Str
+                    (foo 1) 2} """, opts)
     check node.kind == EdnMap
 
 
-  node = read("""
-    {:view s/Keyword
-      ;;comment 
-      (s/optional-key :label) s/Str
-      (foo 1) 2
-    }
-  """)
+  node = read("""{:view s/Keyword
+                  ;;comment
+                  (s/optional-key :label) s/Str
+                  (foo 1) 2} """)
   check node.kind == EdnMap
 
-  node = read("""
-    ;; this is a comment
-    (1 2
-      ;; last elem
-    3)
-  """)
+  node = read(""";; this is a comment
+  (1 2
+  ;; last elem
+  3)""")
   check node.kind == EdnList
   check node.comments.len == 0
   check node.list[2].comments.len == 0
@@ -142,6 +121,9 @@ test "everything":
   node = read("-1")
   check node.kind == EdnInt
   check node.num == -1
+
+  node = read("1M")
+  check node.kind == EdnInt     #TODO: for now...
 
   node = read("()")
   check node.kind == EdnList
@@ -163,14 +145,14 @@ test "everything":
   node = read(":foo")
   check node.kind == EdnKeyword
   check node.keyword.name == "foo"
-  check node.is_namespaced == false
+  check node.namespacing == NoNamespace
   check $node == ":foo"
 
   node = read("::foobar")
   check node.kind == EdnKeyword
   check node.keyword.name == "foobar"
   check node.keyword.ns == ""
-  check node.is_namespaced == true
+  check node.namespacing == LocalNamespace
   check $node == "::foobar"
 
   node = read("+foo+")
@@ -196,6 +178,14 @@ test "everything":
   node = read("{:A 1, :B 2}")
   check node.kind == EdnMap
   check node.map.len == 2
+
+  node = read("{:x 1M :y 2}")
+  check node.kind == EdnMap
+  check node.map.len == 2
+
+  node = read("{:order_date #clj-time/date-time \"2019-12-01T00:00:00.000Z\", :quantity 125.3M, 1 1}")
+  check node.kind == EdnMap
+  check node.map.len == 3
 
   try:
     node = read("moo/bar/baz")
@@ -229,6 +219,10 @@ test "everything":
   check node.list.len == 3
   check node.list_meta.count == 1
   check node.list_meta[KeyTag].get() == new_edn_symbol("", "foo")
+
+  node = read("^{:x 1} #{1}")
+  check node.kind == EdnSet
+  check node.set_meta.count == 1
 
   node = read("^\"foo\" Symbol")
   check node.kind == EdnSymbol
@@ -325,6 +319,16 @@ test "everything":
   check node.kind == EdnVector
   check node.vec.len == 2
 
+  opts1.conditional_exprs = ignoreConditionals
+  node = read("#?@(:clj [:generator-fn tlsubs/subscriber-timeline-record-generator])", opts1)
+  check node == nil
+
+  opts1.conditional_exprs = cljSource
+  # this should splice the tuple into key & value of the map,
+  #so result should be a map with one entry in it.
+  node = read("{#?@(:clj [:generator-fn tlsubs/subscriber-timeline-record-generator])}", opts1)
+  check node.kind == EdnMap
+  check node.map[new_edn_keyword("", "generator-fn")].get().kind == EdnSymbol
 
   try:
     node = read("{:ratio 1/-2}")
@@ -337,6 +341,12 @@ test "everything":
     check false
   except ParseError:
     discard
+
+  node = read("\"\uffff\"")
+  check node.kind == EdnString
+
+  node = read("\\uffff")
+  check node.kind == EdnCharacter
 
   node = read("()") # for the following to work
   var n1: EdnNode = EdnNode(kind: EdnNil)
@@ -371,5 +381,5 @@ test "everything":
   node = read("#\".*\"")
   check node.kind == EdnRegex
 
-  #check add(5, 5) == 10
-
+  node = read("#'some-ns/symbol")
+  check node.kind == EdnVarQuote
