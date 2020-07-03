@@ -1258,8 +1258,13 @@ proc read*(buffer: string): GeneNode =
   result = read(new_string_stream(buffer), "*input*")
 
 proc read_all*(buffer: string): seq[GeneNode] =
+  var
+    p: Parser
+    s = new_string_stream(buffer)
+  p.open(s, "*input*")
+  defer: p.close()
   while true:
-    var node = read(buffer)
+    var node = p.read_internal
     if node == nil:
       return result
     else:

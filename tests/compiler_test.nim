@@ -1,9 +1,8 @@
 # To run these tests, simply execute `nimble test`.
 
 import unittest
-import genepkg/parser, genepkg/compiler, options, tables, strutils
+
+import genepkg/compiler
 
 test "Compiler":
-  var node: GeneNode
-
-  node = read("nil")
+  check compile("nil") == @[instr_init()]

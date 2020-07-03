@@ -7,4 +7,5 @@
 !Makefile
 !LICENSE
 
+*.dSYM/
 bin/
