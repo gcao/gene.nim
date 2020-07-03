@@ -2,9 +2,9 @@
 
 import unittest
 
-import genepkg/types
-import genepkg/interpreter
+import gene/types
+import gene/interpreter
 
 test "Interpreter":
   var i = Interpreter()
-  check i.interpret("nil") == Nil
+  check i.eval("nil") == Nil

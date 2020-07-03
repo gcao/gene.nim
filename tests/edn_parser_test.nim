@@ -1,7 +1,7 @@
 # To run these tests, simply execute `nimble test`.
 
 import unittest
-import genepkg/edn_parser, options, tables, strutils
+import gene/edn_parser, options, tables, strutils
 
 # need to re-structure this at some point
 test "everything":

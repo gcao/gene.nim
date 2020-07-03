@@ -2,7 +2,7 @@
 
 import unittest
 
-import genepkg/compiler
+import gene/compiler
 
 test "Compiler":
   var c = Compiler()

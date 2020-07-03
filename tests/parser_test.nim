@@ -2,8 +2,8 @@
 
 import unittest, options, tables, strutils
 
-import genepkg/parser
-import genepkg/types
+import gene/parser
+import gene/types
 
 test "Parser":
   var node: GeneValue

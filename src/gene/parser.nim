@@ -855,47 +855,6 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.regex)
   result = !$h
 
-proc `==`*(this, that: GeneValue): bool =
-  if this.is_nil:
-    if that.is_nil: return true
-    return false
-  elif that.is_nil or this.kind != that.kind:
-    return false
-  else:
-    case this.kind
-    of GeneNil:
-      return that.kind == GeneNil
-    of GeneBool:
-      return this.boolVal == that.boolVal
-    of GeneChar:
-      return this.character == that.character
-    of GeneInt:
-      return this.num == that.num
-    of GeneRatio:
-      return this.rnum == that.rnum
-    of GeneFloat:
-      return this.fnum == that.fnum
-    of GeneString:
-      return this.str == that.str
-    of GeneSymbol:
-      return this.symbol == that.symbol
-    of GeneKeyword:
-      return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
-    of GeneGene:
-      return this.list == that.list
-    of GeneMap:
-      return this.map == that.map
-    of GeneVector:
-      return this.vec == that.vec
-    of GeneSet:
-      return this.set_elems == that.set_elems
-    of GeneTaggedValue:
-      return this.tag == that.tag and this.value == that.value
-    of GeneCommentLine:
-      return this.comment == that.comment
-    of GeneRegex:
-      return this.regex == that.regex
-
 proc read_regex(p: var Parser): GeneValue =
   let s = read_string(p)
   result = GeneValue(kind: GeneRegex, regex: s.str)
