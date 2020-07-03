@@ -5,4 +5,5 @@ import unittest
 import genepkg/compiler
 
 test "Compiler":
-  check compile("nil") == @[instr_init()]
+  var c = Compiler()
+  check c.compile("nil") == @[instr_init()]

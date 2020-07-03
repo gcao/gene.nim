@@ -1,11 +1,13 @@
 # To run these tests, simply execute `nimble test`.
 
-import unittest
-import genepkg/parser, options, tables, strutils
+import unittest, options, tables, strutils
+
+import genepkg/parser
+import genepkg/types
 
 test "Parser":
-  var node: GeneNode
-  var nodes: seq[GeneNode]
+  var node: GeneValue
+  var nodes: seq[GeneValue]
 
   node = read("nil")
   check node.kind == GeneNil
@@ -344,12 +346,12 @@ test "Parser":
     discard
 
   node = read("()") # for the following to work
-  var n1: GeneNode = GeneNode(kind: GeneNil)
-  var n2: GeneNode = GeneNode(kind: GeneNil)
-  var n3: GeneNode = GeneNode(kind: GeneBool, boolVal: false)
-  var n4: GeneNode = GeneNode(kind: GeneBool, boolVal: false)
+  var n1: GeneValue = GeneValue(kind: GeneNil)
+  var n2: GeneValue = GeneValue(kind: GeneNil)
+  var n3: GeneValue = GeneValue(kind: GeneBool, boolVal: false)
+  var n4: GeneValue = GeneValue(kind: GeneBool, boolVal: false)
   #echo "===? ", n1 == n2
-  var t = new_table[GeneNode,int]()
+  var t = new_table[GeneValue,int]()
   t[n3] = 3
   #echo "COUNT OF ELEMS ", t.len, " ", n1.hash, " ", n2.hash, " ", n3.hash
   t[n4] = 4

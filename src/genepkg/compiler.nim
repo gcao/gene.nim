@@ -1,18 +1,34 @@
 import sequtils
+import tables
 
-import parser
 import types
+import parser
 
 type
   InstrType* = enum
     Init
     Default
-  Instruction* = ref InstructionObj
-  InstructionObj* = object
+  Instruction* = ref object
     case kind*: InstrType
     of Default:
       value: GeneValue
     else: discard
+
+  Block* = ref object
+    id*: string
+    name*: string
+    instructions*: seq[Instruction]
+
+  Module* = ref object
+    id*: string
+    blocks*: Table[string, Block]
+    default*: Block
+
+  Compiler* = ref object
+    module*: Module
+    cur_block: Block
+
+#################### Instruction #################
 
 proc `==`*(this, that: Instruction): bool =
   if this.is_nil:
@@ -31,15 +47,17 @@ proc `==`*(this, that: Instruction): bool =
 
 proc instr_init*(): Instruction = Instruction(kind: Init)
 
-proc compile*(node: GeneNode): seq[Instruction] =
+#################### Compiler ####################
+
+proc compile*(self: var Compiler, buffer: string): seq[Instruction] =
+  var nodes = read_all(buffer)
+  return self.compile(nodes)
+
+proc compile*(self: var Compiler, nodes: seq[GeneValue]): seq[Instruction] =
+  for node in nodes:
+    result = concat(result, self.compile(node))
+
+proc compile*(self: var Compiler, node: GeneValue): seq[Instruction] =
   result.add(instr_init())
   case node.kind:
     else: discard
-
-proc compile*(nodes: seq[GeneNode]): seq[Instruction] =
-  for node in nodes:
-    result = concat(result, compile(node))
-
-proc compile*(buffer: string): seq[Instruction] =
-  var nodes = read_all(buffer)
-  return compile(nodes)
