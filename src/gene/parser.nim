@@ -248,7 +248,8 @@ proc read_string(p: var Parser): GeneValue =
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
   result = GeneValue(kind: GeneGene)
-  result.list = @[new_gene_symbol("", quote_name), quoted]
+  result.op = new_gene_symbol("", quote_name)
+  result.list = @[quoted]
 
 proc read_quoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "quote")
@@ -722,7 +723,7 @@ proc read_reader_conditional(p: var Parser): GeneValue =
     inc(p.bufpos)
   else:
     is_spliced = false
-    
+
   let exp = read(p)
   if exp.kind != GeneGene:
     raise new_exception(ParseError, READER_COND_MSG & $exp.kind)
@@ -899,7 +900,8 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
   of GeneGene:
-    h = h !& hash(node.op)
+    if node.op != nil:
+      h = h !& hash(node.op)
     h = h !& hash(node.list)
   of GeneMap:
     for entry in node.map:
