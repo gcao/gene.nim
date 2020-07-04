@@ -1,11 +1,8 @@
 import types
 import parser
+import vm_types
 
-type
-  Interpreter* = ref object
-    result*: GeneValue
-
-proc eval*(self: var Interpreter, node: GeneValue): GeneValue =
+proc eval*(self: var VM, node: GeneValue): GeneValue =
   case node.kind:
   of GeneNilKind:
     return GeneNil
@@ -14,8 +11,8 @@ proc eval*(self: var Interpreter, node: GeneValue): GeneValue =
   else:
     discard
 
-proc eval*(self: var Interpreter, buffer: string): GeneValue =
+proc eval*(self: var VM, buffer: string): GeneValue =
   var parsed = read_all(buffer)
   for node in parsed:
-    self.result = self.eval node
-  return self.result
+    result = self.eval node
+  return
