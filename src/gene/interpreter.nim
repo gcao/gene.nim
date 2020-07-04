@@ -7,8 +7,10 @@ type
 
 proc eval*(self: var Interpreter, node: GeneValue): GeneValue =
   case node.kind:
-  of GeneNil:
-    return Nil
+  of GeneNilKind:
+    return GeneNil
+  of GeneInt:
+    return new_gene_int(node.num)
   else:
     discard
 

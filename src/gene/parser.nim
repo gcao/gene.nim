@@ -84,65 +84,6 @@ proc merge_maps*(m1, m2 :HMap): void
 
 proc add_meta*(node: GeneValue, meta: HMap): GeneValue
 
-## ============== NEW OBJ FACTORIES =================
-
-let
-  gene_true*  = GeneValue(kind: GeneBool, bool_val: true)
-  gene_false* = GeneValue(kind: GeneBool, bool_val: false)
-
-proc new_gene_string_move(s: string): GeneValue =
-  result = GeneValue(kind: GeneString)
-  shallowCopy(result.str, s)
-
-proc new_gene_int*(s: string): GeneValue =
-  return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
-
-proc new_gene_int*(val: int): GeneValue =
-  return GeneValue(kind: GeneInt, num: val)
-
-proc new_gene_ratio*(nom, denom: BiggestInt): GeneValue =
-  return GeneValue(kind: GeneRatio, rnum: (nom, denom))
-
-proc new_gene_float*(s: string): GeneValue =
-  return GeneValue(kind: GeneFloat, fnum: parseFloat(s))
-
-proc new_gene_float*(val: float): GeneValue =
-  return GeneValue(kind: GeneFloat, fnum: val)
-
-proc new_gene_bool*(val: bool): GeneValue =
-  case val
-  of true: return gene_true
-  of false: return gene_false
-  # of true: return GeneValue(kind: GeneBool, boolVal: true)
-  # of false: return GeneValue(kind: GeneBool, boolVal: false)
-
-proc new_gene_bool*(s: string): GeneValue =
-  let parsed: bool = parseBool(s)
-  return new_gene_bool(parsed)
-
-proc new_gene_symbol*(ns, name: string): GeneValue =
-  return GeneValue(kind: GeneSymbol, symbol: (ns, name))
-
-proc new_gene_keyword*(ns, name: string): GeneValue =
-  return GeneValue(kind: GeneKeyword, keyword: (ns, name))
-
-proc new_gene_nil*(): GeneValue =
-  new(result)
-
-### === VALS ===
-
-let
-  GeneTrue: GeneValue  = gene_true
-  GeneFalse: GeneValue = gene_false
-  KeyTag*: GeneValue   = new_gene_keyword("", "tag")
-  CljTag: GeneValue   = new_gene_keyword("", "clj")
-  CljsTag: GeneValue  = new_gene_keyword("", "cljs")
-  DefaultTag: GeneValue = new_gene_keyword("", "default")
-
-  LineKw: GeneValue   = new_gene_keyword("gene.nim", "line")
-  ColumnKw: GeneValue   = new_gene_keyword("gene.nim", "column")
-  SplicedQKw*: GeneValue = new_gene_keyword("gene.nim", "spliced?")
-
 ### === ERROR HANDLING UTILS ===
 
 proc err_info(p: Parser): ParseInfo =
@@ -413,7 +354,8 @@ proc interpret_token(token: string): GeneValue =
   result = nil
   case token
   of "nil":
-    result = new_gene_nil()
+    # result = new_gene_nil()
+    result = GeneNil
   of "true":
     result = new_gene_bool(token)
   of "false":
@@ -880,7 +822,7 @@ proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
   h = h !& hash(node.kind)
   case node.kind
-  of GeneNil:
+  of GeneNilKind:
     h = h !& hash(0)
   of GeneBool:
     h = h !& hash(node.bool_val)

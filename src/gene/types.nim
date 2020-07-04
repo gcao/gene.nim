@@ -1,6 +1,8 @@
+import strutils
+
 type
   GeneKind* = enum
-    GeneNil
+    GeneNilKind
     GeneBool
     GeneChar
     GeneInt
@@ -36,7 +38,7 @@ type
 
   GeneValue* {.acyclic.} = ref object
     case kind*: GeneKind
-    of GeneNil:
+    of GeneNilKind:
       nil
     of GeneBool:
       boolVal*: bool
@@ -85,8 +87,6 @@ type
     name: string
     data: seq[GeneValue]
 
-let Nil* = GeneValue(kind: GeneNil)
-
 proc `==`*(this, that: GeneValue): bool =
   if this.is_nil:
     if that.is_nil: return true
@@ -95,8 +95,8 @@ proc `==`*(this, that: GeneValue): bool =
     return false
   else:
     case this.kind
-    of GeneNil:
-      return that.kind == GeneNil
+    of GeneNilKind:
+      return that.kind == GeneNilKind
     of GeneBool:
       return this.boolVal == that.boolVal
     of GeneChar:
@@ -127,3 +127,67 @@ proc `==`*(this, that: GeneValue): bool =
       return this.comment == that.comment
     of GeneRegex:
       return this.regex == that.regex
+
+## ============== NEW OBJ FACTORIES =================
+
+let
+  gene_nil*  = GeneValue(kind: GeneNilKind)
+  gene_true*  = GeneValue(kind: GeneBool, bool_val: true)
+  gene_false* = GeneValue(kind: GeneBool, bool_val: false)
+
+proc new_gene_string_move*(s: string): GeneValue =
+  result = GeneValue(kind: GeneString)
+  shallowCopy(result.str, s)
+
+proc new_gene_int*(s: string): GeneValue =
+  return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
+
+proc new_gene_int*(val: int): GeneValue =
+  return GeneValue(kind: GeneInt, num: val)
+
+proc new_gene_int*(val: BiggestInt): GeneValue =
+  return GeneValue(kind: GeneInt, num: val)
+
+proc new_gene_ratio*(nom, denom: BiggestInt): GeneValue =
+  return GeneValue(kind: GeneRatio, rnum: (nom, denom))
+
+proc new_gene_float*(s: string): GeneValue =
+  return GeneValue(kind: GeneFloat, fnum: parseFloat(s))
+
+proc new_gene_float*(val: float): GeneValue =
+  return GeneValue(kind: GeneFloat, fnum: val)
+
+proc new_gene_bool*(val: bool): GeneValue =
+  case val
+  of true: return gene_true
+  of false: return gene_false
+  # of true: return GeneValue(kind: GeneBool, boolVal: true)
+  # of false: return GeneValue(kind: GeneBool, boolVal: false)
+
+proc new_gene_bool*(s: string): GeneValue =
+  let parsed: bool = parseBool(s)
+  return new_gene_bool(parsed)
+
+proc new_gene_symbol*(ns, name: string): GeneValue =
+  return GeneValue(kind: GeneSymbol, symbol: (ns, name))
+
+proc new_gene_keyword*(ns, name: string): GeneValue =
+  return GeneValue(kind: GeneKeyword, keyword: (ns, name))
+
+# proc new_gene_nil*(): GeneValue =
+#   new(result)
+
+### === VALS ===
+
+let
+  GeneNil*: GeneValue  = gene_nil
+  GeneTrue*: GeneValue  = gene_true
+  GeneFalse*: GeneValue = gene_false
+  KeyTag*: GeneValue   = new_gene_keyword("", "tag")
+  CljTag*: GeneValue   = new_gene_keyword("", "clj")
+  CljsTag*: GeneValue  = new_gene_keyword("", "cljs")
+  DefaultTag*: GeneValue = new_gene_keyword("", "default")
+
+  LineKw*: GeneValue   = new_gene_keyword("gene.nim", "line")
+  ColumnKw*: GeneValue   = new_gene_keyword("gene.nim", "column")
+  SplicedQKw*: GeneValue = new_gene_keyword("gene.nim", "spliced?")

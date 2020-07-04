@@ -7,4 +7,7 @@ import gene/interpreter
 
 test "Interpreter":
   var i = Interpreter()
-  check i.eval("nil") == Nil
+  check i.eval("nil") == gene_nil
+
+  i = Interpreter()
+  check i.eval("1") == new_gene_int(1)

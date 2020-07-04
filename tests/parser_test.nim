@@ -10,7 +10,7 @@ test "Parser":
   var nodes: seq[GeneValue]
 
   node = read("nil")
-  check node.kind == GeneNil
+  check node.kind == GeneNilKind
 
   node = read("10")
   check node.kind == GeneInt
@@ -167,7 +167,7 @@ test "Parser":
   check node.op.list.len == 0
 
   node = read("nil")
-  check node.kind == GeneNil
+  check node.kind == GeneNilKind
 
   node = read("symbol-👋") #emoji
   check node.kind == GeneSymbol
@@ -357,8 +357,8 @@ test "Parser":
     discard
 
   node = read("()") # for the following to work
-  var n1: GeneValue = GeneValue(kind: GeneNil)
-  var n2: GeneValue = GeneValue(kind: GeneNil)
+  var n1: GeneValue = GeneValue(kind: GeneNilKind)
+  var n2: GeneValue = GeneValue(kind: GeneNilKind)
   var n3: GeneValue = GeneValue(kind: GeneBool, boolVal: false)
   var n4: GeneValue = GeneValue(kind: GeneBool, boolVal: false)
   #echo "===? ", n1 == n2
@@ -391,3 +391,7 @@ test "Parser":
 
   #check add(5, 5) == 10
 
+# TODO
+# test "Parse document":
+#   var doc: GeneDocument
+#   doc = read_document("1 2 3")
