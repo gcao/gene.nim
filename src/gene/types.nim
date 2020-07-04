@@ -57,6 +57,7 @@ type
       keyword*: tuple[ns, name: string]
       is_namespaced*: bool
     of GeneGene:
+      op*: GeneValue
       list*: seq[GeneValue]
       list_meta*: HMap
     of GeneMap:
@@ -113,7 +114,7 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneKeyword:
       return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
     of GeneGene:
-      return this.list == that.list
+      return this.op == that.op and this.list == that.list
     of GeneMap:
       return this.map == that.map
     of GeneVector:

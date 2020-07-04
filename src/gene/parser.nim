@@ -432,11 +432,74 @@ proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement
   co.comment_lines = comment_lines
   if node.comments.len == 0: node.comments = @[co]
   else: node.comments.add(co)
-  
+
 type DelimitedListResult = object
   list: seq[GeneValue]
   comment_lines: seq[string]
   comment_placement: CommentPlacement
+
+proc read_gene_op(p: var Parser): GeneValue =
+  var delimiter = ')'
+  # the bufpos should be already be past the opening paren etc.
+  var comment_lines: seq[string] = @[]
+  var count = 0
+  let with_comments = keepComments == p.options.comments_handling
+  while true:
+    skip_ws(p)
+    var pos = p.bufpos
+    let ch = p.buf[pos]
+    if ch == EndOfFile:
+      let msg = "EOF while reading list $# $# $#"
+      raise new_exception(ParseError, format(msg, delimiter, p.filename, p.line_number))
+
+    if ch == delimiter:
+      # Do not increase position because we need to read other components in Gene
+      # inc(pos)
+      # p.bufpos = pos
+      # make sure any comments get attached
+      if with_comments and comment_lines.len > 0:
+        attach_comment_lines(result, comment_lines, After)
+        comment_lines = @[]
+      break
+
+    if is_macro(ch):
+      let m = get_macro(ch)
+      inc(pos)
+      p.bufpos = pos
+      result = m(p)
+      if result != nil:
+        if ch == ';' and result.kind == GeneCommentLine:
+          if with_comments:
+            comment_lines.add(result.comment)
+          else:
+            discard
+        else:
+          inc(count)
+          # attach comments encountered before this node
+          if with_comments and comment_lines.len > 0:
+            attach_comment_lines(result, comment_lines, Before)
+            comment_lines = @[]
+          break
+    else:
+      result = read(p)
+      if result != nil:
+        if with_comments:
+          case result.kind
+          of GeneCommentLine:
+            comment_lines.add(result.comment)
+          else:
+            if comment_lines.len > 0:
+              attach_comment_lines(result, comment_lines, Before)
+              comment_lines = @[]
+            inc(count)
+            break
+        else: # discardComments
+          case result.kind
+          of GeneCommentLine:
+            discard
+          else:
+            inc(count)
+            break
 
 proc read_delimited_list(
   p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
@@ -501,7 +564,7 @@ proc read_delimited_list(
           else:
             inc(count)
             list.add(node)
-              
+
   if comment_lines.len == 0:
     result.comment_lines = @[]
   else:
@@ -529,6 +592,7 @@ proc read_list(p: var Parser): GeneValue =
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col_meta(p, result)
+  result.op = read_gene_op(p)
   var result_list = read_delimited_list(p, ')', true)
   result.list = result_list.list
   discard maybe_add_comments(result, result_list)
@@ -835,6 +899,7 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
   of GeneGene:
+    h = h !& hash(node.op)
     h = h !& hash(node.list)
   of GeneMap:
     for entry in node.map:

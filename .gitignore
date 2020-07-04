@@ -9,3 +9,4 @@
 
 *.dSYM/
 bin/
+wip_test.nim
