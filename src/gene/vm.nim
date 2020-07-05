@@ -2,5 +2,6 @@ import types
 import compiler
 
 proc exec*(buffer: string): GeneValue =
-  # compile(buffer)
-  discard
+  # var c = Compiler()
+  # var mod = c.compile(buffer)
+  todo()

@@ -49,15 +49,15 @@ proc instr_init*(): Instruction = Instruction(kind: Init)
 
 #################### Compiler ####################
 
-proc compile*(self: var Compiler, buffer: string): seq[Instruction] =
-  var nodes = read_all(buffer)
-  return self.compile(nodes)
+proc compile*(self: var Compiler, node: GeneValue): seq[Instruction] =
+  result.add(instr_init())
+  case node.kind:
+    else: todo()
 
 proc compile*(self: var Compiler, nodes: seq[GeneValue]): seq[Instruction] =
   for node in nodes:
     result = concat(result, self.compile(node))
 
-proc compile*(self: var Compiler, node: GeneValue): seq[Instruction] =
-  result.add(instr_init())
-  case node.kind:
-    else: discard
+proc compile*(self: var Compiler, buffer: string): seq[Instruction] =
+  var nodes = read_all(buffer)
+  return self.compile(nodes)

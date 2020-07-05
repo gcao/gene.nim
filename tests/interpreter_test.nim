@@ -7,14 +7,14 @@ import gene/vm_types
 import gene/interpreter
 
 test "Interpreter = VM.eval()":
-  var vm = VM()
+  var vm = new_vm()
   check vm.eval("nil") == GeneNil
 
-  vm = VM()
+  vm = new_vm()
   check vm.eval("1") == new_gene_int(1)
 
-  vm = VM()
+  vm = new_vm()
   check vm.eval("1 2 3") == new_gene_int(3)
 
-  vm = VM()
+  vm = new_vm()
   check vm.eval("(var a 1) a") == new_gene_int(1)

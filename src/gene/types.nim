@@ -171,8 +171,14 @@ proc new_gene_bool*(s: string): GeneValue =
 proc new_gene_symbol*(ns, name: string): GeneValue =
   return GeneValue(kind: GeneSymbol, symbol: (ns, name))
 
+proc new_gene_symbol*(name: string): GeneValue =
+  return GeneValue(kind: GeneSymbol, symbol: ("", name))
+
 proc new_gene_keyword*(ns, name: string): GeneValue =
   return GeneValue(kind: GeneKeyword, keyword: (ns, name))
+
+proc new_gene_keyword*(name: string): GeneValue =
+  return GeneValue(kind: GeneKeyword, keyword: ("", name))
 
 # proc new_gene_nil*(): GeneValue =
 #   new(result)
@@ -191,3 +197,6 @@ let
   LineKw*: GeneValue   = new_gene_keyword("gene.nim", "line")
   ColumnKw*: GeneValue   = new_gene_keyword("gene.nim", "column")
   SplicedQKw*: GeneValue = new_gene_keyword("gene.nim", "spliced?")
+
+proc todo*() =
+  raise newException(Exception, "TODO")
