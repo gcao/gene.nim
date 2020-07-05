@@ -6,7 +6,9 @@
 !*.*
 !Makefile
 !LICENSE
+!Vagrantfile
 
+.vagrant
 *.dSYM/
 bin/
 wip_test.nim
