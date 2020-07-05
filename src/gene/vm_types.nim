@@ -1,6 +1,6 @@
 import tables
 
-import types
+import ./types
 
 type
   VM* = ref object

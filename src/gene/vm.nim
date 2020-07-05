@@ -1,5 +1,5 @@
-import types
-import compiler
+import ./types
+import ./compiler
 
 proc exec*(buffer: string): GeneValue =
   # var c = Compiler()

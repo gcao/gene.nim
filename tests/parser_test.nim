@@ -171,7 +171,7 @@ test "Parser":
 
   node = read("symbol-👋") #emoji
   check node.kind == GeneSymbol
-  check node.symbol.name == "symbol-👋"
+  check node.symbol == "symbol-👋"
 
   node = read(":foo")
   check node.kind == GeneKeyword
@@ -188,15 +188,15 @@ test "Parser":
 
   node = read("+foo+")
   check node.kind == GeneSymbol
-  check node.symbol.name == "+foo+"
+  check node.symbol == "+foo+"
 
   node = read("moo/bar")
-  check node.kind == GeneSymbol
-  check node.symbol == ("moo", "bar")
+  check node.kind == GeneComplexSymbol
+  check node.csymbol == ("moo", "bar")
 
   node = read("'foo") # -> (quote foo)
   check node.kind == GeneGene
-  check node.op == new_gene_symbol("", "quote")
+  check node.op == new_gene_symbol("quote")
 
   node = read("{}")
   check node.kind == GeneMap
@@ -241,11 +241,11 @@ test "Parser":
   check node.kind == GeneGene
   check node.list.len == 2
   check node.list_meta.count == 1
-  check node.list_meta[KeyTag].get() == new_gene_symbol("", "foo")
+  check node.list_meta[KeyTag].get() == new_gene_complex_symbol("", "foo")
 
   node = read("^\"foo\" Symbol")
   check node.kind == GeneSymbol
-  check node.symbol == new_gene_symbol("", "Symbol").symbol
+  check node.symbol == new_gene_symbol("Symbol").symbol
   check node.symbol_meta[KeyTag].get().kind == GeneString
   check node.symbol_meta[KeyTag].get().str == "foo"
 

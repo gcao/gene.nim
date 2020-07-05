@@ -1,6 +1,6 @@
-import types
-import parser
-import vm_types
+import ./types
+import ./parser
+import ./vm_types
 
 proc eval*(self: var VM, node: GeneValue): GeneValue =
   case node.kind:
@@ -21,6 +21,8 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
         var name = $node.list[0]
         var value = self.eval(node.list[1])
         self.cur_stack.cur_scope[name] = value
+      elif op.symbol == ("", "if"):
+        todo()
     else: todo()
   else: todo()
 

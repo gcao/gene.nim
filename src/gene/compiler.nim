@@ -1,8 +1,7 @@
-import sequtils
-import tables
+import sequtils, tables
 
-import types
-import parser
+import ./types
+import ./parser
 
 type
   InstrType* = enum

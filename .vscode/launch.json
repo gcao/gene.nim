@@ -28,5 +28,29 @@
                 "engineLogging": true
             },
         },
+        {
+            "name": "(gdb) wip_test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "tests/wip_test",
+            "args": [],
+            "preLaunchTask": "nimbuild",
+            "stopAtEntry": false,
+            "cwd": "tests",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "nim-gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "logging": {
+                "engineLogging": true
+            },
+        },
     ]
 }

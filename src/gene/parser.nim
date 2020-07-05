@@ -1,6 +1,6 @@
-import lexbase, streams, strutils, parseutils, unicode, nre, tables, hashes, options
+import lexbase, streams, strutils, unicode, nre, hashes, options
 
-import types
+import ./types
 
 type
   TokenKind* = enum
@@ -189,7 +189,7 @@ proc read_string(p: var Parser): GeneValue =
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
   result = GeneValue(kind: GeneGene)
-  result.op = new_gene_symbol("", quote_name)
+  result.op = new_gene_symbol(quote_name)
   result.list = @[quoted]
 
 proc read_quoted*(p: var Parser): GeneValue =
@@ -348,7 +348,9 @@ proc match_symbol(s: string): GeneValue =
       result.is_namespaced = false
   else:
     result = GeneValue(kind: GeneSymbol)
-    result.symbol = (ns, name)
+    # TODO: complex symbol
+    # result.symbol = (ns, name)
+    result.symbol = name
 
 proc interpret_token(token: string): GeneValue =
   result = nil
@@ -573,8 +575,8 @@ const
 
 proc read_ns_map(p: var Parser): GeneValue =
   let n = read(p)
-  if n.kind != GeneSymbol or n.symbol.ns != "":
-    let ns_str = if n.symbol.ns == "": "nil" else: n.symbol.ns
+  if n.kind != GeneComplexSymbol or n.csymbol.ns != "":
+    let ns_str = if n.csymbol.ns == "": "nil" else: n.csymbol.ns
     raise new_exception(ParseError, format(NS_MAP_INVALID, n.kind, ns_str, p.filename, p.line_number))
 
   skip_ws(p)
@@ -597,16 +599,16 @@ proc read_ns_map(p: var Parser): GeneValue =
     case key.kind
     of GeneKeyword:
       if key.keyword.ns == "":
-        map[new_gene_keyword(n.symbol.name, key.keyword.name)] = value
+        map[new_gene_keyword(n.csymbol.name, key.keyword.name)] = value
       elif key.keyword.ns == "_":
         map[new_gene_keyword("", key.keyword.name)] = value
       else:
         map[key] = value
-    of GeneSymbol:
-      if key.symbol.ns == "":
-        map[new_gene_symbol(n.symbol.name, key.symbol.name)] = value
+    of GeneComplexSymbol:
+      if key.csymbol.ns == "":
+        map[new_gene_complex_symbol(n.csymbol.name, key.csymbol.name)] = value
       elif key.keyword.ns == "_":
-        map[new_gene_keyword("", key.symbol.name)] = value
+        map[new_gene_keyword("", key.csymbol.name)] = value
       else:
         map[key] = value
     else:
@@ -637,7 +639,7 @@ proc read_anonymous_fn*(p: var Parser): GeneValue =
   # TODO: extract arglist from fn body
   result = GeneValue(kind: GeneGene)
   var arglist = GeneValue(kind: GeneVector, vec:  @[])
-  result.list = @[new_gene_symbol("", "fn")]
+  result.list = @[new_gene_symbol("fn")]
   # remember this one came from a macro
   let meta = new_hmap()
   meta[new_gene_keyword("", "from-reader-macro")] = new_gene_bool(true)
@@ -793,9 +795,9 @@ proc read_metadata(p: var  Parser): GeneValue =
 
 proc read_tagged(p: var Parser): GeneValue =
   var node = read(p)
-  if node.kind != GeneSymbol:
-    raise new_exception(ParseError, "tag should be a symbol: " & $node.kind)
-  result = GeneValue(kind: GeneTaggedValue, tag: node.symbol, value: read(p))
+  if node.kind != GeneComplexSymbol:
+    raise new_exception(ParseError, "tag should be a complex symbol: " & $node.kind)
+  result = GeneValue(kind: GeneTaggedValue, tag: node.csymbol, value: read(p))
 
 proc read_cond_as_tagged(p: var Parser): GeneValue =
   # reads forms like #+clj foo as GeneTaggedValue
@@ -838,6 +840,8 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.str)
   of GeneSymbol:
     h = h !& hash(node.symbol)
+  of GeneComplexSymbol:
+    h = h !& hash(node.csymbol)
   of GeneKeyword:
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
@@ -1176,10 +1180,12 @@ proc `$`*(node: GeneValue): string =
     else:
       result = ":" & node.keyword.ns & "/" & node.keyword.name
   of GeneSymbol:
-    if node.symbol.ns == "":
-      result = node.symbol.name
+    result = node.symbol
+  of GeneComplexSymbol:
+    if node.csymbol.ns == "":
+      result = node.csymbol.name
     else:
-      result = node.symbol.ns & "/" & node.symbol.name
+      result = node.csymbol.ns & "/" & node.csymbol.name
   else:
     assert(false)
 

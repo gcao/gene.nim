@@ -10,6 +10,7 @@ type
     GeneFloat
     GeneString
     GeneSymbol
+    GeneComplexSymbol
     GeneKeyword
     GeneGene
     GeneMap
@@ -53,8 +54,11 @@ type
     of GeneString:
       str*: string
     of GeneSymbol:
-      symbol*: tuple[ns, name: string]
+      symbol*: string
       symbol_meta*: HMap
+    of GeneComplexSymbol:
+      csymbol*: tuple[ns, name: string]
+      csymbol_meta*: HMap
     of GeneKeyword:
       keyword*: tuple[ns, name: string]
       is_namespaced*: bool
@@ -111,6 +115,8 @@ proc `==`*(this, that: GeneValue): bool =
       return this.str == that.str
     of GeneSymbol:
       return this.symbol == that.symbol
+    of GeneComplexSymbol:
+      return this.csymbol == that.csymbol
     of GeneKeyword:
       return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
     of GeneGene:
@@ -168,11 +174,11 @@ proc new_gene_bool*(s: string): GeneValue =
   let parsed: bool = parseBool(s)
   return new_gene_bool(parsed)
 
-proc new_gene_symbol*(ns, name: string): GeneValue =
-  return GeneValue(kind: GeneSymbol, symbol: (ns, name))
-
 proc new_gene_symbol*(name: string): GeneValue =
-  return GeneValue(kind: GeneSymbol, symbol: ("", name))
+  return GeneValue(kind: GeneSymbol, symbol: name)
+
+proc new_gene_complex_symbol*(ns, name: string): GeneValue =
+  return GeneValue(kind: GeneComplexSymbol, csymbol: (ns, name))
 
 proc new_gene_keyword*(ns, name: string): GeneValue =
   return GeneValue(kind: GeneKeyword, keyword: (ns, name))
