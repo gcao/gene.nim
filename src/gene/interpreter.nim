@@ -11,17 +11,17 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
   of GeneBool:
     return new_gene_bool(node.boolVal)
   of GeneSymbol:
-    var (_, name) = node.symbol
+    var name = node.symbol
     return cast[GeneValue](self.cur_stack.cur_scope[name])
   of GeneGene:
     var op = node.op
     case op.kind:
     of GeneSymbol:
-      if op.symbol == ("", "var"):
+      if op.symbol == "var":
         var name = $node.list[0]
         var value = self.eval(node.list[1])
         self.cur_stack.cur_scope[name] = value
-      elif op.symbol == ("", "if"):
+      elif op.symbol == "if":
         todo()
     else: todo()
   else: todo()

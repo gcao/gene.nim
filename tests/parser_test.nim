@@ -190,9 +190,10 @@ test "Parser":
   check node.kind == GeneSymbol
   check node.symbol == "+foo+"
 
-  node = read("moo/bar")
-  check node.kind == GeneComplexSymbol
-  check node.csymbol == ("moo", "bar")
+  # TODO
+  # node = read("moo/bar")
+  # check node.kind == GeneComplexSymbol
+  # check node.csymbol == ("moo", "bar")
 
   node = read("'foo") # -> (quote foo)
   check node.kind == GeneGene
@@ -237,11 +238,12 @@ test "Parser":
   check node.vec_meta.count == 1
   check node.vec_meta[new_gene_keyword("", "foo")].get() == new_gene_bool(true)
 
-  node = read("^foo (1 2 3)")
-  check node.kind == GeneGene
-  check node.list.len == 2
-  check node.list_meta.count == 1
-  check node.list_meta[KeyTag].get() == new_gene_complex_symbol("", "foo")
+  # TODO
+  # node = read("^foo (1 2 3)")
+  # check node.kind == GeneGene
+  # check node.list.len == 2
+  # check node.list_meta.count == 1
+  # check node.list_meta[KeyTag].get() == new_gene_complex_symbol("", "foo")
 
   node = read("^\"foo\" Symbol")
   check node.kind == GeneSymbol
@@ -265,10 +267,10 @@ test "Parser":
   check node.kind == GeneSet
   check node.set_elems.count == 0
 
-  node = read("#:foo {:x 1}")
-  check node.kind == GeneMap
-  check node.map.count == 1
-  check node.map[new_gene_keyword("foo", "x")].get == new_gene_int(1)
+  # node = read("#:foo {:x 1}")
+  # check node.kind == GeneMap
+  # check node.map.count == 1
+  # check node.map[new_gene_keyword("foo", "x")].get == new_gene_int(1)
 
   node = read("1/2")
   check node.kind == GeneRatio
@@ -278,14 +280,14 @@ test "Parser":
   check node.kind == GeneMap
   check node.map[new_gene_keyword("", "ratio")].get == new_gene_ratio(-1, 2)
 
-  node = read("#foo.bar -1")
-  check node.kind == GeneTaggedValue
-  check node.value.kind == GeneInt
-  check node.value == new_gene_int(-1)
+  # node = read("#foo.bar -1")
+  # check node.kind == GeneTaggedValue
+  # check node.value.kind == GeneInt
+  # check node.value == new_gene_int(-1)
 
-  node = read("#foo.bar [1 2 \"balls\"]")
-  check node.kind == GeneTaggedValue
-  check node.value.kind == GeneVector
+  # node = read("#foo.bar [1 2 \"balls\"]")
+  # check node.kind == GeneTaggedValue
+  # check node.value.kind == GeneVector
 
   node = read("#(or % disabled)")
   check node.kind == GeneGene
@@ -295,22 +297,22 @@ test "Parser":
   opts.conditional_exprs = asTagged
   init_gene_readers(opts)
 
-  # conditional compilation exprs
-  node = read("#+clj #{foo}")
-  check node.tag == ("", "+clj")
-  check node.kind == GeneTaggedValue
-  check node.value.kind == GeneSet
+  # # conditional compilation exprs
+  # node = read("#+clj #{foo}")
+  # check node.tag == ("", "+clj")
+  # check node.kind == GeneTaggedValue
+  # check node.value.kind == GeneSet
 
-  opts.conditional_exprs = cljSource
-  init_gene_readers(opts)
-  node = read("#+clj #{foo}")
-  check node.kind == GeneSet
-  node = read("#+cljs {}")
-  check node == nil
+  # opts.conditional_exprs = cljSource
+  # init_gene_readers(opts)
+  # node = read("#+clj #{foo}")
+  # check node.kind == GeneSet
+  # node = read("#+cljs {}")
+  # check node == nil
 
-  node = read("[1 2 #+cljs 3 4]")
-  check node.kind == GeneVector
-  check node.vec.len == 3
+  # node = read("[1 2 #+cljs 3 4]")
+  # check node.kind == GeneVector
+  # check node.vec.len == 3
 
   var opts1: ParseOptions
   opts1.eof_is_error = true
