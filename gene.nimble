@@ -8,8 +8,6 @@ srcDir        = "src"
 installExt    = @["nim"]
 bin           = @["gene"]
 
-
-
 # Dependencies
 
 requires "nim >= 1.0.0"

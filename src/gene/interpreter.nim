@@ -8,6 +8,8 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return GeneNil
   of GeneInt:
     return new_gene_int(node.num)
+  of GeneBool:
+    return new_gene_bool(node.boolVal)
   of GeneSymbol:
     var (_, name) = node.symbol
     return cast[GeneValue](self.cur_stack.cur_scope[name])
