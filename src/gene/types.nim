@@ -206,3 +206,14 @@ let
 
 proc todo*() =
   raise newException(Exception, "TODO")
+
+#################### GeneValue ###################
+
+proc is_truthy*(self: GeneValue): bool =
+  case self.kind:
+  of GeneBool:
+    return self.boolVal
+  of GeneNilKind:
+    return false
+  else:
+    return true
