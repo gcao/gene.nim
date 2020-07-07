@@ -66,6 +66,9 @@ type
       op*: GeneValue
       list*: seq[GeneValue]
       list_meta*: HMap
+      # A gene can be normalized to match expected format
+      # Example: (a = 1) => (= a 1)
+      normalized*: bool
     of GeneMap:
       map*: HMap
       map_meta*: HMap

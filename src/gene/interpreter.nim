@@ -5,29 +5,56 @@ import ./vm_types
 type
   IfState = enum
     ## Initial state
-    If,
+    If
 
     # TODO: is this a good idea - "if not, elif not"?
     # ## Can be used in front of condition
-    # Not,
+    # Not
 
     ## Can follow if and else if
-    Truthy,
+    Truthy
 
     ## Can follow if and else if
-    Falsy,
+    Falsy
 
     ## Follow condition
-    Logic,
+    Logic
 
     ## elif
-    ElseIf,
+    ElseIf
 
     ## else
-    Else,
+    Else
 
 # Interfaces
 proc eval*(self: var VM, node: GeneValue): GeneValue
+proc eval_gene(self: var VM, node: GeneValue): GeneValue
+proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue
+proc normalize(node: GeneValue)
+
+proc eval_gene(self: var VM, node: GeneValue): GeneValue =
+  normalize(node)
+  var op = node.op
+  case op.kind:
+  of GeneSymbol:
+    if op.symbol == "var":
+      var name = $node.list[0]
+      var value =
+        if node.list.len > 1:
+          self.eval(node.list[1])
+        else:
+          GeneNil
+      self.cur_stack.cur_scope[name] = value
+    elif op.symbol == "if":
+      return self.eval_if(node.list)
+    elif op.symbol == "=":
+      var first = node.list[0]
+      var second = node.list[1]
+      case first.kind:
+      of GeneSymbol:
+        self.cur_stack.cur_scope[first.symbol] = self.eval(second)
+      else: todo()
+  else: todo()
 
 proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
   var state = IfState.If
@@ -69,16 +96,7 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     var name = node.symbol
     return cast[GeneValue](self.cur_stack.cur_scope[name])
   of GeneGene:
-    var op = node.op
-    case op.kind:
-    of GeneSymbol:
-      if op.symbol == "var":
-        var name = $node.list[0]
-        var value = self.eval(node.list[1])
-        self.cur_stack.cur_scope[name] = value
-      elif op.symbol == "if":
-        return self.eval_if(node.list)
-    else: todo()
+    return self.eval_gene(node)
   else: todo()
 
 proc eval*(self: var VM, buffer: string): GeneValue =
@@ -86,3 +104,14 @@ proc eval*(self: var VM, buffer: string): GeneValue =
   for node in parsed:
     result = self.eval node
   return
+
+proc normalize(node: GeneValue) =
+  if node.list.len == 0:
+    return
+  var first = node.list[0]
+  if first.kind == GeneSymbol:
+    if first.symbol in ["=", "+", "-", "*", "/"]:
+      var op = node.op
+      node.list.delete 0
+      node.list.insert op, 0
+      node.op = first

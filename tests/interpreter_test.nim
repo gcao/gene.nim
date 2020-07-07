@@ -23,4 +23,10 @@ test "Interpreter = VM.eval()":
   check vm.eval("(var a 1) a") == new_gene_int(1)
 
   vm = new_vm()
+  check vm.eval("(var a 1) (a = 2) a") == new_gene_int(2)
+
+  vm = new_vm()
+  check vm.eval("(var a) (a = 2) a") == new_gene_int(2)
+
+  vm = new_vm()
   check vm.eval("(if true 1)") == new_gene_int(1)
