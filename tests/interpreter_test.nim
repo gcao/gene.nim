@@ -45,3 +45,6 @@ test "Interpreter = VM.eval()":
 
   vm = new_vm()
   check vm.eval("(fn f [] 1) (f)") == new_gene_int(1)
+
+  vm = new_vm()
+  check vm.eval("(fn f a (a + 1)) (f 1)") == new_gene_int(2)

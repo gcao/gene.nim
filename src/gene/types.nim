@@ -6,13 +6,19 @@ type
     args*: seq[string]
     body*: seq[GeneValue]
 
+  Arguments* = ref object
+    positional*: seq[GeneValue]
+
   GeneInternalKind* = enum
     GeneFunction
+    GeneArguments
 
   Internal* = ref object
     case kind*: GeneInternalKind
     of GeneFunction:
       fn*: Function
+    of GeneArguments:
+      args*: Arguments
 
   GeneKind* = enum
     GeneNilKind
@@ -238,3 +244,14 @@ proc is_truthy*(self: GeneValue): bool =
     return false
   else:
     return true
+
+#################### Arguments ###################
+
+proc new_args*(): Arguments =
+  return Arguments(positional: @[])
+
+proc new_args*(args: seq[GeneValue]): Arguments =
+  return Arguments(positional: args)
+
+proc `[]`*(self: Arguments, i: int): GeneValue =
+  return self.positional[i]

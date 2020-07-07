@@ -1,3 +1,5 @@
+import sequtils
+
 import ./types
 import ./parser
 import ./vm_types
@@ -31,7 +33,7 @@ proc eval*(self: var VM, node: GeneValue): GeneValue
 proc eval_gene(self: var VM, node: GeneValue): GeneValue
 proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue
 proc eval_fn(self: var VM, node: GeneValue): GeneValue
-proc call(self: var VM, fn: Function): GeneValue
+proc call(self: var VM, fn: Function, args: Arguments): GeneValue
 proc normalize(node: GeneValue)
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
@@ -94,7 +96,9 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       var target = self.eval(op)
       if target.kind == GeneInternal and target.internal.kind == GeneFunction:
         var fn = target.internal.fn
-        return self.call(fn)
+        var this = self
+        var args = node.list.map(proc(item: GeneValue): GeneValue = this.eval(item))
+        return self.call(fn, new_args(args))
       else:
         todo()
   else:
@@ -130,20 +134,32 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
 
 proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var name = node.list[0].symbol
-  # TODO
-  # var args = node.list[1]
+  var args: seq[string] = @[]
+  var a = node.list[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    todo()
   var body: seq[GeneValue] = @[]
   for i in 2..<node.list.len:
     body.add node.list[i]
 
-  var fn = Function(name: name, args: @[], body: body)
+  var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)
   result = new_gene_internal(internal)
   self.cur_stack.cur_scope[name] = result
 
-proc call(self: var VM, fn: Function): GeneValue =
+proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack.grow()
   self.cur_stack = stack
+  for i in 0..<fn.args.len:
+    var arg = fn.args[i]
+    var val = args[i]
+    self.cur_stack.cur_scope[arg] = val
 
   try:
     for node in fn.body:
