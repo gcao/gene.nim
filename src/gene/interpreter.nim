@@ -54,6 +54,37 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       of GeneSymbol:
         self.cur_stack.cur_scope[first.symbol] = self.eval(second)
       else: todo()
+    elif op.symbol == "+":
+      var first = self.eval(node.list[0])
+      var second = self.eval(node.list[1])
+      var firstKind = first.kind
+      var secondKind = second.kind
+      if firstKind == GeneInt and secondKind == GeneInt:
+        return new_gene_int(first.num + second.num)
+      else:
+        todo()
+    elif op.symbol == "==":
+      var first = self.eval(node.list[0])
+      var second = self.eval(node.list[1])
+      return new_gene_bool(first == second)
+    elif op.symbol == "<=":
+      var first = self.eval(node.list[0])
+      var second = self.eval(node.list[1])
+      var firstKind = first.kind
+      var secondKind = second.kind
+      if firstKind == GeneInt and secondKind == GeneInt:
+        return new_gene_bool(first.num <= second.num)
+      else:
+        todo()
+    elif op.symbol == "<":
+      var first = self.eval(node.list[0])
+      var second = self.eval(node.list[1])
+      var firstKind = first.kind
+      var secondKind = second.kind
+      if firstKind == GeneInt and secondKind == GeneInt:
+        return new_gene_bool(first.num < second.num)
+      else:
+        todo()
   else: todo()
 
 proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
@@ -105,12 +136,20 @@ proc eval*(self: var VM, buffer: string): GeneValue =
     result = self.eval node
   return
 
+const BINARY_OPS = [
+  "+", "-", "*", "/",
+  "=", "+=", "-=", "*=", "/=",
+  "==", "!=", "<", "<=", ">", ">=",
+  "&&", "||", # TODO: xor
+  "&",  "|",  # TODO: xor for bit operation
+]
+
 proc normalize(node: GeneValue) =
   if node.list.len == 0:
     return
   var first = node.list[0]
   if first.kind == GeneSymbol:
-    if first.symbol in ["=", "+", "-", "*", "/"]:
+    if first.symbol in BINARY_OPS:
       var op = node.op
       node.list.delete 0
       node.list.insert op, 0
