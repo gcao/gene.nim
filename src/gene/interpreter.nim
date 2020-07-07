@@ -30,6 +30,8 @@ type
 proc eval*(self: var VM, node: GeneValue): GeneValue
 proc eval_gene(self: var VM, node: GeneValue): GeneValue
 proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue
+proc eval_fn(self: var VM, node: GeneValue): GeneValue
+proc call(self: var VM, fn: Function): GeneValue
 proc normalize(node: GeneValue)
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
@@ -47,13 +49,16 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       self.cur_stack.cur_scope[name] = value
     elif op.symbol == "if":
       return self.eval_if(node.list)
+    elif op.symbol == "fn":
+      return self.eval_fn(node)
     elif op.symbol == "=":
       var first = node.list[0]
       var second = node.list[1]
       case first.kind:
       of GeneSymbol:
         self.cur_stack.cur_scope[first.symbol] = self.eval(second)
-      else: todo()
+      else:
+        todo()
     elif op.symbol == "+":
       var first = self.eval(node.list[0])
       var second = self.eval(node.list[1])
@@ -85,7 +90,15 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
         return new_gene_bool(first.num < second.num)
       else:
         todo()
-  else: todo()
+    else:
+      var target = self.eval(op)
+      if target.kind == GeneInternal and target.internal.kind == GeneFunction:
+        var fn = target.internal.fn
+        return self.call(fn)
+      else:
+        todo()
+  else:
+    todo()
 
 proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
   var state = IfState.If
@@ -115,6 +128,29 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
     of IfState.Logic:
       todo()
 
+proc eval_fn(self: var VM, node: GeneValue): GeneValue =
+  var name = node.list[0].symbol
+  # TODO
+  # var args = node.list[1]
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.list.len:
+    body.add node.list[i]
+
+  var fn = Function(name: name, args: @[], body: body)
+  var internal = Internal(kind: GeneFunction, fn: fn)
+  result = new_gene_internal(internal)
+  self.cur_stack.cur_scope[name] = result
+
+proc call(self: var VM, fn: Function): GeneValue =
+  var stack = self.cur_stack.grow()
+  self.cur_stack = stack
+
+  try:
+    for node in fn.body:
+      result = self.eval node
+  finally:
+    self.cur_stack = stack
+
 proc eval*(self: var VM, node: GeneValue): GeneValue =
   case node.kind:
   of GeneNilKind:
@@ -128,13 +164,13 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return cast[GeneValue](self.cur_stack.cur_scope[name])
   of GeneGene:
     return self.eval_gene(node)
-  else: todo()
+  else:
+    todo()
 
 proc eval*(self: var VM, buffer: string): GeneValue =
   var parsed = read_all(buffer)
   for node in parsed:
     result = self.eval node
-  return
 
 const BINARY_OPS = [
   "+", "-", "*", "/",

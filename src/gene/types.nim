@@ -1,6 +1,19 @@
 import strutils
 
 type
+  Function* = ref object
+    name*: string
+    args*: seq[string]
+    body*: seq[GeneValue]
+
+  GeneInternalKind* = enum
+    GeneFunction
+
+  Internal* = ref object
+    case kind*: GeneInternalKind
+    of GeneFunction:
+      fn*: Function
+
   GeneKind* = enum
     GeneNilKind
     GeneBool
@@ -19,6 +32,7 @@ type
     GeneTaggedValue
     GeneCommentLine
     GeneRegex
+    GeneInternal
 
   CommentPlacement* = enum
     Before
@@ -85,6 +99,8 @@ type
       comment*: string
     of GeneRegex:
       regex*: string
+    of GeneInternal:
+      internal*: Internal
     line*: int
     column*: int
     comments*: seq[Comment]
@@ -136,6 +152,8 @@ proc `==`*(this, that: GeneValue): bool =
       return this.comment == that.comment
     of GeneRegex:
       return this.regex == that.regex
+    of GeneInternal:
+      return this.internal == that.internal
 
 ## ============== NEW OBJ FACTORIES =================
 
@@ -189,8 +207,8 @@ proc new_gene_keyword*(ns, name: string): GeneValue =
 proc new_gene_keyword*(name: string): GeneValue =
   return GeneValue(kind: GeneKeyword, keyword: ("", name))
 
-# proc new_gene_nil*(): GeneValue =
-#   new(result)
+proc new_gene_internal*(value: Internal): GeneValue =
+  return GeneValue(kind: GeneInternal, internal: value)
 
 ### === VALS ===
 
