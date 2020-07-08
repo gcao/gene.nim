@@ -1,4 +1,9 @@
-import times, os
+# See https://nim-lang.org/docs/nimprof.html
+# Compiles with --profiler:on and a report will automatically be generated
+# nimble build -d:release --profiler:on
+import nimprof
+
+import times
 
 import gene/vm_types
 import gene/parser

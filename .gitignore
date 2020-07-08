@@ -12,3 +12,4 @@
 *.dSYM/
 bin/
 wip_test.nim
+profile_results.txt
