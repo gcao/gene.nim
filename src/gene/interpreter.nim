@@ -193,6 +193,10 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
   else:
     todo()
 
+proc eval*(self: var VM, nodes: seq[GeneValue]): GeneValue =
+  for node in nodes:
+    result = self.eval node
+
 proc eval*(self: var VM, buffer: string): GeneValue =
   var parsed = read_all(buffer)
   for node in parsed:

@@ -1,8 +1,22 @@
-# This is just an example to get you started. A typical hybrid package
-# uses this file as the main entry point of the application.
+import times, os
 
-import ./gene/parser
-import ./gene/edn_parser
+import gene/vm_types
+import gene/parser
+import gene/interpreter
 
 when isMainModule:
-  echo "Hello World!"
+  var vm = new_vm()
+  let parsed = read_all("""
+    (fn fib n
+      (if (n < 2)
+        n
+      else
+        ((fib (n - 1)) + (fib (n - 2)))
+      )
+    )
+    (fib 24)
+  """)
+  let start = cpuTime()
+  let result = vm.eval(parsed)
+  echo "Time: " & $(cpuTime() - start)
+  echo result.num
