@@ -19,9 +19,6 @@ type
     ## Can follow if and else if
     Falsy
 
-    ## Follow condition
-    Logic
-
     ## elif
     ElseIf
 
@@ -132,22 +129,17 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
       case node.kind:
       of GeneSymbol:
         if node.symbol == "elif" or node.symbol == "else":
-          return
+          break
         else:
           result = self.eval(node)
       else:
         result = self.eval(node)
     of IfState.Falsy:
-      case node.kind:
-      of GeneSymbol:
+      if node.kind == GeneSymbol:
         if node.symbol == "elif":
           state = IfState.ElseIf
         elif node.symbol == "else":
           state = IfState.Else
-      else:
-        discard
-    of IfState.Logic:
-      todo()
 
 proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var name = node.list[0].symbol
@@ -171,8 +163,8 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   self.cur_ns[name] = result
 
 proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
-  var stack = self.cur_stack.grow()
-  self.cur_stack = stack
+  var stack = self.cur_stack
+  self.cur_stack = stack.grow()
   for i in 0..<fn.args.len:
     var arg = fn.args[i]
     var val = args[i]
@@ -182,7 +174,6 @@ proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
     for node in fn.body:
       result = self.eval node
 
-    echo result
   finally:
     self.cur_stack = stack
 
