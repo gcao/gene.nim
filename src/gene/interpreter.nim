@@ -70,6 +70,15 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
         return new_gene_int(first.num + second.num)
       else:
         todo()
+    elif op.symbol == "-":
+      var first = self.eval(node.list[0])
+      var second = self.eval(node.list[1])
+      var firstKind = first.kind
+      var secondKind = second.kind
+      if firstKind == GeneInt and secondKind == GeneInt:
+        return new_gene_int(first.num - second.num)
+      else:
+        todo()
     elif op.symbol == "==":
       var first = self.eval(node.list[0])
       var second = self.eval(node.list[1])
@@ -108,16 +117,14 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
   var state = IfState.If
   for node in nodes:
     case state:
-    of IfState.If:
+    of IfState.If, IfState.ElseIf:
       var cond = self.eval(node)
       if cond.isTruthy:
         state = IfState.Truthy
       else:
         state = IfState.Falsy
-    of IfState.ElseIf:
-      todo()
     of IfState.Else:
-      todo()
+      result = self.eval(node)
     of IfState.Truthy:
       case node.kind:
       of GeneSymbol:
@@ -128,7 +135,14 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
       else:
         result = self.eval(node)
     of IfState.Falsy:
-      todo()
+      case node.kind:
+      of GeneSymbol:
+        if node.symbol == "elif":
+          state = IfState.ElseIf
+        elif node.symbol == "else":
+          state = IfState.Else
+      else:
+        discard
     of IfState.Logic:
       todo()
 

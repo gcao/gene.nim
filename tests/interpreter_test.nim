@@ -23,6 +23,9 @@ test "Interpreter = VM.eval()":
   check vm.eval("(1 + 2)") == new_gene_int(3)
 
   vm = new_vm()
+  check vm.eval("(3 - 2)") == new_gene_int(1)
+
+  vm = new_vm()
   check vm.eval("(1 == 1)") == GeneTrue
 
   vm = new_vm()
@@ -44,7 +47,30 @@ test "Interpreter = VM.eval()":
   check vm.eval("(if true 1)") == new_gene_int(1)
 
   vm = new_vm()
+  check vm.eval("(if false 1 else 2)") == new_gene_int(2)
+
+  vm = new_vm()
+  check vm.eval("""
+    (if false 1
+      elif true 2
+      else 3
+    )
+  """) == new_gene_int(2)
+
+  vm = new_vm()
   check vm.eval("(fn f [] 1) (f)") == new_gene_int(1)
 
   vm = new_vm()
   check vm.eval("(fn f a (a + 1)) (f 1)") == new_gene_int(2)
+
+  vm = new_vm()
+  check vm.eval("""
+    (fn fib n
+      (if (n < 2)
+        n
+      else
+        ((fib (n - 1)) + (fib (n - 2)))
+      )
+    )
+    (fib 6)
+  """) == new_gene_int(2)
