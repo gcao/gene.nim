@@ -28,13 +28,16 @@ type
     ## else
     Else
 
-# Interfaces
+#################### Interfaces ##################
+
 proc eval*(self: var VM, node: GeneValue): GeneValue
-proc eval_gene(self: var VM, node: GeneValue): GeneValue
-proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue
-proc eval_fn(self: var VM, node: GeneValue): GeneValue
-proc call(self: var VM, fn: Function, args: Arguments): GeneValue
-proc normalize(node: GeneValue)
+proc eval_gene*(self: var VM, node: GeneValue): GeneValue
+proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
+proc eval_fn*(self: var VM, node: GeneValue): GeneValue
+proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
+proc normalize*(node: GeneValue)
+
+#################### Implementations #############
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
   normalize(node)
@@ -165,7 +168,7 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)
   result = new_gene_internal(internal)
-  self.cur_stack.cur_scope[name] = result
+  self.cur_ns[name] = result
 
 proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack.grow()
@@ -178,6 +181,8 @@ proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
   try:
     for node in fn.body:
       result = self.eval node
+
+    echo result
   finally:
     self.cur_stack = stack
 
@@ -191,7 +196,7 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return new_gene_bool(node.boolVal)
   of GeneSymbol:
     var name = node.symbol
-    return cast[GeneValue](self.cur_stack.cur_scope[name])
+    return cast[GeneValue](self[name])
   of GeneGene:
     return self.eval_gene(node)
   else:

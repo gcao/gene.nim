@@ -1174,6 +1174,8 @@ proc read*(buffer: string, options: ParseOptions): GeneValue =
 
 proc `$`*(node: GeneValue): string =
   case node.kind
+  of GeneInt:
+    result = $(node.num)
   of GeneKeyword:
     if node.is_namespaced:
       result = "::" & node.keyword.name
@@ -1189,7 +1191,7 @@ proc `$`*(node: GeneValue): string =
     else:
       result = node.csymbol.ns & "/" & node.csymbol.name
   else:
-    assert(false)
+    return "$(GeneValue: TODO)"
 
 # DONE: handling cond forms that are returned as nil (e.g. ommited)
 # TODO: special comments handlers experimenting with literate progrmming
