@@ -5,7 +5,7 @@ import nimprof
 
 import times
 
-import gene/vm_types
+import gene/vm
 import gene/parser
 import gene/interpreter
 

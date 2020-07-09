@@ -3,7 +3,7 @@
 import unittest
 
 import gene/types
-import gene/vm_types
+import gene/vm
 import gene/interpreter
 
 test "Interpreter = VM.eval()":

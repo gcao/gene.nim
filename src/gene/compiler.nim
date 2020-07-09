@@ -32,8 +32,6 @@ type
 
 #################### Interfaces ##################
 
-proc new_module*(): Module
-
 #################### Instruction #################
 
 proc `==`*(this, that: Instruction): bool =
@@ -60,6 +58,9 @@ proc instr_default*(value: GeneValue): Instruction = Instruction(kind: Default, 
 proc new_block*(): Block =
   result = Block(id: genOid())
 
+proc add(self: var Block, instr: Instruction) =
+  self.instructions.add(instr)
+
 #################### Module ####################
 
 proc new_module*(): Module =
@@ -76,8 +77,8 @@ proc new_compiler*(): Compiler =
 
 proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
   case node.kind:
-  of GeneNilKind:
-    blk.instructions.add(instr_default(node))
+  of GeneNilKind, GeneInt, GeneFloat, GeneRatio, GeneBool, GeneChar, GeneString:
+    blk.add(instr_default(node))
   else:
     todo()
 

@@ -2,7 +2,7 @@ import sequtils
 
 import ./types
 import ./parser
-import ./vm_types
+import ./vm
 import ./compiler
 
 type
@@ -180,7 +180,7 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)
   result = new_gene_internal(internal)
-  self.cur_ns[name] = result
+  self.cur_stack.cur_ns[name] = result
 
 proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack
