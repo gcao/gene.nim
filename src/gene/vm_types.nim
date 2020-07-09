@@ -16,6 +16,7 @@ type
     parent*: Stack
     cur_scope*: Scope
     default*: GeneValue
+    registers*: seq[GeneValue]
 
   Scope* = ref object
     parent*: Scope

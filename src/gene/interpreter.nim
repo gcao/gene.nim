@@ -3,6 +3,7 @@ import sequtils
 import ./types
 import ./parser
 import ./vm_types
+import ./compiler
 
 type
   IfState = enum
@@ -35,6 +36,25 @@ proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 proc normalize*(node: GeneValue)
 
 #################### Implementations #############
+
+proc eval*(self: var VM, blk: Block): GeneValue =
+  var instr: Instruction
+  self.pos = 0
+  while self.pos < blk.instructions.len:
+    instr = blk.instructions[self.pos]
+    case instr.kind:
+    of Default:
+      self.pos += 1
+      self.cur_stack.default = instr.value
+    else:
+      self.pos += 1
+      todo()
+
+  result = self.cur_stack.default
+
+proc eval*(self: var VM, module: Module): GeneValue =
+  var blk = module.default
+  return self.eval(blk)
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
   normalize(node)

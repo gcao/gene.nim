@@ -113,8 +113,8 @@ type
 
   GeneDocument* = ref object
     ## Name or path of the document
-    name: string
-    data: seq[GeneValue]
+    name*: string
+    data*: seq[GeneValue]
 
 proc `==`*(this, that: GeneValue): bool =
   if this.is_nil:
@@ -255,3 +255,8 @@ proc new_args*(args: seq[GeneValue]): Arguments =
 
 proc `[]`*(self: Arguments, i: int): GeneValue =
   return self.positional[i]
+
+#################### Document ###################
+
+proc new_doc*(data: seq[GeneValue]): GeneDocument =
+  return GeneDocument(data: data)

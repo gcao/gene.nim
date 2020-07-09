@@ -1163,6 +1163,9 @@ proc read_all*(buffer: string): seq[GeneValue] =
     else:
       result.add(node)
 
+proc read_document*(buffer: string): GeneDocument =
+  return new_doc(read_all(buffer))
+
 proc read*(buffer: string, options: ParseOptions): GeneValue =
   var
     p: Parser

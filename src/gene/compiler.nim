@@ -1,4 +1,4 @@
-import sequtils, tables
+import sequtils, tables, oids
 
 import ./types
 import ./parser
@@ -7,25 +7,32 @@ type
   InstrType* = enum
     Init
     Default
+
   Instruction* = ref object
     case kind*: InstrType
     of Default:
-      value: GeneValue
+      value*: GeneValue
     else: discard
 
   Block* = ref object
-    id*: string
+    id*: Oid
     name*: string
     instructions*: seq[Instruction]
 
   Module* = ref object
-    id*: string
-    blocks*: Table[string, Block]
+    id*: Oid
+    blocks*: Table[Oid, Block]
     default*: Block
+    # TODO: support (main ...)
+    # main_block* Block
 
   Compiler* = ref object
     module*: Module
     cur_block: Block
+
+#################### Interfaces ##################
+
+proc new_module*(): Module
 
 #################### Instruction #################
 
@@ -46,17 +53,42 @@ proc `==`*(this, that: Instruction): bool =
 
 proc instr_init*(): Instruction = Instruction(kind: Init)
 
+proc instr_default*(value: GeneValue): Instruction = Instruction(kind: Default, value: value)
+
+#################### Block ####################
+
+proc new_block*(): Block =
+  result = Block(id: genOid())
+
+#################### Module ####################
+
+proc new_module*(): Module =
+  result = Module()
+
+proc set_default*(self: var Module, blk: Block) =
+  self.default = blk
+  self.blocks[blk.id] = blk
+
 #################### Compiler ####################
 
-proc compile*(self: var Compiler, node: GeneValue): seq[Instruction] =
-  result.add(instr_init())
+proc new_compiler*(): Compiler =
+  result = Compiler()
+
+proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
   case node.kind:
-    else: todo()
+  of GeneNilKind:
+    blk.instructions.add(instr_default(node))
+  else:
+    todo()
 
-proc compile*(self: var Compiler, nodes: seq[GeneValue]): seq[Instruction] =
-  for node in nodes:
-    result = concat(result, self.compile(node))
+proc compile*(self: var Compiler, doc: GeneDocument): Block =
+  result = new_block()
+  for node in doc.data:
+    self.compile(result, node)
 
-proc compile*(self: var Compiler, buffer: string): seq[Instruction] =
-  var nodes = read_all(buffer)
-  return self.compile(nodes)
+proc compile*(self: var Compiler, buffer: string): Module =
+  var doc = read_document(buffer)
+  self.module = new_module()
+  var blk = self.compile(doc)
+  self.module.setDefault(blk)
+  return self.module

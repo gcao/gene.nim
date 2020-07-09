@@ -2,8 +2,13 @@
 
 import unittest
 
+import gene/types
 import gene/compiler
+import gene/vm_types
+import gene/interpreter
 
-test "Compiler":
-  var c = Compiler()
-  check c.compile("nil") == @[instr_init()]
+test "Compiler / VM":
+  var c = new_compiler()
+  var vm = new_vm()
+  var module = c.compile("nil")
+  check vm.eval(module) == GeneNil
