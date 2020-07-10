@@ -1,8 +1,12 @@
-import sets, sequtils, tables, oids
+import sets, sequtils, tables, oids, strutils
 
 import ./types
 import ./parser
 import ./vm
+
+# placeholders for jump* instructions
+const ELSE_POS = -1
+const NEXT_POS = -2
 
 type
   InstrType* = enum
@@ -43,8 +47,8 @@ type
     # SetPropDynamic(target reg, name reg, value reg)
     # SetPropDynamic(String, String, String)
 
-    # Jump(i16)
-    # JumpIfFalse(i16)
+    Jump
+    JumpIfFalse
     # Below are pseudo instructions that should be replaced with other jump instructions
     # before sent to the VM to execute.
     # JumpToElse
@@ -114,9 +118,25 @@ type
     next*: int
     freed*: HashSet[int]
 
+  IfState = enum
+    ## Initial state
+    If
+
+    ## Can follow if and else if
+    Truthy
+
+    ## Can follow if and else if
+    Falsy
+
+    ## elif
+    ElseIf
+
+    ## else
+    Else
 #################### Interfaces ##################
 
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
 
 #################### Instruction #################
 
@@ -148,6 +168,19 @@ proc instr_copy*(reg, reg2: int): Instruction =
 
 proc instr_add*(reg, reg2: int): Instruction =
   return Instruction(kind: Add, reg: reg, reg2: reg2)
+
+proc instr_jump*(pos: int): Instruction =
+  return Instruction(kind: Jump, val: new_gene_int(pos))
+
+proc instr_jump_if_false*(pos: int): Instruction =
+  return Instruction(kind: JumpIfFalse, val: new_gene_int(pos))
+
+proc `$`*(instr: Instruction): string =
+  case instr.kind
+  of Default:
+    return "$# $#" % [$instr.kind, $instr.val]
+  else:
+    return $instr.kind
 
 #################### RegManager ###############
 
@@ -212,7 +245,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
 
   case node.op.kind:
   of GeneSymbol:
-    if node.op.symbol == "+":
+    case node.op.symbol:
+    of "+":
       var first = node.list[0]
       var second = node.list[1]
       if first.kind == GeneInt and second.kind == GeneInt:
@@ -230,7 +264,53 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
         self.compile(blk, second)
         blk.add(instr_add(0, reg))
         blk.reg_mgr.free(reg)
+    of "if":
+      self.compile_if(blk, node)
     else:
       todo()
   else:
     todo()
+
+proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
+  node.normalize
+
+  var start_pos = blk.instructions.len
+
+  var last_jump_if_false: Instruction
+  var jump_next: seq[Instruction]
+
+  var state = IfState.If
+  for node in node.list:
+    case state:
+    of IfState.If, IfState.ElseIf:
+      # node is conditon
+      self.compile(blk, node)
+      last_jump_if_false = instr_jump_if_false(ELSE_POS)
+      blk.add(last_jump_if_false)
+      state = IfState.Truthy
+
+    of IfState.Else:
+      self.compile(blk, node)
+
+    of IfState.Truthy:
+      if node.kind == GeneSymbol:
+        if node.symbol == "elif":
+          state = IfState.ElseIf
+        elif node.symbol == "else":
+          state = IfState.Else
+
+        if node.symbol in ["elif", "else"]:
+          var instr = instr_jump(NEXT_POS)
+          blk.add(instr)
+          jump_next.add(instr)
+
+          if not last_jump_if_false.isNil:
+            last_jump_if_false.val = new_gene_int(blk.instructions.len)
+            last_jump_if_false = nil
+          
+          continue
+
+      self.compile(blk, node)
+
+    else:
+      not_allowed()

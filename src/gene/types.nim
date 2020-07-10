@@ -124,6 +124,8 @@ type
     path*: string
     data*: seq[GeneValue]
 
+#################### GeneValue ###################
+
 proc `==`*(this, that: GeneValue): bool =
   if this.is_nil:
     if that.is_nil: return true
@@ -168,6 +170,27 @@ proc `==`*(this, that: GeneValue): bool =
       return this.regex == that.regex
     of GeneInternal:
       return this.internal == that.internal
+
+proc `$`*(node: GeneValue): string =
+  case node.kind
+  of GeneInt:
+    result = $(node.num)
+  of GeneKeyword:
+    if node.is_namespaced:
+      result = "::" & node.keyword.name
+    elif node.keyword.ns == "":
+      result = ":" & node.keyword.name
+    else:
+      result = ":" & node.keyword.ns & "/" & node.keyword.name
+  of GeneSymbol:
+    result = node.symbol
+  of GeneComplexSymbol:
+    if node.csymbol.ns == "":
+      result = node.csymbol.name
+    else:
+      result = node.csymbol.ns & "/" & node.csymbol.name
+  else:
+    result = $node.kind
 
 ## ============== NEW OBJ FACTORIES =================
 
@@ -241,6 +264,12 @@ let
 
 proc todo*() =
   raise newException(Exception, "TODO")
+
+proc todo*(message: string) =
+  raise newException(Exception, "TODO: " & message)
+
+proc not_allowed*() =
+  raise newException(Exception, "Error: should not arrive here.")
 
 #################### GeneValue ###################
 

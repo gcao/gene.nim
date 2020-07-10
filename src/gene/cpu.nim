@@ -1,4 +1,4 @@
-import sequtils
+import strformat
 
 import ./types
 import ./vm
@@ -19,6 +19,7 @@ proc run*(self: var VM, blk: Block): GeneValue =
   self.pos = 0
   while self.pos < blk.instructions.len:
     instr = blk.instructions[self.pos]
+    echo &"{self.pos:>4} {instr}"
     case instr.kind:
     of Default:
       self.pos += 1

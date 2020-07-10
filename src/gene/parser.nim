@@ -1175,27 +1175,6 @@ proc read*(buffer: string, options: ParseOptions): GeneValue =
   defer: p.close()
   result = read(p)
 
-proc `$`*(node: GeneValue): string =
-  case node.kind
-  of GeneInt:
-    result = $(node.num)
-  of GeneKeyword:
-    if node.is_namespaced:
-      result = "::" & node.keyword.name
-    elif node.keyword.ns == "":
-      result = ":" & node.keyword.name
-    else:
-      result = ":" & node.keyword.ns & "/" & node.keyword.name
-  of GeneSymbol:
-    result = node.symbol
-  of GeneComplexSymbol:
-    if node.csymbol.ns == "":
-      result = node.csymbol.name
-    else:
-      result = node.csymbol.ns & "/" & node.csymbol.name
-  else:
-    return "$(GeneValue: TODO)"
-
 # DONE: handling cond forms that are returned as nil (e.g. ommited)
 # TODO: special comments handlers experimenting with literate progrmming
 # TODO: util method for reading strings but accepting ParseOpts

@@ -36,10 +36,6 @@ proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 
 #################### Implementations #############
 
-proc eval*(self: var VM, module: Module): GeneValue =
-  var blk = module.default
-  return self.eval(blk)
-
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
   node.normalize
   var op = node.op
