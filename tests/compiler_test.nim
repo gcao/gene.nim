@@ -5,13 +5,19 @@ import unittest
 import gene/types
 import gene/compiler
 import gene/vm
-import gene/interpreter
+import gene/cpu
 
 test "Compiler / VM":
   var c = new_compiler()
   var vm = new_vm()
   var module = c.compile("1")
-  check vm.eval(module) == new_gene_int(1)
+  check vm.run(module) == new_gene_int(1)
+
+test "Compiler / VM":
+  var c = new_compiler()
+  var vm = new_vm()
+  var module = c.compile("(1 + 2)")
+  check vm.run(module) == new_gene_int(3)
 
 # (1 + 2) =>
 # Save R0 1

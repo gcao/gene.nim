@@ -146,6 +146,9 @@ proc instr_save*(reg: int, val: GeneValue): Instruction =
 proc instr_copy*(reg, reg2: int): Instruction =
   return Instruction(kind: Copy, reg: reg, reg2: reg2)
 
+proc instr_add*(reg, reg2: int): Instruction =
+  return Instruction(kind: Add, reg: reg, reg2: reg2)
+
 #################### RegManager ###############
 
 proc get(self: var RegManager): int =
@@ -210,7 +213,23 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
   case node.op.kind:
   of GeneSymbol:
     if node.op.symbol == "+":
-      todo()
+      var first = node.list[0]
+      var second = node.list[1]
+      if first.kind == GeneInt and second.kind == GeneInt:
+        blk.add(instr_default(new_gene_int(first.num + second.num)))
+      elif second.kind == GeneInt:
+        # TODO: Use AddI
+        todo()
+      elif first.kind == GeneInt:
+        # TODO: compile second and use AddI
+        todo()
+      else:
+        self.compile(blk, first)
+        var reg = blk.reg_mgr.get
+        blk.add(instr_copy(0, reg))
+        self.compile(blk, second)
+        blk.add(instr_add(0, reg))
+        blk.reg_mgr.free(reg)
     else:
       todo()
   else:
