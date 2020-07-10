@@ -1,4 +1,4 @@
-import strformat
+import strformat, logging
 
 import ./types
 import ./vm
@@ -19,7 +19,7 @@ proc run*(self: var VM, blk: Block): GeneValue =
   self.pos = 0
   while self.pos < blk.instructions.len:
     instr = blk.instructions[self.pos]
-    echo &"{self.pos:>4} {instr}"
+    debug(&"{self.pos:>4} {instr}")
     case instr.kind:
     of Default:
       self.pos += 1
@@ -35,6 +35,13 @@ proc run*(self: var VM, blk: Block): GeneValue =
       let first = self.cur_stack[instr.reg].num
       let second = self.cur_stack[instr.reg2].num
       self.cur_stack[instr.reg] = new_gene_int(first + second)
+    of Jump:
+      self.pos = cast[int](instr.val.num)
+    of JumpIfFalse:
+      if self.cur_stack[instr.reg].isTruthy:
+        self.pos += 1
+      else:
+        self.pos = cast[int](instr.val.num)
     else:
       self.pos += 1
       todo()

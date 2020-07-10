@@ -173,6 +173,10 @@ proc `==`*(this, that: GeneValue): bool =
 
 proc `$`*(node: GeneValue): string =
   case node.kind
+  of GeneNilKind:
+    result = "nil"
+  of GeneBool:
+    result = $(node.boolVal)
   of GeneInt:
     result = $(node.num)
   of GeneKeyword:

@@ -177,8 +177,12 @@ proc instr_jump_if_false*(pos: int): Instruction =
 
 proc `$`*(instr: Instruction): string =
   case instr.kind
-  of Default:
+  of Default, Jump, JumpIfFalse:
     return "$# $#" % [$instr.kind, $instr.val]
+  of Save:
+    return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.val]
+  of Add:
+    return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.reg2]
   else:
     return $instr.kind
 
@@ -314,3 +318,9 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
 
     else:
       not_allowed()
+
+    var next_pos = blk.instructions.len
+    for i in start_pos..<next_pos:
+      var instr = blk.instructions[i]
+      if instr.kind == Jump and instr.val == new_gene_int(NEXT_POS):
+        instr.val.num = next_pos
