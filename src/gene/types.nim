@@ -1,5 +1,13 @@
 import strutils
 
+const BINARY_OPS* = [
+  "+", "-", "*", "/",
+  "=", "+=", "-=", "*=", "/=",
+  "==", "!=", "<", "<=", ">", ">=",
+  "&&", "||", # TODO: xor
+  "&",  "|",  # TODO: xor for bit operation
+]
+
 type
   Function* = ref object
     name*: string
@@ -112,8 +120,8 @@ type
     comments*: seq[Comment]
 
   GeneDocument* = ref object
-    ## Name or path of the document
     name*: string
+    path*: string
     data*: seq[GeneValue]
 
 proc `==`*(this, that: GeneValue): bool =
@@ -244,6 +252,17 @@ proc is_truthy*(self: GeneValue): bool =
     return false
   else:
     return true
+
+proc normalize*(self: GeneValue) =
+  if self.list.len == 0:
+    return
+  var first = self.list[0]
+  if first.kind == GeneSymbol:
+    if first.symbol in BINARY_OPS:
+      var op = self.op
+      self.list.delete 0
+      self.list.insert op, 0
+      self.op = first
 
 #################### Arguments ###################
 

@@ -2,7 +2,13 @@ import tables
 
 import ./types
 
+const CORE_REGISTERS* = 8
+
 type
+  ## This is the root of a running application
+  Application* = ref object
+    ns: Namespace
+
   VM* = ref object
     root_ns*: Namespace
     cur_stack*: Stack
@@ -16,8 +22,8 @@ type
     parent*: Stack
     cur_ns*: Namespace
     cur_scope*: Scope
-    default*: GeneValue
-    registers*: seq[GeneValue]
+    registers: array[CORE_REGISTERS, GeneValue]
+    more_regs: seq[GeneValue]
 
   Scope* = ref object
     parent*: Scope
@@ -33,6 +39,10 @@ proc `[]`*(self: Namespace, key: string): GeneValue = self.members[key]
 
 proc `[]=`*(self: var Namespace, key: string, val: GeneValue) =
   self.members[key] = val
+
+#################### Application #######################
+
+let APP* = Application(ns: new_namespace())
 
 #################### Scope #######################
 
@@ -51,6 +61,7 @@ proc new_stack*(ns: Namespace): Stack =
   return Stack(
     cur_ns: ns,
     cur_scope: new_scope(),
+    more_regs: @[],
   )
 
 proc grow*(self: var Stack): Stack =
@@ -58,7 +69,25 @@ proc grow*(self: var Stack): Stack =
     parent: self,
     cur_ns: self.cur_ns,
     cur_scope: new_scope(),
+    more_regs: @[],
   )
+
+proc default*(self: var Stack): GeneValue = self.registers[0]
+
+proc `default=`*(self: var Stack, val: GeneValue): GeneValue =
+  self.registers[0] = val
+
+proc `[]`*(self: var Stack, i: int): GeneValue =
+  if i < CORE_REGISTERS:
+    return self.registers[i]
+  else:
+    return self.more_regs[i]
+
+proc `[]=`*(self: var Stack, i: int, val: GeneValue) =
+  if i < CORE_REGISTERS:
+    self.registers[i] = val
+  else:
+    self.more_regs[i] = val
 
 #################### VM ##########################
 

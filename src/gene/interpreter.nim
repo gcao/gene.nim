@@ -33,7 +33,6 @@ proc eval_gene*(self: var VM, node: GeneValue): GeneValue
 proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
 proc eval_fn*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
-proc normalize*(node: GeneValue)
 
 #################### Implementations #############
 
@@ -45,7 +44,10 @@ proc eval*(self: var VM, blk: Block): GeneValue =
     case instr.kind:
     of Default:
       self.pos += 1
-      self.cur_stack.default = instr.value
+      self.cur_stack[0] = instr.val
+    of Save:
+      self.pos += 1
+      self.cur_stack[instr.reg] = instr.val
     else:
       self.pos += 1
       todo()
@@ -57,7 +59,7 @@ proc eval*(self: var VM, module: Module): GeneValue =
   return self.eval(blk)
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
-  normalize(node)
+  node.normalize
   var op = node.op
   case op.kind:
   of GeneSymbol:
@@ -221,22 +223,3 @@ proc eval*(self: var VM, buffer: string): GeneValue =
   var parsed = read_all(buffer)
   for node in parsed:
     result = self.eval node
-
-const BINARY_OPS = [
-  "+", "-", "*", "/",
-  "=", "+=", "-=", "*=", "/=",
-  "==", "!=", "<", "<=", ">", ">=",
-  "&&", "||", # TODO: xor
-  "&",  "|",  # TODO: xor for bit operation
-]
-
-proc normalize(node: GeneValue) =
-  if node.list.len == 0:
-    return
-  var first = node.list[0]
-  if first.kind == GeneSymbol:
-    if first.symbol in BINARY_OPS:
-      var op = node.op
-      node.list.delete 0
-      node.list.insert op, 0
-      node.op = first
