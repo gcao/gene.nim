@@ -152,7 +152,7 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
     for item in a.vec:
       args.add(item.symbol)
   else:
-    todo()
+    not_allowed()
   var body: seq[GeneValue] = @[]
   for i in 2..<node.list.len:
     body.add node.list[i]
@@ -162,7 +162,7 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   result = new_gene_internal(internal)
   self.cur_stack.cur_ns[name] = result
 
-proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
+proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
   for i in 0..<fn.args.len:

@@ -194,6 +194,9 @@ proc instr_function*(fn: Function): Instruction =
 proc instr_arguments*(reg: int): Instruction =
   return Instruction(kind: Arguments, reg: reg, val: new_gene_arguments())
 
+proc instr_call*(reg: int): Instruction =
+  return Instruction(kind: Call, reg: reg)
+
 proc `$`*(instr: Instruction): string =
   case instr.kind
   of Default, Jump, JumpIfFalse:
@@ -366,8 +369,11 @@ proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
   self.compile(blk, node.op)
   var target_reg = blk.reg_mgr.get
   blk.add(instr_copy(0, target_reg))
-  var args_reg = blk.reg_mgr.get
+  # Reuse target reg
+  var args_reg = target_reg
   blk.add(instr_arguments(args_reg))
+  blk.add(instr_call(args_reg))
+  blk.reg_mgr.free(args_reg)
 
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue) =
   # if first.kind == GeneInt and second.kind == GeneInt:

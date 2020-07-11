@@ -3,6 +3,7 @@ import strformat, logging
 import ./types
 import ./vm
 import ./compiler
+import ./interpreter
 
 #################### Interfaces ##################
 
@@ -55,6 +56,19 @@ proc run*(self: var VM, blk: Block): GeneValue =
         self.pos += 1
       else:
         self.pos = cast[int](instr.val.num)
+    of InstrType.Function:
+      self.pos += 1
+      var fn = instr.val
+      self.cur_stack.cur_scope[fn.internal.fn.name] = fn
+    of InstrType.Arguments:
+      self.pos += 1
+      var args = instr.val
+      self.cur_stack[instr.reg] = args
+    of Call:
+      self.pos += 1
+      var fn = self.cur_stack[0].internal.fn
+      var args = self.cur_stack[instr.reg].internal.args
+      self.cur_stack[0] = self.call(fn, args)
     else:
       self.pos += 1
       todo()
