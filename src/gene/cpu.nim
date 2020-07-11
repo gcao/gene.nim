@@ -30,6 +30,14 @@ proc run*(self: var VM, blk: Block): GeneValue =
     of Copy:
       self.pos += 1
       self.cur_stack[instr.reg2] = self.cur_stack[instr.reg]
+    of DefMember:
+      self.pos += 1
+      var name = instr.val.str
+      self.cur_stack.cur_scope[name] = self.cur_stack[0]
+    of GetMember:
+      self.pos += 1
+      var name = instr.val.str
+      self.cur_stack[0] = self.cur_stack.cur_scope[name]
     of Add:
       self.pos += 1
       let first = self.cur_stack[instr.reg].num

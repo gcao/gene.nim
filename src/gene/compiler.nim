@@ -22,7 +22,7 @@ type
     DefMember
     # DefMemberInScope(String)
     # DefMemberInNS(String)
-    # GetMember(String)
+    GetMember
     # GetMemberInScope(String)
     # GetMemberInNS(String)
     # SetMember(String)
@@ -138,6 +138,7 @@ type
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
 
@@ -168,6 +169,12 @@ proc instr_save*(reg: int, val: GeneValue): Instruction =
 
 proc instr_copy*(reg, reg2: int): Instruction =
   return Instruction(kind: Copy, reg: reg, reg2: reg2)
+
+proc instr_def_member*(name: string): Instruction =
+  return Instruction(kind: DefMember, val: new_gene_string_move(name))
+
+proc instr_get_member*(name: string): Instruction =
+  return Instruction(kind: GetMember, val: new_gene_string_move(name))
 
 proc instr_add*(reg, reg2: int): Instruction =
   return Instruction(kind: Add, reg: reg, reg2: reg2)
@@ -239,6 +246,8 @@ proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
   case node.kind:
   of GeneNilKind, GeneInt, GeneFloat, GeneRatio, GeneBool, GeneChar, GeneString:
     blk.add(instr_default(node))
+  of GeneSymbol:
+    blk.add(instr_get_member(node.symbol))
   of GeneGene:
     self.compile_gene(blk, node)
   else:
@@ -270,6 +279,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_if(blk, node)
     of "fn":
       self.compile_fn(blk, node)
+    of "var":
+      self.compile_var(blk, node)
     else:
       self.compile_call(blk, node)
   else:
@@ -324,6 +335,13 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
       var instr = blk.instructions[i]
       if instr.kind == Jump and instr.val == new_gene_int(NEXT_POS):
         instr.val.num = next_pos
+
+proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue) =
+  if node.list.len > 1:
+    self.compile(blk, node.list[1])
+  else:
+    blk.add(instr_default(GeneNil))
+  blk.add(instr_def_member(node.list[0].symbol))
 
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
   var name = node.list[0].symbol
