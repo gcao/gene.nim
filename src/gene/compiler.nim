@@ -19,7 +19,7 @@ type
     # Copy from one register to another
     Copy
 
-    # DefMember(String)
+    DefMember
     # DefMemberInScope(String)
     # DefMemberInNS(String)
     # GetMember(String)
@@ -79,13 +79,13 @@ type
     # BitOr
     # BitXor
 
-    # # Function(name, args reg, block id)
-    # Function(String, Matcher, String)
-    # # Create an argument object and store in a register
-    # CreateArguments(u16)
+    # Function(fn)
+    Function
+    # Arguments(reg): create an arguments object and store in register <reg>
+    Arguments
 
-    # # Call(options)
-    # Call(u16, Option<u16>, HashMap<String, Rc<dyn Any>>)
+    # Call(target reg, args reg)
+    Call
     # CallEnd
 
   Instruction* = ref object
@@ -138,6 +138,8 @@ type
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
 
 #################### Instruction #################
 
@@ -170,11 +172,20 @@ proc instr_copy*(reg, reg2: int): Instruction =
 proc instr_add*(reg, reg2: int): Instruction =
   return Instruction(kind: Add, reg: reg, reg2: reg2)
 
+proc instr_lt*(reg, reg2: int): Instruction =
+  return Instruction(kind: Lt, reg: reg, reg2: reg2)
+
 proc instr_jump*(pos: int): Instruction =
   return Instruction(kind: Jump, val: new_gene_int(pos))
 
 proc instr_jump_if_false*(pos: int): Instruction =
   return Instruction(kind: JumpIfFalse, val: new_gene_int(pos))
+
+proc instr_function*(fn: Function): Instruction =
+  return Instruction(kind: Function, val: new_gene_internal(fn))
+
+proc instr_arguments*(reg: int): Instruction =
+  return Instruction(kind: Arguments, reg: reg, val: new_gene_arguments())
 
 proc `$`*(instr: Instruction): string =
   case instr.kind
@@ -182,8 +193,8 @@ proc `$`*(instr: Instruction): string =
     return "$# $#" % [$instr.kind, $instr.val]
   of Save:
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.val]
-  of Add:
-    return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.reg2]
+  of Copy, Add, Lt:
+    return "$# $# $#" % [$instr.kind, "R" & $instr.reg, "R" & $instr.reg2]
   else:
     return $instr.kind
 
@@ -204,7 +215,7 @@ proc free(self: var RegManager, reg: int) =
 proc new_block*(): Block =
   result = Block(
     id: genOid(),
-    reg_mgr: RegManager(next: 0),
+    reg_mgr: RegManager(next: 1),
   )
 
 proc add(self: var Block, instr: Instruction) =
@@ -251,32 +262,18 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
   case node.op.kind:
   of GeneSymbol:
     case node.op.symbol:
-    of "+":
+    of "+", "<":
       var first = node.list[0]
       var second = node.list[1]
-      if first.kind == GeneInt and second.kind == GeneInt:
-        blk.add(instr_default(new_gene_int(first.num + second.num)))
-      elif second.kind == GeneInt:
-        # TODO: Use AddI
-        todo()
-      elif first.kind == GeneInt:
-        # TODO: compile second and use AddI
-        todo()
-      else:
-        self.compile(blk, first)
-        var reg = blk.reg_mgr.get
-        blk.add(instr_copy(0, reg))
-        self.compile(blk, second)
-        blk.add(instr_add(0, reg))
-        blk.reg_mgr.free(reg)
+      self.compile_binary(blk, first, node.op.symbol, second)
     of "if":
       self.compile_if(blk, node)
     of "fn":
       self.compile_fn(blk, node)
     else:
-      todo()
+      self.compile_call(blk, node)
   else:
-    todo()
+    self.compile_call(blk, node)
 
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
   node.normalize
@@ -314,7 +311,7 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
           if not last_jump_if_false.isNil:
             last_jump_if_false.val = new_gene_int(blk.instructions.len)
             last_jump_if_false = nil
-          
+
           continue
 
       self.compile(blk, node)
@@ -329,4 +326,55 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
         instr.val.num = next_pos
 
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
-  todo()
+  var name = node.list[0].symbol
+  var args: seq[string] = @[]
+  var a = node.list[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.list.len:
+    body.add node.list[i]
+
+  var fn = new_fn(name, args, body)
+  blk.add(instr_function(fn))
+
+proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
+  self.compile(blk, node.op)
+  var target_reg = blk.reg_mgr.get
+  blk.add(instr_copy(0, target_reg))
+  var args_reg = blk.reg_mgr.get
+  blk.add(instr_arguments(args_reg))
+
+proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue) =
+  # if first.kind == GeneInt and second.kind == GeneInt:
+  #   blk.add(instr_default(new_gene_int(first.num + second.num)))
+  # elif second.kind == GeneInt:
+  #   # TODO: Use AddI
+  #   todo()
+  # elif first.kind == GeneInt:
+  #   # TODO: compile second and use AddI
+  #   todo()
+  # else:
+  #   self.compile(blk, first)
+  #   var reg = blk.reg_mgr.get
+  #   blk.add(instr_copy(0, reg))
+  #   self.compile(blk, second)
+  #   blk.add(instr_add(0, reg))
+  #   blk.reg_mgr.free(reg)
+
+  self.compile(blk, first)
+  var reg = blk.reg_mgr.get
+  blk.add(instr_copy(0, reg))
+  self.compile(blk, second)
+  case op:
+  of "+": blk.add(instr_add(reg, 0))
+  of "<": blk.add(instr_lt(reg, 0))
+  else:
+    todo()
+  blk.reg_mgr.free(reg)

@@ -124,6 +124,22 @@ type
     path*: string
     data*: seq[GeneValue]
 
+#################### Function ####################
+
+proc new_fn*(name: string, args: seq[string], body: seq[GeneValue]): Function =
+  return Function(name: name, args: args, body: body)
+
+#################### Arguments ###################
+
+proc new_args*(): Arguments =
+  return Arguments(positional: @[])
+
+proc new_args*(args: seq[GeneValue]): Arguments =
+  return Arguments(positional: args)
+
+proc `[]`*(self: Arguments, i: int): GeneValue =
+  return self.positional[i]
+
 #################### GeneValue ###################
 
 proc `==`*(this, that: GeneValue): bool =
@@ -251,6 +267,18 @@ proc new_gene_keyword*(name: string): GeneValue =
 proc new_gene_internal*(value: Internal): GeneValue =
   return GeneValue(kind: GeneInternal, internal: value)
 
+proc new_gene_internal*(fn: Function): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneFunction, fn: fn),
+  )
+
+proc new_gene_arguments*(): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneArguments, args: new_args()),
+  )
+
 ### === VALS ===
 
 let
@@ -296,17 +324,6 @@ proc normalize*(self: GeneValue) =
       self.list.delete 0
       self.list.insert op, 0
       self.op = first
-
-#################### Arguments ###################
-
-proc new_args*(): Arguments =
-  return Arguments(positional: @[])
-
-proc new_args*(args: seq[GeneValue]): Arguments =
-  return Arguments(positional: args)
-
-proc `[]`*(self: Arguments, i: int): GeneValue =
-  return self.positional[i]
 
 #################### Document ###################
 

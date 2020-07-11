@@ -34,7 +34,12 @@ proc run*(self: var VM, blk: Block): GeneValue =
       self.pos += 1
       let first = self.cur_stack[instr.reg].num
       let second = self.cur_stack[instr.reg2].num
-      self.cur_stack[instr.reg] = new_gene_int(first + second)
+      self.cur_stack[0] = new_gene_int(first + second)
+    of Lt:
+      self.pos += 1
+      let first = self.cur_stack[instr.reg].num
+      let second = self.cur_stack[instr.reg2].num
+      self.cur_stack[0] = new_gene_bool(first < second)
     of Jump:
       self.pos = cast[int](instr.val.num)
     of JumpIfFalse:
