@@ -69,6 +69,14 @@ proc run*(self: var VM, blk: Block): GeneValue =
       var fn = self.cur_stack[0].internal.fn
       var args = self.cur_stack[instr.reg].internal.args
       self.cur_stack[0] = self.call(fn, args)
+    of SetItem:
+      self.pos += 1
+      var val = self.cur_stack[instr.reg]
+      var index = instr.val.num
+      if val.kind == GeneInternal and val.internal.kind == GeneArguments:
+        val.internal.args[cast[int](index)] = self.cur_stack[0]
+      else:
+        todo()
     else:
       self.pos += 1
       todo()

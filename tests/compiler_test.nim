@@ -23,3 +23,6 @@ test_compiler "(var a 1) a",
 
 test_compiler "(fn f [] 1) (f)",
   new_gene_int(1)
+
+test_compiler "(fn f a (a + 1)) (f 1)",
+  new_gene_int(2)

@@ -34,6 +34,7 @@ type
     # GetItemDynamic(target reg, index reg)
     # GetItemDynamic(String, String)
     # SetItem(target reg, index, value reg)
+    SetItem
     # SetItem(u16, usize)
     # SetItemDynamic(target reg, index reg, value reg)
     # SetItemDynamic(String, String, String)
@@ -176,6 +177,9 @@ proc instr_def_member*(name: string): Instruction =
 proc instr_get_member*(name: string): Instruction =
   return Instruction(kind: GetMember, val: new_gene_string_move(name))
 
+proc instr_set_item*(reg: int, index: int): Instruction =
+  return Instruction(kind: SetItem, reg: reg, val: new_gene_int(index))
+
 proc instr_add*(reg, reg2: int): Instruction =
   return Instruction(kind: Add, reg: reg, reg2: reg2)
 
@@ -201,7 +205,9 @@ proc `$`*(instr: Instruction): string =
   case instr.kind
   of Default, Jump, JumpIfFalse:
     return "$# $#" % [$instr.kind, $instr.val]
-  of Save:
+  of Call:
+    return "$# $#" % [$instr.kind, "R" & $instr.reg]
+  of Save, SetItem:
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.val]
   of Copy, Add, Lt:
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, "R" & $instr.reg2]
@@ -369,10 +375,15 @@ proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
   self.compile(blk, node.op)
   var target_reg = blk.reg_mgr.get
   blk.add(instr_copy(0, target_reg))
-  # Reuse target reg
-  var args_reg = target_reg
+  var args_reg = blk.reg_mgr.get
   blk.add(instr_arguments(args_reg))
+  for i in 0..<node.list.len:
+    var child = node.list[i]
+    self.compile(blk, child)
+    blk.add(instr_set_item(args_reg, i))
+  blk.add(instr_copy(target_reg, 0))
   blk.add(instr_call(args_reg))
+  blk.reg_mgr.free(target_reg)
   blk.reg_mgr.free(args_reg)
 
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue) =

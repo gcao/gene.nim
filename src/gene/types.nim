@@ -124,6 +124,11 @@ type
     path*: string
     data*: seq[GeneValue]
 
+let
+  GeneNil*   = GeneValue(kind: GeneNilKind)
+  GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
+  GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+
 #################### Function ####################
 
 proc new_fn*(name: string, args: seq[string], body: seq[GeneValue]): Function =
@@ -139,6 +144,11 @@ proc new_args*(args: seq[GeneValue]): Arguments =
 
 proc `[]`*(self: Arguments, i: int): GeneValue =
   return self.positional[i]
+
+proc `[]=`*(self: Arguments, i: int, val: GeneValue) =
+  while i >= self.positional.len:
+    self.positional.add(GeneNil)
+  self.positional[i] = val
 
 #################### GeneValue ###################
 
@@ -214,11 +224,6 @@ proc `$`*(node: GeneValue): string =
 
 ## ============== NEW OBJ FACTORIES =================
 
-let
-  gene_nil*  = GeneValue(kind: GeneNilKind)
-  gene_true*  = GeneValue(kind: GeneBool, bool_val: true)
-  gene_false* = GeneValue(kind: GeneBool, bool_val: false)
-
 proc new_gene_string_move*(s: string): GeneValue =
   result = GeneValue(kind: GeneString)
   shallowCopy(result.str, s)
@@ -243,8 +248,8 @@ proc new_gene_float*(val: float): GeneValue =
 
 proc new_gene_bool*(val: bool): GeneValue =
   case val
-  of true: return gene_true
-  of false: return gene_false
+  of true: return GeneTrue
+  of false: return GeneFalse
   # of true: return GeneValue(kind: GeneBool, boolVal: true)
   # of false: return GeneValue(kind: GeneBool, boolVal: false)
 
@@ -282,9 +287,6 @@ proc new_gene_arguments*(): GeneValue =
 ### === VALS ===
 
 let
-  GeneNil*: GeneValue  = gene_nil
-  GeneTrue*: GeneValue  = gene_true
-  GeneFalse*: GeneValue = gene_false
   KeyTag*: GeneValue   = new_gene_keyword("", "tag")
   CljTag*: GeneValue   = new_gene_keyword("", "clj")
   CljsTag*: GeneValue  = new_gene_keyword("", "cljs")
