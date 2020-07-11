@@ -137,6 +137,7 @@ type
 
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
 
 #################### Instruction #################
 
@@ -270,6 +271,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
         blk.reg_mgr.free(reg)
     of "if":
       self.compile_if(blk, node)
+    of "fn":
+      self.compile_fn(blk, node)
     else:
       todo()
   else:
@@ -324,3 +327,6 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
       var instr = blk.instructions[i]
       if instr.kind == Jump and instr.val == new_gene_int(NEXT_POS):
         instr.val.num = next_pos
+
+proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
+  todo()
