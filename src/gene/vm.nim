@@ -83,6 +83,12 @@ proc `[]`*(self: var Stack, i: int): GeneValue =
   else:
     return self.more_regs[i]
 
+proc `[]`*(self: var Stack, name: string): GeneValue =
+  if self.cur_scope.hasKey(name):
+    return self.cur_scope[name]
+  else:
+    return self.cur_ns[name]
+
 proc `[]=`*(self: var Stack, i: int, val: GeneValue) =
   if i < CORE_REGISTERS:
     self.registers[i] = val

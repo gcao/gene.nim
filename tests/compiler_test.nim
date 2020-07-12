@@ -26,3 +26,14 @@ test_compiler "(fn f [] 1) (f)",
 
 test_compiler "(fn f a (a + 1)) (f 1)",
   new_gene_int(2)
+
+test_compiler """
+  (fn fib n
+    (if (n < 2)
+      n
+    else
+      ((fib (n - 1)) + (fib (n - 2)))
+    )
+  )
+  (fib 6)
+""", new_gene_int(8)

@@ -38,7 +38,7 @@ proc run*(self: var VM, blk: Block): GeneValue =
     of GetMember:
       self.pos += 1
       var name = instr.val.str
-      self.cur_stack[0] = self.cur_stack.cur_scope[name]
+      self.cur_stack[0] = self.cur_stack[name]
     of Add:
       self.pos += 1
       let first = self.cur_stack[instr.reg].num
@@ -59,7 +59,7 @@ proc run*(self: var VM, blk: Block): GeneValue =
     of InstrType.Function:
       self.pos += 1
       var fn = instr.val
-      self.cur_stack.cur_scope[fn.internal.fn.name] = fn
+      self.cur_stack.cur_ns[fn.internal.fn.name] = fn
     of InstrType.Arguments:
       self.pos += 1
       var args = instr.val

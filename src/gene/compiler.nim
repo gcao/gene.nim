@@ -211,6 +211,8 @@ proc `$`*(instr: Instruction): string =
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.val]
   of Copy, Add, Lt:
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, "R" & $instr.reg2]
+  of Function:
+    return "$# $#" % [$instr.kind, $instr.val.internal.fn.name]
   else:
     return $instr.kind
 
