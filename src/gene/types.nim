@@ -9,6 +9,11 @@ const BINARY_OPS* = [
 ]
 
 type
+  RunningMode* = enum
+    Interpreted
+    Compiled
+    # Mixed
+
   InstrType* = enum
     Init
 

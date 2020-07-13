@@ -8,6 +8,7 @@
 !LICENSE
 !Vagrantfile
 
+*.out
 .vagrant
 *.dSYM/
 bin/
