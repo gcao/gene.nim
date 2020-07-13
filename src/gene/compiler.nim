@@ -2,122 +2,15 @@ import sets, sequtils, tables, oids, strutils
 
 import ./types
 import ./parser
-import ./vm
 
 # placeholders for jump* instructions
 const ELSE_POS = -1
 const NEXT_POS = -2
 
 type
-  InstrType* = enum
-    Init
-
-    # # Save Value to default register
-    Default
-    # Save Value to a register
-    Save
-    # Copy from one register to another
-    Copy
-
-    DefMember
-    # DefMemberInScope(String)
-    # DefMemberInNS(String)
-    GetMember
-    # GetMemberInScope(String)
-    # GetMemberInNS(String)
-    # SetMember(String)
-    # SetMemberInScope(String)
-    # SetMemberInNS(String)
-
-    # GetItem(target reg, index)
-    # GetItem(u16, usize)
-    # GetItemDynamic(target reg, index reg)
-    # GetItemDynamic(String, String)
-    # SetItem(target reg, index, value reg)
-    SetItem
-    # SetItem(u16, usize)
-    # SetItemDynamic(target reg, index reg, value reg)
-    # SetItemDynamic(String, String, String)
-
-    # GetProp(target reg, name)
-    # GetProp(String, String)
-    # GetPropDynamic(target reg, name reg)
-    # GetPropDynamic(String, String)
-    # SetProp(target reg, name, value reg)
-    # SetProp(u16, String)
-    # SetPropDynamic(target reg, name reg, value reg)
-    # SetPropDynamic(String, String, String)
-
-    Jump
-    JumpIfFalse
-    # Below are pseudo instructions that should be replaced with other jump instructions
-    # before sent to the VM to execute.
-    # JumpToElse
-    # JumpToNextStatement
-
-    # Break
-    # LoopStart
-    # LoopEnd
-
-    # reg + default
-    Add
-    # reg - default
-    Sub
-    Mul
-    Div
-    Pow
-    Mod
-    Eq
-    Neq
-    Lt
-    Le
-    Gt
-    Ge
-    And
-    Or
-    Not
-    # BitAnd
-    # BitOr
-    # BitXor
-
-    # Function(fn)
-    Function
-    # Arguments(reg): create an arguments object and store in register <reg>
-    Arguments
-
-    # Call(target reg, args reg)
-    Call
-    # CallEnd
-
-  Instruction* = ref object
-    case kind*: InstrType
-    else:
-      discard
-    reg*: int       # Optional: Default register
-    reg2*: int      # Optional: Second register
-    val*: GeneValue # Optional: Default immediate value
-
-  Block* = ref object
-    id*: Oid
-    name*: string
-    instructions*: seq[Instruction]
-    ## This is not needed after compilation
-    reg_mgr*: RegManager
-
-  Module* = ref object
-    id*: Oid
-    blocks*: Table[Oid, Block]
-    default*: Block
-    # TODO: support (main ...)
-    # main_block* Block
-
   Compiler* = ref object
     module*: Module
     cur_block: Block
-
-  RegManager* = ref object
-    next*: int
-    freed*: HashSet[int]
 
   IfState = enum
     ## Initial state
@@ -142,6 +35,8 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
+
+proc compile_fn_body*(self: var Compiler, fn: Function): Block
 
 #################### Instruction #################
 
@@ -183,6 +78,9 @@ proc instr_set_item*(reg: int, index: int): Instruction =
 proc instr_add*(reg, reg2: int): Instruction =
   return Instruction(kind: Add, reg: reg, reg2: reg2)
 
+proc instr_sub*(reg, reg2: int): Instruction =
+  return Instruction(kind: Sub, reg: reg, reg2: reg2)
+
 proc instr_lt*(reg, reg2: int): Instruction =
   return Instruction(kind: Lt, reg: reg, reg2: reg2)
 
@@ -193,25 +91,30 @@ proc instr_jump_if_false*(pos: int): Instruction =
   return Instruction(kind: JumpIfFalse, val: new_gene_int(pos))
 
 proc instr_function*(fn: Function): Instruction =
-  return Instruction(kind: Function, val: new_gene_internal(fn))
+  return Instruction(kind: CreateFunction, val: new_gene_internal(fn))
 
 proc instr_arguments*(reg: int): Instruction =
-  return Instruction(kind: Arguments, reg: reg, val: new_gene_arguments())
+  return Instruction(kind: CreateArguments, reg: reg, val: new_gene_arguments())
 
 proc instr_call*(reg: int): Instruction =
   return Instruction(kind: Call, reg: reg)
+
+proc instr_call_end*(): Instruction =
+  return Instruction(kind: CallEnd)
 
 proc `$`*(instr: Instruction): string =
   case instr.kind
   of Default, Jump, JumpIfFalse:
     return "$# $#" % [$instr.kind, $instr.val]
+  of GetMember:
+    return "$# $#" % [$instr.kind, $instr.val.str]
   of Call:
     return "$# $#" % [$instr.kind, "R" & $instr.reg]
   of Save, SetItem:
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.val]
   of Copy, Add, Lt:
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, "R" & $instr.reg2]
-  of Function:
+  of CreateFunction:
     return "$# $#" % [$instr.kind, $instr.val.internal.fn.name]
   else:
     return $instr.kind
@@ -276,13 +179,19 @@ proc compile*(self: var Compiler, buffer: string): Module =
   self.module.set_default(blk)
   return self.module
 
+proc compile_fn_body*(self: var Compiler, fn: Function): Block =
+  result = new_block()
+  for node in fn.body:
+    self.compile(result, node)
+  result.instructions.add(instr_call_end())
+
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
   node.normalize
 
   case node.op.kind:
   of GeneSymbol:
     case node.op.symbol:
-    of "+", "<":
+    of "+", "-", "<":
       var first = node.list[0]
       var second = node.list[1]
       self.compile_binary(blk, first, node.op.symbol, second)
@@ -371,6 +280,8 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
     body.add node.list[i]
 
   var fn = new_fn(name, args, body)
+  var body_block = self.compile_fn_body(fn)
+  fn.body_block = body_block
   blk.add(instr_function(fn))
 
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
@@ -411,6 +322,7 @@ proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: s
   self.compile(blk, second)
   case op:
   of "+": blk.add(instr_add(reg, 0))
+  of "-": blk.add(instr_sub(reg, 0))
   of "<": blk.add(instr_lt(reg, 0))
   else:
     todo()

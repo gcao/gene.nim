@@ -1,4 +1,4 @@
-import strutils
+import strutils, oids, sets, tables
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -9,10 +9,117 @@ const BINARY_OPS* = [
 ]
 
 type
+  InstrType* = enum
+    Init
+
+    # # Save Value to default register
+    Default
+    # Save Value to a register
+    Save
+    # Copy from one register to another
+    Copy
+
+    DefMember
+    # DefMemberInScope(String)
+    # DefMemberInNS(String)
+    GetMember
+    # GetMemberInScope(String)
+    # GetMemberInNS(String)
+    # SetMember(String)
+    # SetMemberInScope(String)
+    # SetMemberInNS(String)
+
+    # GetItem(target reg, index)
+    # GetItem(u16, usize)
+    # GetItemDynamic(target reg, index reg)
+    # GetItemDynamic(String, String)
+    # SetItem(target reg, index, value reg)
+    SetItem
+    # SetItem(u16, usize)
+    # SetItemDynamic(target reg, index reg, value reg)
+    # SetItemDynamic(String, String, String)
+
+    # GetProp(target reg, name)
+    # GetProp(String, String)
+    # GetPropDynamic(target reg, name reg)
+    # GetPropDynamic(String, String)
+    # SetProp(target reg, name, value reg)
+    # SetProp(u16, String)
+    # SetPropDynamic(target reg, name reg, value reg)
+    # SetPropDynamic(String, String, String)
+
+    Jump
+    JumpIfFalse
+    # Below are pseudo instructions that should be replaced with other jump instructions
+    # before sent to the VM to execute.
+    # JumpToElse
+    # JumpToNextStatement
+
+    # Break
+    # LoopStart
+    # LoopEnd
+
+    # reg + default
+    Add
+    # reg - default
+    Sub
+    Mul
+    Div
+    Pow
+    Mod
+    Eq
+    Neq
+    Lt
+    Le
+    Gt
+    Ge
+    And
+    Or
+    Not
+    # BitAnd
+    # BitOr
+    # BitXor
+
+    # Function(fn)
+    CreateFunction
+    # Arguments(reg): create an arguments object and store in register <reg>
+    CreateArguments
+
+    # Call(target reg, args reg)
+    Call
+    CallEnd
+
+  Instruction* = ref object
+    case kind*: InstrType
+    else:
+      discard
+    reg*: int       # Optional: Default register
+    reg2*: int      # Optional: Second register
+    val*: GeneValue # Optional: Default immediate value
+
+  Block* = ref object
+    id*: Oid
+    name*: string
+    instructions*: seq[Instruction]
+    ## This is not needed after compilation
+    reg_mgr*: RegManager
+
+  RegManager* = ref object
+    next*: int
+    freed*: HashSet[int]
+
+  Module* = ref object
+    id*: Oid
+    blocks*: Table[Oid, Block]
+    default*: Block
+    # TODO: support (main ...)
+    # main_block* Block
+
   Function* = ref object
     name*: string
     args*: seq[string]
     body*: seq[GeneValue]
+    body_block*: Block
 
   Arguments* = ref object
     positional*: seq[GeneValue]

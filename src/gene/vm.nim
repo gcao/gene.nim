@@ -12,6 +12,12 @@ type
   VM* = ref object
     root_ns*: Namespace
     cur_stack*: Stack
+    cur_block*: Block
+    pos*: int
+
+  Caller* = ref object
+    stack*: Stack
+    blk*: Block
     pos*: int
 
   Namespace* = ref object
@@ -24,6 +30,7 @@ type
     cur_scope*: Scope
     registers: array[CORE_REGISTERS, GeneValue]
     more_regs: seq[GeneValue]
+    caller*: Caller
 
   Scope* = ref object
     parent*: Scope
@@ -110,3 +117,8 @@ proc `[]`*(self: VM, key: string): GeneValue =
     return self.cur_stack.cur_scope[key]
   else:
     return self.cur_stack.cur_ns[key]
+
+#################### Caller ######################
+
+proc new_caller*(stack: Stack, blk: Block, pos: int): Caller =
+  return Caller(stack: stack, blk: blk, pos: pos)
