@@ -9,6 +9,8 @@ import gene/types
 import gene/vm
 import gene/parser
 import gene/interpreter
+import gene/compiler
+import gene/cpu
 
 var running_mode = RunningMode.Interpreted
 var file: string
@@ -37,11 +39,19 @@ proc main() =
     todo("REPL Support")
   else:
     var vm = new_vm()
-    let parsed = read_all(readFile(file))
-    let start = cpuTime()
-    let result = vm.eval(parsed)
-    echo "Time: " & $(cpuTime() - start)
-    echo result.num
+    if running_mode == Interpreted:
+      let parsed = read_all(readFile(file))
+      let start = cpuTime()
+      let result = vm.eval(parsed)
+      echo "Time: " & $(cpuTime() - start)
+      echo result.num
+    else:
+      var c = new_compiler()
+      var module = c.compile(readFile(file))
+      let start = cpuTime()
+      let result = vm.run(module)
+      echo "Time: " & $(cpuTime() - start)
+      echo result.num
 
 when isMainModule:
   main()
