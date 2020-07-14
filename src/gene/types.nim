@@ -1,10 +1,130 @@
-import strutils
+import strutils, oids, sets, tables
+
+const BINARY_OPS* = [
+  "+", "-", "*", "/",
+  "=", "+=", "-=", "*=", "/=",
+  "==", "!=", "<", "<=", ">", ">=",
+  "&&", "||", # TODO: xor
+  "&",  "|",  # TODO: xor for bit operation
+]
 
 type
+  RunningMode* = enum
+    Interpreted
+    Compiled
+    # Mixed
+
+  InstrType* = enum
+    Init
+
+    # # Save Value to default register
+    Default
+    # Save Value to a register
+    Save
+    # Copy from one register to another
+    Copy
+
+    DefMember
+    # DefMemberInScope(String)
+    # DefMemberInNS(String)
+    GetMember
+    # GetMemberInScope(String)
+    # GetMemberInNS(String)
+    # SetMember(String)
+    # SetMemberInScope(String)
+    # SetMemberInNS(String)
+
+    # GetItem(target reg, index)
+    # GetItem(u16, usize)
+    # GetItemDynamic(target reg, index reg)
+    # GetItemDynamic(String, String)
+    # SetItem(target reg, index, value reg)
+    SetItem
+    # SetItem(u16, usize)
+    # SetItemDynamic(target reg, index reg, value reg)
+    # SetItemDynamic(String, String, String)
+
+    # GetProp(target reg, name)
+    # GetProp(String, String)
+    # GetPropDynamic(target reg, name reg)
+    # GetPropDynamic(String, String)
+    # SetProp(target reg, name, value reg)
+    # SetProp(u16, String)
+    # SetPropDynamic(target reg, name reg, value reg)
+    # SetPropDynamic(String, String, String)
+
+    Jump
+    JumpIfFalse
+    # Below are pseudo instructions that should be replaced with other jump instructions
+    # before sent to the VM to execute.
+    # JumpToElse
+    # JumpToNextStatement
+
+    # Break
+    # LoopStart
+    # LoopEnd
+
+    # reg + default
+    Add
+    # reg - default
+    Sub
+    Mul
+    Div
+    Pow
+    Mod
+    Eq
+    Neq
+    Lt
+    Le
+    Gt
+    Ge
+    And
+    Or
+    Not
+    # BitAnd
+    # BitOr
+    # BitXor
+
+    # Function(fn)
+    CreateFunction
+    # Arguments(reg): create an arguments object and store in register <reg>
+    CreateArguments
+
+    # Call(target reg, args reg)
+    Call
+    CallEnd
+
+  Instruction* = ref object
+    case kind*: InstrType
+    else:
+      discard
+    reg*: int       # Optional: Default register
+    reg2*: int      # Optional: Second register
+    val*: GeneValue # Optional: Default immediate value
+
+  Block* = ref object
+    id*: Oid
+    name*: string
+    instructions*: seq[Instruction]
+    ## This is not needed after compilation
+    reg_mgr*: RegManager
+
+  RegManager* = ref object
+    next*: int
+    freed*: HashSet[int]
+
+  Module* = ref object
+    id*: Oid
+    blocks*: Table[Oid, Block]
+    default*: Block
+    # TODO: support (main ...)
+    # main_block* Block
+
   Function* = ref object
     name*: string
     args*: seq[string]
     body*: seq[GeneValue]
+    body_block*: Block
 
   Arguments* = ref object
     positional*: seq[GeneValue]
@@ -112,9 +232,37 @@ type
     comments*: seq[Comment]
 
   GeneDocument* = ref object
-    ## Name or path of the document
-    name: string
-    data: seq[GeneValue]
+    name*: string
+    path*: string
+    data*: seq[GeneValue]
+
+let
+  GeneNil*   = GeneValue(kind: GeneNilKind)
+  GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
+  GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+
+#################### Function ####################
+
+proc new_fn*(name: string, args: seq[string], body: seq[GeneValue]): Function =
+  return Function(name: name, args: args, body: body)
+
+#################### Arguments ###################
+
+proc new_args*(): Arguments =
+  return Arguments(positional: @[])
+
+proc new_args*(args: seq[GeneValue]): Arguments =
+  return Arguments(positional: args)
+
+proc `[]`*(self: Arguments, i: int): GeneValue =
+  return self.positional[i]
+
+proc `[]=`*(self: Arguments, i: int, val: GeneValue) =
+  while i >= self.positional.len:
+    self.positional.add(GeneNil)
+  self.positional[i] = val
+
+#################### GeneValue ###################
 
 proc `==`*(this, that: GeneValue): bool =
   if this.is_nil:
@@ -161,12 +309,32 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneInternal:
       return this.internal == that.internal
 
-## ============== NEW OBJ FACTORIES =================
+proc `$`*(node: GeneValue): string =
+  case node.kind
+  of GeneNilKind:
+    result = "nil"
+  of GeneBool:
+    result = $(node.boolVal)
+  of GeneInt:
+    result = $(node.num)
+  of GeneKeyword:
+    if node.is_namespaced:
+      result = "::" & node.keyword.name
+    elif node.keyword.ns == "":
+      result = ":" & node.keyword.name
+    else:
+      result = ":" & node.keyword.ns & "/" & node.keyword.name
+  of GeneSymbol:
+    result = node.symbol
+  of GeneComplexSymbol:
+    if node.csymbol.ns == "":
+      result = node.csymbol.name
+    else:
+      result = node.csymbol.ns & "/" & node.csymbol.name
+  else:
+    result = $node.kind
 
-let
-  gene_nil*  = GeneValue(kind: GeneNilKind)
-  gene_true*  = GeneValue(kind: GeneBool, bool_val: true)
-  gene_false* = GeneValue(kind: GeneBool, bool_val: false)
+## ============== NEW OBJ FACTORIES =================
 
 proc new_gene_string_move*(s: string): GeneValue =
   result = GeneValue(kind: GeneString)
@@ -192,8 +360,8 @@ proc new_gene_float*(val: float): GeneValue =
 
 proc new_gene_bool*(val: bool): GeneValue =
   case val
-  of true: return gene_true
-  of false: return gene_false
+  of true: return GeneTrue
+  of false: return GeneFalse
   # of true: return GeneValue(kind: GeneBool, boolVal: true)
   # of false: return GeneValue(kind: GeneBool, boolVal: false)
 
@@ -216,12 +384,21 @@ proc new_gene_keyword*(name: string): GeneValue =
 proc new_gene_internal*(value: Internal): GeneValue =
   return GeneValue(kind: GeneInternal, internal: value)
 
+proc new_gene_internal*(fn: Function): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneFunction, fn: fn),
+  )
+
+proc new_gene_arguments*(): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneArguments, args: new_args()),
+  )
+
 ### === VALS ===
 
 let
-  GeneNil*: GeneValue  = gene_nil
-  GeneTrue*: GeneValue  = gene_true
-  GeneFalse*: GeneValue = gene_false
   KeyTag*: GeneValue   = new_gene_keyword("", "tag")
   CljTag*: GeneValue   = new_gene_keyword("", "clj")
   CljsTag*: GeneValue  = new_gene_keyword("", "cljs")
@@ -234,6 +411,12 @@ let
 proc todo*() =
   raise newException(Exception, "TODO")
 
+proc todo*(message: string) =
+  raise newException(Exception, "TODO: " & message)
+
+proc not_allowed*() =
+  raise newException(Exception, "Error: should not arrive here.")
+
 #################### GeneValue ###################
 
 proc is_truthy*(self: GeneValue): bool =
@@ -245,13 +428,18 @@ proc is_truthy*(self: GeneValue): bool =
   else:
     return true
 
-#################### Arguments ###################
+proc normalize*(self: GeneValue) =
+  if self.list.len == 0:
+    return
+  var first = self.list[0]
+  if first.kind == GeneSymbol:
+    if first.symbol in BINARY_OPS:
+      var op = self.op
+      self.list.delete 0
+      self.list.insert op, 0
+      self.op = first
 
-proc new_args*(): Arguments =
-  return Arguments(positional: @[])
+#################### Document ###################
 
-proc new_args*(args: seq[GeneValue]): Arguments =
-  return Arguments(positional: args)
-
-proc `[]`*(self: Arguments, i: int): GeneValue =
-  return self.positional[i]
+proc new_doc*(data: seq[GeneValue]): GeneDocument =
+  return GeneDocument(data: data)

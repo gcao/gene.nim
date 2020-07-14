@@ -2,7 +2,8 @@ import sequtils
 
 import ./types
 import ./parser
-import ./vm_types
+import ./vm
+import ./compiler
 
 type
   IfState = enum
@@ -32,12 +33,11 @@ proc eval_gene*(self: var VM, node: GeneValue): GeneValue
 proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
 proc eval_fn*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
-proc normalize*(node: GeneValue)
 
 #################### Implementations #############
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
-  normalize(node)
+  node.normalize
   var op = node.op
   case op.kind:
   of GeneSymbol:
@@ -152,7 +152,7 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
     for item in a.vec:
       args.add(item.symbol)
   else:
-    todo()
+    not_allowed()
   var body: seq[GeneValue] = @[]
   for i in 2..<node.list.len:
     body.add node.list[i]
@@ -160,9 +160,9 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)
   result = new_gene_internal(internal)
-  self.cur_ns[name] = result
+  self.cur_stack.cur_ns[name] = result
 
-proc call(self: var VM, fn: Function, args: Arguments): GeneValue =
+proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
   for i in 0..<fn.args.len:
@@ -201,22 +201,3 @@ proc eval*(self: var VM, buffer: string): GeneValue =
   var parsed = read_all(buffer)
   for node in parsed:
     result = self.eval node
-
-const BINARY_OPS = [
-  "+", "-", "*", "/",
-  "=", "+=", "-=", "*=", "/=",
-  "==", "!=", "<", "<=", ">", ">=",
-  "&&", "||", # TODO: xor
-  "&",  "|",  # TODO: xor for bit operation
-]
-
-proc normalize(node: GeneValue) =
-  if node.list.len == 0:
-    return
-  var first = node.list[0]
-  if first.kind == GeneSymbol:
-    if first.symbol in BINARY_OPS:
-      var op = node.op
-      node.list.delete 0
-      node.list.insert op, 0
-      node.op = first
