@@ -4,7 +4,7 @@
 # import nimprof
 # setSamplingFrequency(1)
 
-import times, parseopt, strutils
+import times, parseopt, strutils, logging
 
 import gene/types
 import gene/vm
@@ -13,8 +13,9 @@ import gene/interpreter
 import gene/compiler
 import gene/cpu
 
-var running_mode = RunningMode.Interpreted
 var file: string
+var running_mode = RunningMode.Interpreted
+var debugging = false
 
 proc parseOptions() =
   for kind, key, value in getOpt():
@@ -27,17 +28,58 @@ proc parseOptions() =
       of "mode", "m":
         if value.cmpIgnoreCase("compiled") == 0:
           running_mode = RunningMode.Compiled
+      of "d":
+        debugging = true
       else:
         echo "Unknown option: ", key
 
     of cmdEnd:
       discard
 
+proc setupLogger() =
+  var consoleLogger = newConsoleLogger()
+  addHandler(consoleLogger)
+  consoleLogger.levelThreshold = Level.lvlInfo
+  if debugging:
+    consoleLogger.levelThreshold = Level.lvlDebug
+
+proc quit_with*(errorcode: int, newline = false) =
+  if newline:
+    echo ""
+  echo "Good bye!"
+  quit(errorcode)
+
 proc main() =
   parseOptions()
+  setupLogger()
 
   if file == "":
-    todo("REPL Support")
+    echo "Welcome to interactive Gene!"
+    echo "Note: press Ctrl-D to exit."
+
+    if debugging:
+      echo "The logger level is set to DEBUG."
+
+    var vm = new_vm()
+    while true:
+      write(stdout, "Gene> ")
+      try:
+        var s = readLine(stdin)
+        case s:
+        of "": continue
+        else: discard
+
+        let r = vm.eval(s)
+        case r.kind:
+        else:
+          writeLine(stdout, r)
+      except EOFError:
+        quit_with(0, true)
+      except Exception as e:
+        var s = e.getStackTrace()
+        s.stripLineEnd
+        echo s
+        echo "$#: $#" % [$e.name, $e.msg]
   else:
     var vm = new_vm()
     if running_mode == Interpreted:
