@@ -2,6 +2,7 @@
 # Compiles with --profiler:on and a report will automatically be generated
 # nimble build -d:release --profiler:on
 # import nimprof
+# setSamplingFrequency(1)
 
 import times, parseopt, strutils
 
