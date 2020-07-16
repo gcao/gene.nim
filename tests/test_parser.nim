@@ -229,7 +229,7 @@ test "Parser":
   check node.map_meta[new_gene_keyword("", "k")].get() == new_gene_int(1)
 
   let hh = new_hmap()
-  hh[new_gene_keyword("", "foo")] = gene_true
+  hh[new_gene_keyword("", "foo")] = GeneTrue
   check hh[new_gene_keyword("", "foo")].get() == new_gene_bool(true)
 
   node = read("^ :foo []")

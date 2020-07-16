@@ -1,7 +1,7 @@
 # To run these tests, simply execute `nimble test`.
 
 import gene/types
-import ./test_helper
+import ./common
 
 test_compiler "1",
   new_gene_int(1)
