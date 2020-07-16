@@ -259,11 +259,11 @@ test "Parser":
   node = read("#_ [foo bar]")
   check node == nil
 
-  node = read("#{foo whateve 1}")
+  node = read("#[foo whateve 1]")
   check node.kind == GeneSet
   check node.set_elems.count == 3
 
-  node = read("#{}")
+  node = read("#[]")
   check node.kind == GeneSet
   check node.set_elems.count == 0
 
@@ -298,14 +298,14 @@ test "Parser":
   init_gene_readers(opts)
 
   # # conditional compilation exprs
-  # node = read("#+clj #{foo}")
+  # node = read("#+clj #[foo]")
   # check node.tag == ("", "+clj")
   # check node.kind == GeneTaggedValue
   # check node.value.kind == GeneSet
 
   # opts.conditional_exprs = cljSource
   # init_gene_readers(opts)
-  # node = read("#+clj #{foo}")
+  # node = read("#+clj #[foo]")
   # check node.kind == GeneSet
   # node = read("#+cljs {}")
   # check node == nil

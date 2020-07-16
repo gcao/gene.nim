@@ -625,7 +625,7 @@ proc read_vector(p: var Parser): GeneValue =
 
 proc read_set(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneSet)
-  let list_result = read_delimited_list(p, '}', true)
+  let list_result = read_delimited_list(p, ']', true)
   var elements = list_result.list
   discard maybe_add_comments(result, list_result)
   var i = 0
@@ -916,7 +916,7 @@ proc init_macro_array() =
 proc init_dispatch_macro_array() =
   dispatch_macros['^'] = read_metadata
   dispatch_macros[':'] = read_ns_map
-  dispatch_macros['{'] = read_set
+  dispatch_macros['['] = read_set
   # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard
   dispatch_macros['('] = read_anonymous_fn
