@@ -189,8 +189,8 @@ proc read_string(p: var Parser): GeneValue =
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
   result = GeneValue(kind: GeneGene)
-  result.op = new_gene_symbol(quote_name)
-  result.data = @[quoted]
+  result.gene_op = new_gene_symbol(quote_name)
+  result.gene_data = @[quoted]
 
 proc read_quoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "quote")
@@ -379,7 +379,7 @@ proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement
   else: node.comments.add(co)
 
 type DelimitedListResult = object
-  data: seq[GeneValue]
+  list: seq[GeneValue]
   comment_lines: seq[string]
   comment_placement: CommentPlacement
 
@@ -515,7 +515,7 @@ proc read_delimited_list(
   else:
     result.comment_lines = comment_lines
     result.comment_placement = Inside
-  result.data = list
+  result.list = list
 
 proc add_line_col_meta(p: var Parser, node: var GeneValue): void =
   let m = new_hmap()
@@ -537,9 +537,9 @@ proc read_list(p: var Parser): GeneValue =
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col_meta(p, result)
-  result.op = read_gene_op(p)
+  result.gene_op = read_gene_op(p)
   var result_list = read_delimited_list(p, ')', true)
-  result.data = result_list.data
+  result.gene_data = result_list.list
   discard maybe_add_comments(result, result_list)
 
 const
@@ -548,7 +548,7 @@ const
 proc read_map(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneMap)
   var list_result = read_delimited_list(p, '}', true)
-  var list = list_result.data
+  var list = list_result.list
   var index = 0
   if (list.len and 1) == 1:
     for x in list:
@@ -585,7 +585,7 @@ proc read_ns_map(p: var Parser): GeneValue =
     raise new_exception(ParseError, "Namespaced map must specify a map")
   inc(p.bufpos)
   let list_result = read_delimited_list(p, '}', true)
-  let list = list_result.data
+  let list = list_result.list
   if (list.len and 1) == 1:
     raise new_exception(ParseError, NS_MAP_EVEN)
   var
@@ -620,13 +620,13 @@ proc read_ns_map(p: var Parser): GeneValue =
 proc read_vector(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneVector)
   let list_result = read_delimited_list(p, ']', true)
-  result.vec = list_result.data
+  result.vec = list_result.list
   discard maybe_add_comments(result, list_result)
 
 proc read_set(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneSet)
   let list_result = read_delimited_list(p, '}', true)
-  var elements = list_result.data
+  var elements = list_result.list
   discard maybe_add_comments(result, list_result)
   var i = 0
   # TODO: hmap_capacity(len(elements))
@@ -639,15 +639,15 @@ proc read_anonymous_fn*(p: var Parser): GeneValue =
   # TODO: extract arglist from fn body
   result = GeneValue(kind: GeneGene)
   var arglist = GeneValue(kind: GeneVector, vec:  @[])
-  result.data = @[new_gene_symbol("fn")]
+  result.gene_data = @[new_gene_symbol("fn")]
   # remember this one came from a macro
   let meta = new_hmap()
   meta[new_gene_keyword("", "from-reader-macro")] = new_gene_bool(true)
   result.gene_meta = meta
 
   var list_result = read_delimited_list(p, ')', true)
-  for item in list_result.data:
-    result.data.add(item)
+  for item in list_result.list:
+    result.gene_data.add(item)
   discard maybe_add_comments(result, list_result)
   return result
 
@@ -674,14 +674,14 @@ proc read_reader_conditional(p: var Parser): GeneValue =
   var
     i = 0
     m = new_hmap()
-  while i <= exp.data.high:
-    let feature = exp.data[i]
+  while i <= exp.gene_data.high:
+    let feature = exp.gene_data[i]
     if feature.kind != GeneKeyword:
       raise new_exception(ParseError, READER_COND_FEAT_KW & $feature.kind & " line " & $p.line_number)
     inc(i)
     var val: GeneValue
-    if i <= exp.data.high:
-      val = exp.data[i]
+    if i <= exp.gene_data.high:
+      val = exp.gene_data[i]
       # TODO: does not verify if we're trying to splice at toplevel
       if is_spliced and (val.kind != GeneVector):
         raise new_exception(ParseError, "Trying to splice a conditional expression with: " & $val.kind & ", element " & $i)
@@ -846,9 +846,9 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
   of GeneGene:
-    if node.op != nil:
-      h = h !& hash(node.op)
-    h = h !& hash(node.data)
+    if node.gene_op != nil:
+      h = h !& hash(node.gene_op)
+    h = h !& hash(node.gene_data)
   of GeneMap:
     for entry in node.map:
       h = h !& hash(entry.key)

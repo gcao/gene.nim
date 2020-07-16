@@ -188,13 +188,13 @@ proc compile_fn_body*(self: var Compiler, fn: Function): Block =
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
   node.normalize
 
-  case node.op.kind:
+  case node.gene_op.kind:
   of GeneSymbol:
-    case node.op.symbol:
+    case node.gene_op.symbol:
     of "+", "-", "<":
-      var first = node.data[0]
-      var second = node.data[1]
-      self.compile_binary(blk, first, node.op.symbol, second)
+      var first = node.gene_data[0]
+      var second = node.gene_data[1]
+      self.compile_binary(blk, first, node.gene_op.symbol, second)
     of "if":
       self.compile_if(blk, node)
     of "fn":
@@ -215,7 +215,7 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
   var jump_next: seq[Instruction]
 
   var state = IfState.If
-  for node in node.data:
+  for node in node.gene_data:
     case state:
     of IfState.If, IfState.ElseIf:
       # node is conditon
@@ -257,16 +257,16 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
         instr.val.num = next_pos
 
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue) =
-  if node.data.len > 1:
-    self.compile(blk, node.data[1])
+  if node.gene_data.len > 1:
+    self.compile(blk, node.gene_data[1])
   else:
     blk.add(instr_default(GeneNil))
-  blk.add(instr_def_member(node.data[0].symbol))
+  blk.add(instr_def_member(node.gene_data[0].symbol))
 
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
-  var name = node.data[0].symbol
+  var name = node.gene_data[0].symbol
   var args: seq[string] = @[]
-  var a = node.data[1]
+  var a = node.gene_data[1]
   case a.kind:
   of GeneSymbol:
     args.add(a.symbol)
@@ -276,8 +276,8 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
   else:
     not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.data.len:
-    body.add node.data[i]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
 
   var fn = new_fn(name, args, body)
   var body_block = self.compile_fn_body(fn)
@@ -285,13 +285,13 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
   blk.add(instr_function(fn))
 
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
-  self.compile(blk, node.op)
+  self.compile(blk, node.gene_op)
   var target_reg = blk.reg_mgr.get
   blk.add(instr_copy(0, target_reg))
   var args_reg = blk.reg_mgr.get
   blk.add(instr_arguments(args_reg))
-  for i in 0..<node.data.len:
-    var child = node.data[i]
+  for i in 0..<node.gene_data.len:
+    var child = node.gene_data[i]
     self.compile(blk, child)
     blk.add(instr_set_item(args_reg, i))
   blk.add(instr_copy(target_reg, 0))

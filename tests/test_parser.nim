@@ -39,7 +39,7 @@ test "Parser":
 
   node = read("(1 2 3)")
   check node.kind == GeneGene
-  check node.list.len == 2
+  check node.gene_data.len == 2
 
   node = read("""
     (
@@ -70,7 +70,7 @@ test "Parser":
       ())
     """, opts)
     check node.kind == GeneGene
-    check node.op.comments.len > 0
+    check node.gene_op.comments.len > 0
 
     node = read("""
       ;; this is a comment
@@ -140,7 +140,7 @@ test "Parser":
   """)
   check node.kind == GeneGene
   check node.comments.len == 0
-  check node.list[1].comments.len == 0
+  check node.gene_data[1].comments.len == 0
 
   node = read("1")
   check node.kind == GeneInt
@@ -151,20 +151,20 @@ test "Parser":
   check node.num == -1
 
   node = read("()")
-  check node.op == nil
+  check node.gene_op == nil
   check node.kind == GeneGene
-  check node.list.len == 0
+  check node.gene_data.len == 0
 
   node = read("(1)")
-  check node.op == GeneValue(kind: GeneInt, num: 1)
+  check node.gene_op == GeneValue(kind: GeneInt, num: 1)
   check node.kind == GeneGene
-  check node.list.len == 0
+  check node.gene_data.len == 0
 
   node = read("(())")
   check node.kind == GeneGene
-  check node.list.len == 0
-  check node.op.kind == GeneGene
-  check node.op.list.len == 0
+  check node.gene_data.len == 0
+  check node.gene_op.kind == GeneGene
+  check node.gene_op.gene_data.len == 0
 
   node = read("nil")
   check node.kind == GeneNilKind
@@ -197,7 +197,7 @@ test "Parser":
 
   node = read("'foo") # -> (quote foo)
   check node.kind == GeneGene
-  check node.op == new_gene_symbol("quote")
+  check node.gene_op == new_gene_symbol("quote")
 
   node = read("{}")
   check node.kind == GeneMap
@@ -241,9 +241,9 @@ test "Parser":
   # TODO
   # node = read("^foo (1 2 3)")
   # check node.kind == GeneGene
-  # check node.list.len == 2
-  # check node.list_meta.count == 1
-  # check node.list_meta[KeyTag].get() == new_gene_complex_symbol("", "foo")
+  # check node.gene_data.len == 2
+  # check node.gene_meta.count == 1
+  # check node.gene_meta[KeyTag].get() == new_gene_complex_symbol("", "foo")
 
   node = read("^\"foo\" Symbol")
   check node.kind == GeneSymbol
