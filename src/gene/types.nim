@@ -331,6 +331,12 @@ proc `$`*(node: GeneValue): string =
       result = node.csymbol.name
     else:
       result = node.csymbol.ns & "/" & node.csymbol.name
+  of GeneInternal:
+    case node.internal.kind:
+    of GeneFunction:
+      result = "(fn $# ...)" % [node.internal.fn.name]
+    else:
+      result = "GeneInternal"
   else:
     result = $node.kind
 
