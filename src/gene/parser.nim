@@ -16,9 +16,6 @@ type
     errEofExpected,
     errQuoteExpected
 
-  ConditionalExpressionsHandling* = enum
-    asError, asTagged, cljSource, cljsSource
-
   CommentsHandling* = enum
     discardComments, keepComments
 
@@ -26,7 +23,6 @@ type
     eof_is_error*: bool
     eof_value*: GeneValue
     suppress_read*: bool
-    conditional_exprs*: ConditionalExpressionsHandling
     comments_handling*: CommentsHandling
 
   Parser* = object of BaseLexer
@@ -81,8 +77,6 @@ iterator items*(m: HMap): HMapEntry =
         yield entry
 
 proc merge_maps*(m1, m2 :HMap): void
-
-proc add_meta*(node: GeneValue, meta: HMap): GeneValue
 
 ### === ERROR HANDLING UTILS ===
 
@@ -517,11 +511,10 @@ proc read_delimited_list(
     result.comment_placement = Inside
   result.list = list
 
-proc add_line_col_meta(p: var Parser, node: var GeneValue): void =
+proc add_line_col(p: var Parser, node: var GeneValue): void =
   let m = new_hmap()
   node.line = p.line_number
   node.column = getColNumber(p, p.bufpos)
-  discard add_meta(node, m)
 
 proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): GeneValue =
   if list_result.comment_lines.len > 0:
@@ -536,7 +529,7 @@ proc read_list(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneGene)
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
-  add_line_col_meta(p, result)
+  add_line_col(p, result)
   result.gene_op = read_gene_op(p)
   var result_list = read_delimited_list(p, ')', true)
   result.gene_data = result_list.list
@@ -566,7 +559,7 @@ proc read_map(p: var Parser): GeneValue =
     while i <= list.high - 1:
       result.map[list[i]] = list[i+1]
       i = i + 2
-  add_line_col_meta(p, result)
+  add_line_col(p, result)
   discard maybe_add_comments(result, list_result)
 
 const
@@ -634,191 +627,6 @@ proc read_set(p: var Parser): GeneValue =
   while i <= elements.high:
     result.set_elems[elements[i]] = new_gene_bool(true)
     inc(i)
-    
-proc read_anonymous_fn*(p: var Parser): GeneValue =
-  # TODO: extract arglist from fn body
-  result = GeneValue(kind: GeneGene)
-  var arglist = GeneValue(kind: GeneVector, vec:  @[])
-  result.gene_data = @[new_gene_symbol("fn")]
-  # remember this one came from a macro
-  let meta = new_hmap()
-  meta[new_gene_keyword("", "from-reader-macro")] = new_gene_bool(true)
-  result.gene_meta = meta
-
-  var list_result = read_delimited_list(p, ')', true)
-  for item in list_result.list:
-    result.gene_data.add(item)
-  discard maybe_add_comments(result, list_result)
-  return result
-
-proc safely_add_meta(node: GeneValue, meta: HMap): GeneValue
-
-const
-  READER_COND_MSG = "reader conditional should be a list: "
-  READER_COND_FEAT_KW = "feature should be a keyword: "
-  READER_COND_AS_TAGGED_ERR = "'asTagged' option not available for reader conditionals"
-
-proc read_reader_conditional(p: var Parser): GeneValue =
-  # '#? (:clj ...)'
-  let pos = p.bufpos
-  var is_spliced: bool
-  if p.buf[pos] == '@':
-    is_spliced = true
-    inc(p.bufpos)
-  else:
-    is_spliced = false
-
-  let exp = read(p)
-  if exp.kind != GeneGene:
-    raise new_exception(ParseError, READER_COND_MSG & $exp.kind)
-  var
-    i = 0
-    m = new_hmap()
-  while i <= exp.gene_data.high:
-    let feature = exp.gene_data[i]
-    if feature.kind != GeneKeyword:
-      raise new_exception(ParseError, READER_COND_FEAT_KW & $feature.kind & " line " & $p.line_number)
-    inc(i)
-    var val: GeneValue
-    if i <= exp.gene_data.high:
-      val = exp.gene_data[i]
-      # TODO: does not verify if we're trying to splice at toplevel
-      if is_spliced and (val.kind != GeneVector):
-        raise new_exception(ParseError, "Trying to splice a conditional expression with: " & $val.kind & ", element " & $i)
-      inc(i)
-    else:
-      let msg = format("No value for platform tag: $#, line $#", feature.keyword, feature.line)
-      raise new_exception(ParseError, msg)
-    m[feature] = val
-
-  let cond_exprs = p.options.conditional_exprs
-  case cond_exprs
-  of asError:
-    raise new_exception(ParseError, "Reader conditional occured")
-  of asTagged:
-    raise new_exception(ParseError, READER_COND_AS_TAGGED_ERR)
-  of cljSource:
-    let val = m[CljTag]
-    if is_some(val):
-      result = val.get
-    else: result = nil
-  of cljsSource:
-    let val = m[CljsTag]
-    if is_some(val):
-      result = val.get
-    else: result = nil
-
-  # try the :default case
-  if result == nil:
-    let default_val = m[DefaultTag]
-    if is_some(default_val):
-      result = default_val.get
-
-  #TODO: better handle splicing - new node type or sth else?
-  if result != nil and is_spliced:
-    var hmap = new_hmap()
-    hmap[SplicedQKw] = GeneTrue
-    discard add_meta(result, hmap)
-  
-  return result
-
-
-
-
-const META_CANNOT_APPLY_MSG =
-  "Metadata can be applied only to symbols, lists, vectors and map. Got :"
-
-proc add_meta*(node: GeneValue, meta: HMap): GeneValue =
-  case node.kind
-  of GeneSymbol:
-    node.symbol_meta = meta
-  of GeneGene:
-    node.gene_meta = meta
-  of GeneMap:
-    node.map_meta = meta
-  of GeneVector:
-    node.vec_meta = meta
-  else:
-    raise new_exception(ParseError, META_CANNOT_APPLY_MSG & $node.kind)
-  result = node
-
-proc get_meta*(node: GeneValue): HMap =
-  case node.kind
-  of GeneSymbol:
-    return node.symbol_meta
-  of GeneGene:
-    return node.gene_meta
-  of GeneMap:
-    return node.map_meta
-  of GeneVector:
-    return node.vec_meta
-  else:
-    raise new_exception(ParseError, "Given type does not support metadata")
-
-proc safely_add_meta(node: GeneValue, meta: HMap): GeneValue =
-  var node_meta = get_meta(node)
-  if node_meta == nil:
-    return add_meta(node, meta)
-  else:
-    merge_maps(node_meta, meta)
-    return node
-
-const META_INVALID_MSG =
-  "Metadata must be GeneSymbol, GeneKeyword, GeneString or GeneMap"
-
-proc read_metadata(p: var  Parser): GeneValue =
-  var m: HMap
-  let old_opts = p.options
-  p.options.eof_is_error = true
-  var meta = read(p)
-  case meta.kind
-  of GeneSymbol:
-    m = new_hmap()
-    m[KeyTag] = meta
-  of GeneKeyword:
-    m = new_hmap()
-    m[meta] = GeneTrue
-  of GeneString:
-    m = new_hmap()
-    m[KeyTag] = meta
-  of GeneMap:
-    m = meta.map
-  else:
-    p.options = old_opts
-    raise new_exception(ParseError, META_INVALID_MSG)
-  # read the actual data
-  try:
-    var node = read(p)
-    result = safely_add_meta(node, m) # need to make sure we don't overwrite
-  finally:
-    p.options = old_opts
-
-proc read_tagged(p: var Parser): GeneValue =
-  var node = read(p)
-  if node.kind != GeneComplexSymbol:
-    raise new_exception(ParseError, "tag should be a complex symbol: " & $node.kind)
-  result = GeneValue(kind: GeneTaggedValue, tag: node.csymbol, value: read(p))
-
-proc read_cond_as_tagged(p: var Parser): GeneValue =
-  # reads forms like #+clj foo as GeneTaggedValue
-  var tagged = read_tagged(p)
-  tagged.tag = ("", "+" & tagged.tag.name)
-  return tagged
-
-proc read_cond_matching(p: var Parser, tag: string): GeneValue =
-  var tagged = read_cond_as_tagged(p)
-  if tagged.kind == GeneTaggedValue:
-    if tagged.tag.name == tag:
-      return tagged.value
-    else:
-      return nil
-  raise new_exception(ParseError, "Expected a tagged value, got: " & $tagged.kind)
-
-proc read_cond_clj(p:var Parser): GeneValue =
-  return read_cond_matching(p, "+clj")
-
-proc read_cond_cljs(p:var Parser): GeneValue =
-  return read_cond_matching(p, "+cljs")
 
 proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
@@ -888,10 +696,7 @@ proc read_dispatch(p: var Parser): GeneValue =
     raise new_exception(ParseError, "EOF while reading dispatch macro")
   let m = dispatch_macros[ch]
   if m == nil:
-    if valid_utf8_alpha(ch):
-      result = read_tagged(p)
-    else:
-      raise  new_exception(ParseError, "No dispatch macro for: " & ch)
+    raise  new_exception(ParseError, "No dispatch macro for: " & ch)
   else:
     p.bufpos = pos + 1
     result = m(p)
@@ -904,7 +709,6 @@ proc init_macro_array() =
   macros['~'] = read_unquoted
   macros['@'] = read_deref
   macros['#'] = read_dispatch
-  macros['^'] = read_metadata
   macros['\\'] = read_character
   macros['('] = read_list
   macros['{'] = read_map
@@ -914,13 +718,10 @@ proc init_macro_array() =
   macros['}'] = read_unmatched_delimiter
 
 proc init_dispatch_macro_array() =
-  dispatch_macros['^'] = read_metadata
   dispatch_macros[':'] = read_ns_map
   dispatch_macros['['] = read_set
   # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard
-  dispatch_macros['('] = read_anonymous_fn
-  dispatch_macros['?'] = read_reader_conditional
   dispatch_macros['"'] = read_regex
 
 proc init_gene_readers() =
@@ -928,15 +729,7 @@ proc init_gene_readers() =
   init_dispatch_macro_array()
 
 proc init_gene_readers*(options: ParseOptions) =
-  case options.conditional_exprs
-  of asError:
-    discard # the default will throw on #+clj / #+cljs
-  of asTagged:
-    dispatch_macros['+'] = read_cond_as_tagged
-  of cljSource:
-    dispatch_macros['+'] = read_cond_clj
-  of cljsSource:
-    dispatch_macros['+'] = read_cond_cljs
+  discard
 
 init_gene_readers()
 
@@ -1140,7 +933,6 @@ proc read*(s: Stream, filename: string): GeneValue =
   var opts: ParseOptions
   opts.eof_is_error = true
   opts.suppress_read = false
-  opts.conditional_exprs = asError
   opts.comments_handling = discardComments
   p.options = opts
   p.open(s, filename)
@@ -1174,8 +966,3 @@ proc read*(buffer: string, options: ParseOptions): GeneValue =
   p.open(s, "*input*")
   defer: p.close()
   result = read(p)
-
-# DONE: handling cond forms that are returned as nil (e.g. ommited)
-# TODO: special comments handlers experimenting with literate progrmming
-# TODO: util method for reading strings but accepting ParseOpts
-# TODO: asTagged untested or not working? maybe drop?

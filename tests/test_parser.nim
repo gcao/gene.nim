@@ -55,7 +55,6 @@ test "Parser":
     var opts: ParseOptions
     opts.eof_is_error = true
     opts.suppress_read = false
-    opts.conditional_exprs = asError
     opts.comments_handling = keepComments
     node = read("""
       ;; this is a coment
@@ -221,35 +220,9 @@ test "Parser":
   check node.kind == GeneVector
   check node.vec.len == 4
 
-  node = read("^{:k 1} {}")
-  check node.kind == GeneMap
-  check node.map.count == 0
-  # TODO: define 'len' for HMap
-  check node.map_meta.count == 1
-  check node.map_meta[new_gene_keyword("", "k")].get() == new_gene_int(1)
-
   let hh = new_hmap()
   hh[new_gene_keyword("", "foo")] = GeneTrue
   check hh[new_gene_keyword("", "foo")].get() == new_gene_bool(true)
-
-  node = read("^ :foo []")
-  check node.kind == GeneVector
-  check node.vec.len == 0
-  check node.vec_meta.count == 1
-  check node.vec_meta[new_gene_keyword("", "foo")].get() == new_gene_bool(true)
-
-  # TODO
-  # node = read("^foo (1 2 3)")
-  # check node.kind == GeneGene
-  # check node.gene_data.len == 2
-  # check node.gene_meta.count == 1
-  # check node.gene_meta[KeyTag].get() == new_gene_complex_symbol("", "foo")
-
-  node = read("^\"foo\" Symbol")
-  check node.kind == GeneSymbol
-  check node.symbol == new_gene_symbol("Symbol").symbol
-  check node.symbol_meta[KeyTag].get().kind == GeneString
-  check node.symbol_meta[KeyTag].get().str == "foo"
 
   node = read("\"foo\"")
   check node.kind == GeneString
@@ -267,11 +240,6 @@ test "Parser":
   check node.kind == GeneSet
   check node.set_elems.count == 0
 
-  # node = read("#:foo {:x 1}")
-  # check node.kind == GeneMap
-  # check node.map.count == 1
-  # check node.map[new_gene_keyword("foo", "x")].get == new_gene_int(1)
-
   node = read("1/2")
   check node.kind == GeneRatio
   check node.rnum == (BiggestInt(1), BiggestInt(2))
@@ -280,71 +248,13 @@ test "Parser":
   check node.kind == GeneMap
   check node.map[new_gene_keyword("", "ratio")].get == new_gene_ratio(-1, 2)
 
-  # node = read("#foo.bar -1")
-  # check node.kind == GeneTaggedValue
-  # check node.value.kind == GeneInt
-  # check node.value == new_gene_int(-1)
-
-  # node = read("#foo.bar [1 2 \"balls\"]")
-  # check node.kind == GeneTaggedValue
-  # check node.value.kind == GeneVector
-
-  node = read("#(or % disabled)")
-  check node.kind == GeneGene
-
   # let's set up conditional forms reading
   var opts: ParseOptions
-  opts.conditional_exprs = asTagged
   init_gene_readers(opts)
-
-  # # conditional compilation exprs
-  # node = read("#+clj #[foo]")
-  # check node.tag == ("", "+clj")
-  # check node.kind == GeneTaggedValue
-  # check node.value.kind == GeneSet
-
-  # opts.conditional_exprs = cljSource
-  # init_gene_readers(opts)
-  # node = read("#+clj #[foo]")
-  # check node.kind == GeneSet
-  # node = read("#+cljs {}")
-  # check node == nil
-
-  # node = read("[1 2 #+cljs 3 4]")
-  # check node.kind == GeneVector
-  # check node.vec.len == 3
 
   var opts1: ParseOptions
   opts1.eof_is_error = true
   opts1.suppress_read = false
-  opts1.conditional_exprs = cljSource
-
-  # TODO: conditionals are not working
-  # node = read("#?(:clj :x)", opts1)
-  # check node.kind == GeneKeyword
-
-  # TODO: conditionals are not working
-  # node = read("#?(:cljs :x)", opts1)
-  # check node == nil
-
-  # TODO: conditionals are not working
-  # try:
-  #   node = read("#?(:cljs :x :clj)", opts1)
-  #   check false
-  # except ParseError:
-  #   discard
-
-  # TODO: conditionals are not working
-  # node = read("[1 2 #?(:clj 3)]", opts1)
-  # check node.kind == GeneVector
-  # check node.vec.len == 3
-
-  # TODO: conditionals are not working
-  # opts1.conditional_exprs = cljsSource
-  # node = read("[1 2 #?(:clj 3)]", opts1)
-  # check node.kind == GeneVector
-  # check node.vec.len == 2
-
 
   try:
     node = read("{:ratio 1/-2}")
