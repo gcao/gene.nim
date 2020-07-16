@@ -42,28 +42,28 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
   case op.kind:
   of GeneSymbol:
     if op.symbol == "var":
-      var name = $node.list[0]
+      var name = $node.data[0]
       var value =
-        if node.list.len > 1:
-          self.eval(node.list[1])
+        if node.data.len > 1:
+          self.eval(node.data[1])
         else:
           GeneNil
       self.cur_stack.cur_scope[name] = value
     elif op.symbol == "if":
-      return self.eval_if(node.list)
+      return self.eval_if(node.data)
     elif op.symbol == "fn":
       return self.eval_fn(node)
     elif op.symbol == "=":
-      var first = node.list[0]
-      var second = node.list[1]
+      var first = node.data[0]
+      var second = node.data[1]
       case first.kind:
       of GeneSymbol:
         self.cur_stack.cur_scope[first.symbol] = self.eval(second)
       else:
         todo()
     elif op.symbol == "+":
-      var first = self.eval(node.list[0])
-      var second = self.eval(node.list[1])
+      var first = self.eval(node.data[0])
+      var second = self.eval(node.data[1])
       var firstKind = first.kind
       var secondKind = second.kind
       if firstKind == GeneInt and secondKind == GeneInt:
@@ -71,8 +71,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       else:
         todo()
     elif op.symbol == "-":
-      var first = self.eval(node.list[0])
-      var second = self.eval(node.list[1])
+      var first = self.eval(node.data[0])
+      var second = self.eval(node.data[1])
       var firstKind = first.kind
       var secondKind = second.kind
       if firstKind == GeneInt and secondKind == GeneInt:
@@ -80,12 +80,12 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       else:
         todo()
     elif op.symbol == "==":
-      var first = self.eval(node.list[0])
-      var second = self.eval(node.list[1])
+      var first = self.eval(node.data[0])
+      var second = self.eval(node.data[1])
       return new_gene_bool(first == second)
     elif op.symbol == "<=":
-      var first = self.eval(node.list[0])
-      var second = self.eval(node.list[1])
+      var first = self.eval(node.data[0])
+      var second = self.eval(node.data[1])
       var firstKind = first.kind
       var secondKind = second.kind
       if firstKind == GeneInt and secondKind == GeneInt:
@@ -93,8 +93,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       else:
         todo()
     elif op.symbol == "<":
-      var first = self.eval(node.list[0])
-      var second = self.eval(node.list[1])
+      var first = self.eval(node.data[0])
+      var second = self.eval(node.data[1])
       var firstKind = first.kind
       var secondKind = second.kind
       if firstKind == GeneInt and secondKind == GeneInt:
@@ -106,7 +106,7 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       if target.kind == GeneInternal and target.internal.kind == GeneFunction:
         var fn = target.internal.fn
         var this = self
-        var args = node.list.map(proc(item: GeneValue): GeneValue = this.eval(item))
+        var args = node.data.map(proc(item: GeneValue): GeneValue = this.eval(item))
         return self.call(fn, new_args(args))
       else:
         todo()
@@ -142,9 +142,9 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
           state = IfState.Else
 
 proc eval_fn(self: var VM, node: GeneValue): GeneValue =
-  var name = node.list[0].symbol
+  var name = node.data[0].symbol
   var args: seq[string] = @[]
-  var a = node.list[1]
+  var a = node.data[1]
   case a.kind:
   of GeneSymbol:
     args.add(a.symbol)
@@ -154,8 +154,8 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   else:
     not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.list.len:
-    body.add node.list[i]
+  for i in 2..<node.data.len:
+    body.add node.data[i]
 
   var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)

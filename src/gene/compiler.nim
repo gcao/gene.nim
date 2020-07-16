@@ -192,8 +192,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
   of GeneSymbol:
     case node.op.symbol:
     of "+", "-", "<":
-      var first = node.list[0]
-      var second = node.list[1]
+      var first = node.data[0]
+      var second = node.data[1]
       self.compile_binary(blk, first, node.op.symbol, second)
     of "if":
       self.compile_if(blk, node)
@@ -215,7 +215,7 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
   var jump_next: seq[Instruction]
 
   var state = IfState.If
-  for node in node.list:
+  for node in node.data:
     case state:
     of IfState.If, IfState.ElseIf:
       # node is conditon
@@ -257,16 +257,16 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
         instr.val.num = next_pos
 
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue) =
-  if node.list.len > 1:
-    self.compile(blk, node.list[1])
+  if node.data.len > 1:
+    self.compile(blk, node.data[1])
   else:
     blk.add(instr_default(GeneNil))
-  blk.add(instr_def_member(node.list[0].symbol))
+  blk.add(instr_def_member(node.data[0].symbol))
 
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
-  var name = node.list[0].symbol
+  var name = node.data[0].symbol
   var args: seq[string] = @[]
-  var a = node.list[1]
+  var a = node.data[1]
   case a.kind:
   of GeneSymbol:
     args.add(a.symbol)
@@ -276,8 +276,8 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
   else:
     not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.list.len:
-    body.add node.list[i]
+  for i in 2..<node.data.len:
+    body.add node.data[i]
 
   var fn = new_fn(name, args, body)
   var body_block = self.compile_fn_body(fn)
@@ -290,8 +290,8 @@ proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
   blk.add(instr_copy(0, target_reg))
   var args_reg = blk.reg_mgr.get
   blk.add(instr_arguments(args_reg))
-  for i in 0..<node.list.len:
-    var child = node.list[i]
+  for i in 0..<node.data.len:
+    var child = node.data[i]
     self.compile(blk, child)
     blk.add(instr_set_item(args_reg, i))
   blk.add(instr_copy(target_reg, 0))
