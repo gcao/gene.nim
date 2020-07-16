@@ -54,6 +54,9 @@ proc quit_with*(errorcode: int, newline = false) =
 proc error(message: string): string =
   return "\u001B[31m" & message & "\u001B[0m"
 
+proc prompt(message: string): string =
+  return "\u001B[36m" & message & "\u001B[0m"
+
 proc main() =
   parseOptions()
   setupLogger()
@@ -68,7 +71,7 @@ proc main() =
     var vm = new_vm()
     var input = ""
     while true:
-      write(stdout, "Gene> ")
+      write(stdout, prompt("Gene> "))
       try:
         input = input & readLine(stdin)
         case input:
@@ -77,14 +80,18 @@ proc main() =
         else:
           discard
 
-        let r = vm.eval(input)
+        var r: GeneValue
+        if running_mode == Interpreted:
+          r = vm.eval(input)
+        else:
+          var c = new_compiler()
+          var module = c.compile(input)
+          r = vm.run(module)
 
         # Reset input
         input = ""
 
-        case r.kind:
-        else:
-          writeLine(stdout, r)
+        writeLine(stdout, r)
       except EOFError:
         quit_with(0, true)
       except ParseError as e:
