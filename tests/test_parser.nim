@@ -41,6 +41,11 @@ test "Parser":
   check node.kind == GeneGene
   check node.gene_data.len == 2
 
+  node = read("(1 :a 1 2 3)")
+  check node.kind == GeneGene
+  check node.gene_props == {"a": new_gene_int(1)}.toTable
+  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+
   node = read("""
     (
       ;; comment in a list
