@@ -121,7 +121,7 @@ test "Parser":
     node = read("""
       {:view s/Keyword
       ;;comment
-      (s/optional-key :label) s/Str
+      (s/optional-key :label 1) s/Str
       (foo 1) 2}
     """, opts)
     check node.kind == GeneMap
@@ -130,7 +130,7 @@ test "Parser":
   node = read("""
     {:view s/Keyword
       ;;comment
-      (s/optional-key :label) s/Str
+      (s/optional-key :label 1) s/Str
       (foo 1) 2
     }
   """)

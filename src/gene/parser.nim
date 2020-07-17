@@ -1,4 +1,4 @@
-import lexbase, streams, strutils, unicode, nre, hashes, options
+import lexbase, streams, strutils, unicode, nre, hashes, options, tables
 
 import ./types
 
@@ -32,7 +32,7 @@ type
     filename: string
     options*: ParseOptions
 
-  ParseError* = object of Exception
+  ParseError* = object of CatchableError
   ParseInfo = tuple[line, col: int]
 
   MacroReader = proc(p: var Parser): GeneValue
@@ -87,8 +87,8 @@ proc err_info(p: Parser): ParseInfo =
 
 proc read*(p: var Parser): GeneValue
 
-proc valid_utf8_alpha(c: char): bool =
-  return c.isAlphaAscii() or c >= 0xc0
+# proc valid_utf8_alpha(c: char): bool =
+#   return c.isAlphaAscii() or c >= 0xc0
 
 proc handle_hex_char(c: char, x: var int): bool =
   result = true
@@ -512,7 +512,6 @@ proc read_delimited_list(
   result.list = list
 
 proc add_line_col(p: var Parser, node: var GeneValue): void =
-  let m = new_hmap()
   node.line = p.line_number
   node.column = getColNumber(p, p.bufpos)
 
@@ -525,12 +524,48 @@ proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): Gene
     else: node.comments.add(co)
     return node
 
-proc read_list(p: var Parser): GeneValue =
+type
+  PropState = enum
+    Key
+    Value
+
+proc read_properties(p: var Parser): Table[string, GeneValue] =
+  result = Table[string, GeneValue]()
+  var ch: char
+  var key: string
+  var state = PropState.Key
+  while true:
+    ch = p.buf[p.bufpos]
+    if ch == EndOfFile:
+      raise new_exception(ParseError, "EOF while reading Gene")
+    case state:
+    of Key:
+      if ch == ':':
+        state = PropState.Value
+        p.bufPos.inc
+        key = read_token(p, false)
+      elif ch == ')':
+        return
+      else:
+        return
+    of PropState.Value:
+      if ch == ':':
+        raise new_exception(ParseError, "Expect value for " & key)
+      elif ch == ')':
+        raise new_exception(ParseError, "Expect value for " & key)
+      else:
+        state = PropState.Key
+        result[key] = read(p)
+
+proc read_gene(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneGene)
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col(p, result)
   result.gene_op = read_gene_op(p)
+  skip_ws(p)
+  if p.buf[p.bufpos] == ':':
+    result.gene_props = read_properties(p)
   var result_list = read_delimited_list(p, ')', true)
   result.gene_data = result_list.list
   discard maybe_add_comments(result, result_list)
@@ -710,7 +745,7 @@ proc init_macro_array() =
   macros['@'] = read_deref
   macros['#'] = read_dispatch
   macros['\\'] = read_character
-  macros['('] = read_list
+  macros['('] = read_gene
   macros['{'] = read_map
   macros['['] = read_vector
   macros[')'] = read_unmatched_delimiter
