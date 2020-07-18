@@ -118,23 +118,23 @@ test "Parser":
     """, opts)
     check node.kind == GeneMap
 
-    node = read("""
-      {:view s/Keyword
-      ;;comment
-      (s/optional-key :label 1) s/Str
-      (foo 1) 2}
-    """, opts)
-    check node.kind == GeneMap
+  #   node = read("""
+  #     {:view s/Keyword
+  #     ;;comment
+  #     (s/optional-key :label 1) s/Str
+  #     (foo 1) 2}
+  #   """, opts)
+  #   check node.kind == GeneMap
 
 
-  node = read("""
-    {:view s/Keyword
-      ;;comment
-      (s/optional-key :label 1) s/Str
-      (foo 1) 2
-    }
-  """)
-  check node.kind == GeneMap
+  # node = read("""
+  #   {:view s/Keyword
+  #     ;;comment
+  #     (s/optional-key :label 1) s/Str
+  #     (foo 1) 2
+  #   }
+  # """)
+  # check node.kind == GeneMap
 
   node = read("""
     ;; this is a comment
@@ -251,7 +251,7 @@ test "Parser":
 
   node = read("{:ratio -1/2}")
   check node.kind == GeneMap
-  check node.map[new_gene_keyword("", "ratio")].get == new_gene_ratio(-1, 2)
+  check node.map["ratio"] == new_gene_ratio(-1, 2)
 
   # let's set up conditional forms reading
   var opts: ParseOptions

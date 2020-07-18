@@ -211,7 +211,8 @@ type
       # Example: (a = 1) => (= a 1)
       gene_normalized*: bool
     of GeneMap:
-      map*: HMap
+      # map*: HMap
+      map*: Table[string, GeneValue]
       map_meta*: HMap
     of GeneVector:
       vec*: seq[GeneValue]

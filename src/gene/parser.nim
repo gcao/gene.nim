@@ -440,8 +440,7 @@ proc read_gene_op(p: var Parser): GeneValue =
             inc(count)
             break
 
-proc read_delimited_list(
-  p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
+proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.
   var list: seq[GeneValue] = @[]
   var comment_lines: seq[string] = @[]
@@ -529,33 +528,48 @@ type
     Key
     Value
 
-proc read_properties(p: var Parser): Table[string, GeneValue] =
+proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
   result = Table[string, GeneValue]()
   var ch: char
   var key: string
   var state = PropState.Key
   while true:
+    skip_ws(p)
     ch = p.buf[p.bufpos]
     if ch == EndOfFile:
       raise new_exception(ParseError, "EOF while reading Gene")
+    elif ch == ']' or (part_of_gene and ch == '}') or (not part_of_gene and ch == ')'):
+      raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
+    elif ch == ';':
+      discard read_comment(p)
+      continue
     case state:
     of Key:
       if ch == ':':
         state = PropState.Value
         p.bufPos.inc
         key = read_token(p, false)
-      elif ch == ')':
+      elif part_of_gene:
+        return
+      elif ch == '}':
         return
       else:
-        return
+        raise new_exception(ParseError, "Expect key at " & $p.bufpos & " but found " & p.buf[p.bufpos])
     of PropState.Value:
       if ch == ':':
         raise new_exception(ParseError, "Expect value for " & key)
-      elif ch == ')':
-        raise new_exception(ParseError, "Expect value for " & key)
+      elif part_of_gene:
+        if ch == ')':
+          raise new_exception(ParseError, "Expect value for " & key)
+        else:
+          state = PropState.Key
+          result[key] = read(p)
       else:
-        state = PropState.Key
-        result[key] = read(p)
+        if ch == '}':
+          raise new_exception(ParseError, "Expect value for " & key)
+        else:
+          state = PropState.Key
+          result[key] = read(p)
 
 proc read_gene(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneGene)
@@ -565,7 +579,7 @@ proc read_gene(p: var Parser): GeneValue =
   result.gene_op = read_gene_op(p)
   skip_ws(p)
   if p.buf[p.bufpos] == ':':
-    result.gene_props = read_properties(p)
+    result.gene_props = read_map(p, true)
   var result_list = read_delimited_list(p, ')', true)
   result.gene_data = result_list.list
   discard maybe_add_comments(result, result_list)
@@ -575,75 +589,76 @@ const
 
 proc read_map(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneMap)
-  var list_result = read_delimited_list(p, '}', true)
-  var list = list_result.list
-  var index = 0
-  if (list.len and 1) == 1:
-    for x in list:
-      if index mod 2 == 0 and x.kind == GeneKeyword:
-        echo "MAP ELEM " & $x.kind & " " & $x.keyword
-      else:
-        echo "MAP ELEM " & $x.kind
-    inc(index)
-    let position = (p.line_number, get_col_number(p, p.bufpos))
-    #echo "line ", getCurrentLine(p), " col: ", getColNumber(p, p.bufpos)
-    raise new_exception(ParseError, MAP_EVEN & $position & " " & $list.len & " " & p.filename)
-  else:
-    result.map = new_hmap()
-    var i = 0
-    while i <= list.high - 1:
-      result.map[list[i]] = list[i+1]
-      i = i + 2
-  add_line_col(p, result)
-  discard maybe_add_comments(result, list_result)
+  result.map = read_map(p, false)
+  # var list_result = read_delimited_list(p, '}', true)
+  # var list = list_result.list
+  # var index = 0
+  # if (list.len and 1) == 1:
+  #   for x in list:
+  #     if index mod 2 == 0 and x.kind == GeneKeyword:
+  #       echo "MAP ELEM " & $x.kind & " " & $x.keyword
+  #     else:
+  #       echo "MAP ELEM " & $x.kind
+  #   inc(index)
+  #   let position = (p.line_number, get_col_number(p, p.bufpos))
+  #   #echo "line ", getCurrentLine(p), " col: ", getColNumber(p, p.bufpos)
+  #   raise new_exception(ParseError, MAP_EVEN & $position & " " & $list.len & " " & p.filename)
+  # else:
+  #   result.map = new_hmap()
+  #   var i = 0
+  #   while i <= list.high - 1:
+  #     result.map[list[i]] = list[i+1]
+  #     i = i + 2
+  # add_line_col(p, result)
+  # discard maybe_add_comments(result, list_result)
 
-const
-  NS_MAP_INVALID = "Namespaced map must specify a valid namespace: kind $#, namespace $#, $#:$#"
-  NS_MAP_EVEN = "Namespaced map literal must contain an even number of forms"
+# const
+#   NS_MAP_INVALID = "Namespaced map must specify a valid namespace: kind $#, namespace $#, $#:$#"
+#   NS_MAP_EVEN = "Namespaced map literal must contain an even number of forms"
 
-proc read_ns_map(p: var Parser): GeneValue =
-  let n = read(p)
-  if n.kind != GeneComplexSymbol or n.csymbol.ns != "":
-    let ns_str = if n.csymbol.ns == "": "nil" else: n.csymbol.ns
-    raise new_exception(ParseError, format(NS_MAP_INVALID, n.kind, ns_str, p.filename, p.line_number))
+# proc read_ns_map(p: var Parser): GeneValue =
+#   let n = read(p)
+#   if n.kind != GeneComplexSymbol or n.csymbol.ns != "":
+#     let ns_str = if n.csymbol.ns == "": "nil" else: n.csymbol.ns
+#     raise new_exception(ParseError, format(NS_MAP_INVALID, n.kind, ns_str, p.filename, p.line_number))
 
-  skip_ws(p)
+#   skip_ws(p)
 
-  if p.buf[p.bufpos] != '{':
-    raise new_exception(ParseError, "Namespaced map must specify a map")
-  inc(p.bufpos)
-  let list_result = read_delimited_list(p, '}', true)
-  let list = list_result.list
-  if (list.len and 1) == 1:
-    raise new_exception(ParseError, NS_MAP_EVEN)
-  var
-    map = new_hmap()
-    i = 0
-  while i < list.high:
-    var key = list[i]
-    inc(i)
-    var value = list[i]
-    inc(i)
-    case key.kind
-    of GeneKeyword:
-      if key.keyword.ns == "":
-        map[new_gene_keyword(n.csymbol.name, key.keyword.name)] = value
-      elif key.keyword.ns == "_":
-        map[new_gene_keyword("", key.keyword.name)] = value
-      else:
-        map[key] = value
-    of GeneComplexSymbol:
-      if key.csymbol.ns == "":
-        map[new_gene_complex_symbol(n.csymbol.name, key.csymbol.name)] = value
-      elif key.keyword.ns == "_":
-        map[new_gene_keyword("", key.csymbol.name)] = value
-      else:
-        map[key] = value
-    else:
-      map[key] = value
+#   if p.buf[p.bufpos] != '{':
+#     raise new_exception(ParseError, "Namespaced map must specify a map")
+#   inc(p.bufpos)
+#   let list_result = read_delimited_list(p, '}', true)
+#   let list = list_result.list
+#   if (list.len and 1) == 1:
+#     raise new_exception(ParseError, NS_MAP_EVEN)
+#   var
+#     map = new_hmap()
+#     i = 0
+#   while i < list.high:
+#     var key = list[i]
+#     inc(i)
+#     var value = list[i]
+#     inc(i)
+#     case key.kind
+#     of GeneKeyword:
+#       if key.keyword.ns == "":
+#         map[new_gene_keyword(n.csymbol.name, key.keyword.name)] = value
+#       elif key.keyword.ns == "_":
+#         map[new_gene_keyword("", key.keyword.name)] = value
+#       else:
+#         map[key] = value
+#     of GeneComplexSymbol:
+#       if key.csymbol.ns == "":
+#         map[new_gene_complex_symbol(n.csymbol.name, key.csymbol.name)] = value
+#       elif key.keyword.ns == "_":
+#         map[new_gene_keyword("", key.csymbol.name)] = value
+#       else:
+#         map[key] = value
+#     else:
+#       map[key] = value
 
-    result = GeneValue(kind: GeneMap, map: map)
-    discard maybe_add_comments(result, list_result)
+#     result = GeneValue(kind: GeneMap, map: map)
+#     discard maybe_add_comments(result, list_result)
 
 proc read_vector(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneVector)
@@ -693,9 +708,9 @@ proc hash*(node: GeneValue): Hash =
       h = h !& hash(node.gene_op)
     h = h !& hash(node.gene_data)
   of GeneMap:
-    for entry in node.map:
-      h = h !& hash(entry.key)
-      h = h !& hash(entry.value)
+    for key, val in node.map:
+      h = h !& hash(key)
+      h = h !& hash(val)
   of GeneVector:
     h = h !& hash(node.vec)
   of GeneSet:
@@ -753,7 +768,7 @@ proc init_macro_array() =
   macros['}'] = read_unmatched_delimiter
 
 proc init_dispatch_macro_array() =
-  dispatch_macros[':'] = read_ns_map
+  # dispatch_macros[':'] = read_ns_map
   dispatch_macros['['] = read_set
   # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard
