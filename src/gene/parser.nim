@@ -777,6 +777,7 @@ proc init_macro_array() =
   macros['}'] = read_unmatched_delimiter
 
 proc init_dispatch_macro_array() =
+  dispatch_macros['!'] = read_comment
   # dispatch_macros[':'] = read_ns_map
   dispatch_macros['['] = read_set
   # dispatch_macros['<'] = nil  # new UnreadableReader();

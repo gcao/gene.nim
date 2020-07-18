@@ -79,6 +79,13 @@ test "Parser":
     check node.comments.len == 0
 
     node = read("""
+      #!/usr/bin/env gene
+      ()
+    """, opts)
+    check node.kind == GeneCommentLine
+    check node.comments.len == 0
+
+    node = read("""
       (
         ;; this is a coment
       ())
