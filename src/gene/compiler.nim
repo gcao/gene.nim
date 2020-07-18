@@ -165,7 +165,7 @@ proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
   of GeneGene:
     self.compile_gene(blk, node)
   else:
-    todo()
+    todo($node)
 
 proc compile*(self: var Compiler, doc: GeneDocument): Block =
   result = new_block()
@@ -325,5 +325,5 @@ proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: s
   of "-": blk.add(instr_sub(reg, 0))
   of "<": blk.add(instr_lt(reg, 0))
   else:
-    todo()
+    todo($op)
   blk.reg_mgr.free(reg)

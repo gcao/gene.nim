@@ -593,8 +593,8 @@ proc read_gene(p: var Parser): GeneValue =
   result.gene_data = result_list.list
   discard maybe_add_comments(result, result_list)
 
-const
-  MAP_EVEN = "Map literal must contain even number of forms "
+# const
+#   MAP_EVEN = "Map literal must contain even number of forms "
 
 proc read_map(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneMap)
@@ -734,7 +734,7 @@ proc hash*(node: GeneValue): Hash =
   of GeneRegex:
     h = h !& hash(node.regex)
   of GeneInternal:
-    todo()
+    todo($node.internal.kind)
   result = !$h
 
 proc read_regex(p: var Parser): GeneValue =
@@ -870,14 +870,14 @@ proc open*(p: var Parser, input: Stream, filename: string) =
 proc close*(p: var Parser) {.inline.} =
   lexbase.close(p)
 
-proc get_line(p: Parser): int {.inline.} =
-  result = p.line_number
+# proc get_line(p: Parser): int {.inline.} =
+#   result = p.line_number
 
-proc get_column(p: Parser): int {.inline.} =
-  result = get_col_number(p, p.bufpos)
+# proc get_column(p: Parser): int {.inline.} =
+#   result = get_col_number(p, p.bufpos)
 
-proc get_filename(p: Parser): string =
-  result = p.filename
+# proc get_filename(p: Parser): string =
+#   result = p.filename
 
 proc parse_number(p: var Parser): TokenKind =
   result = TokenKind.tkEof
@@ -984,7 +984,7 @@ proc read_internal(p: var Parser): GeneValue =
 
 proc read*(p: var Parser): GeneValue =
   result = read_internal(p)
-  let noComments = p.options.comments_handling == discardComments
+  let noComments = p.options.comments_handling != keepComments
   while result != nil and noComments and result.kind == GeneCommentLine:
     result = read_internal(p)
 
@@ -1012,6 +1012,8 @@ proc read_all*(buffer: string): seq[GeneValue] =
     var node = p.read_internal
     if node == nil:
       return result
+    elif p.options.comments_handling != keepComments and node.kind == GeneCommentLine:
+      continue
     else:
       result.add(node)
 

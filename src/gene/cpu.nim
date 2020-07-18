@@ -100,9 +100,9 @@ proc run*(self: var VM, module: Module): GeneValue =
       if val.kind == GeneInternal and val.internal.kind == GeneArguments:
         val.internal.args[cast[int](index)] = self.cur_stack[0]
       else:
-        todo()
+        todo($instr)
     else:
       self.pos += 1
-      todo()
+      todo($instr)
 
   result = self.cur_stack.default

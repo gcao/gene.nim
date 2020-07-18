@@ -60,7 +60,7 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       of GeneSymbol:
         self.cur_stack.cur_scope[first.symbol] = self.eval(second)
       else:
-        todo()
+        todo($node)
     elif op.symbol == "+":
       var first = self.eval(node.gene_data[0])
       var second = self.eval(node.gene_data[1])
@@ -69,7 +69,7 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       if firstKind == GeneInt and secondKind == GeneInt:
         return new_gene_int(first.num + second.num)
       else:
-        todo()
+        todo($node)
     elif op.symbol == "-":
       var first = self.eval(node.gene_data[0])
       var second = self.eval(node.gene_data[1])
@@ -78,7 +78,7 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       if firstKind == GeneInt and secondKind == GeneInt:
         return new_gene_int(first.num - second.num)
       else:
-        todo()
+        todo($node)
     elif op.symbol == "==":
       var first = self.eval(node.gene_data[0])
       var second = self.eval(node.gene_data[1])
@@ -91,7 +91,7 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       if firstKind == GeneInt and secondKind == GeneInt:
         return new_gene_bool(first.num <= second.num)
       else:
-        todo()
+        todo($node)
     elif op.symbol == "<":
       var first = self.eval(node.gene_data[0])
       var second = self.eval(node.gene_data[1])
@@ -100,7 +100,7 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       if firstKind == GeneInt and secondKind == GeneInt:
         return new_gene_bool(first.num < second.num)
       else:
-        todo()
+        todo($node)
     else:
       var target = self.eval(op)
       if target.kind == GeneInternal and target.internal.kind == GeneFunction:
@@ -109,9 +109,9 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
         var args = node.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
         return self.call(fn, new_args(args))
       else:
-        todo()
+        todo($node)
   else:
-    todo()
+    todo($node)
 
 proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
   var state = IfState.If
@@ -191,7 +191,7 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
   of GeneGene:
     return self.eval_gene(node)
   else:
-    todo()
+    todo($node)
 
 proc eval*(self: var VM, nodes: seq[GeneValue]): GeneValue =
   for node in nodes:

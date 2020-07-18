@@ -72,7 +72,7 @@ test "Parser":
     opts.suppress_read = false
     opts.comments_handling = keepComments
     node = read("""
-      ;; this is a coment
+      ;; this is a comment
       ()
     """, opts)
     check node.kind == GeneCommentLine
@@ -87,7 +87,7 @@ test "Parser":
 
     node = read("""
       (
-        ;; this is a coment
+        ;; this is a comment
       ())
     """, opts)
     check node.kind == GeneGene
