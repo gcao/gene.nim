@@ -46,6 +46,16 @@ test "Parser":
   check node.gene_props == {"a": new_gene_int(1)}.toTable
   check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
 
+  node = read("(1 ::a 2 3)")
+  check node.kind == GeneGene
+  check node.gene_props == {"a": GeneTrue}.toTable
+  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+
+  node = read("(1 :!a 2 3)")
+  check node.kind == GeneGene
+  check node.gene_props == {"a": GeneFalse}.toTable
+  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+
   node = read("""
     (
       ;; comment in a list
@@ -117,6 +127,13 @@ test "Parser":
       :y 2}
     """, opts)
     check node.kind == GeneMap
+    check node.map == {"x": new_gene_int(1), "y": new_gene_int(2)}.toTable
+
+    node = read("""
+      {::x :!y ::z}
+    """, opts)
+    check node.kind == GeneMap
+    check node.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
 
   #   node = read("""
   #     {:view s/Keyword

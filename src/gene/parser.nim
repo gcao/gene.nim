@@ -546,9 +546,18 @@ proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
     case state:
     of Key:
       if ch == ':':
-        state = PropState.Value
         p.bufPos.inc
-        key = read_token(p, false)
+        if p.buf[p.bufPos] == ':':
+          p.bufPos.inc
+          key = read_token(p, false)
+          result[key] = GeneTrue
+        elif p.buf[p.bufPos] == '!':
+          p.bufPos.inc
+          key = read_token(p, false)
+          result[key] = GeneFalse
+        else:
+          key = read_token(p, false)
+          state = PropState.Value
       elif part_of_gene:
         return
       elif ch == '}':
