@@ -1,4 +1,4 @@
-import lexbase, streams, strutils, unicode, nre, hashes, options
+import lexbase, streams, strutils, unicode, nre, hashes, options, tables
 
 import ./types
 
@@ -16,9 +16,6 @@ type
     errEofExpected,
     errQuoteExpected
 
-  ConditionalExpressionsHandling* = enum
-    asError, asTagged, cljSource, cljsSource
-
   CommentsHandling* = enum
     discardComments, keepComments
 
@@ -26,7 +23,6 @@ type
     eof_is_error*: bool
     eof_value*: GeneValue
     suppress_read*: bool
-    conditional_exprs*: ConditionalExpressionsHandling
     comments_handling*: CommentsHandling
 
   Parser* = object of BaseLexer
@@ -36,7 +32,7 @@ type
     filename: string
     options*: ParseOptions
 
-  ParseError* = object of Exception
+  ParseError* = object of CatchableError
   ParseInfo = tuple[line, col: int]
 
   MacroReader = proc(p: var Parser): GeneValue
@@ -82,8 +78,6 @@ iterator items*(m: HMap): HMapEntry =
 
 proc merge_maps*(m1, m2 :HMap): void
 
-proc add_meta*(node: GeneValue, meta: HMap): GeneValue
-
 ### === ERROR HANDLING UTILS ===
 
 proc err_info(p: Parser): ParseInfo =
@@ -93,8 +87,8 @@ proc err_info(p: Parser): ParseInfo =
 
 proc read*(p: var Parser): GeneValue
 
-proc valid_utf8_alpha(c: char): bool =
-  return c.isAlphaAscii() or c >= 0xc0
+# proc valid_utf8_alpha(c: char): bool =
+#   return c.isAlphaAscii() or c >= 0xc0
 
 proc handle_hex_char(c: char, x: var int): bool =
   result = true
@@ -189,8 +183,8 @@ proc read_string(p: var Parser): GeneValue =
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
   result = GeneValue(kind: GeneGene)
-  result.op = new_gene_symbol(quote_name)
-  result.list = @[quoted]
+  result.gene_op = new_gene_symbol(quote_name)
+  result.gene_data = @[quoted]
 
 proc read_quoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "quote")
@@ -446,8 +440,7 @@ proc read_gene_op(p: var Parser): GeneValue =
             inc(count)
             break
 
-proc read_delimited_list(
-  p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
+proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.
   var list: seq[GeneValue] = @[]
   var comment_lines: seq[string] = @[]
@@ -517,11 +510,9 @@ proc read_delimited_list(
     result.comment_placement = Inside
   result.list = list
 
-proc add_line_col_meta(p: var Parser, node: var GeneValue): void =
-  let m = new_hmap()
+proc add_line_col(p: var Parser, node: var GeneValue): void =
   node.line = p.line_number
   node.column = getColNumber(p, p.bufpos)
-  discard add_meta(node, m)
 
 proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): GeneValue =
   if list_result.comment_lines.len > 0:
@@ -532,14 +523,74 @@ proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): Gene
     else: node.comments.add(co)
     return node
 
-proc read_list(p: var Parser): GeneValue =
+type
+  PropState = enum
+    Key
+    Value
+
+proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
+  result = Table[string, GeneValue]()
+  var ch: char
+  var key: string
+  var state = PropState.Key
+  while true:
+    skip_ws(p)
+    ch = p.buf[p.bufpos]
+    if ch == EndOfFile:
+      raise new_exception(ParseError, "EOF while reading Gene")
+    elif ch == ']' or (part_of_gene and ch == '}') or (not part_of_gene and ch == ')'):
+      raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
+    elif ch == ';':
+      discard read_comment(p)
+      continue
+    case state:
+    of Key:
+      if ch == ':':
+        p.bufPos.inc
+        if p.buf[p.bufPos] == ':':
+          p.bufPos.inc
+          key = read_token(p, false)
+          result[key] = GeneTrue
+        elif p.buf[p.bufPos] == '!':
+          p.bufPos.inc
+          key = read_token(p, false)
+          result[key] = GeneFalse
+        else:
+          key = read_token(p, false)
+          state = PropState.Value
+      elif part_of_gene:
+        return
+      elif ch == '}':
+        return
+      else:
+        raise new_exception(ParseError, "Expect key at " & $p.bufpos & " but found " & p.buf[p.bufpos])
+    of PropState.Value:
+      if ch == ':':
+        raise new_exception(ParseError, "Expect value for " & key)
+      elif part_of_gene:
+        if ch == ')':
+          raise new_exception(ParseError, "Expect value for " & key)
+        else:
+          state = PropState.Key
+          result[key] = read(p)
+      else:
+        if ch == '}':
+          raise new_exception(ParseError, "Expect value for " & key)
+        else:
+          state = PropState.Key
+          result[key] = read(p)
+
+proc read_gene(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneGene)
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
-  add_line_col_meta(p, result)
-  result.op = read_gene_op(p)
+  add_line_col(p, result)
+  result.gene_op = read_gene_op(p)
+  skip_ws(p)
+  if p.buf[p.bufpos] == ':':
+    result.gene_props = read_map(p, true)
   var result_list = read_delimited_list(p, ')', true)
-  result.list = result_list.list
+  result.gene_data = result_list.list
   discard maybe_add_comments(result, result_list)
 
 const
@@ -547,75 +598,76 @@ const
 
 proc read_map(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneMap)
-  var list_result = read_delimited_list(p, '}', true)
-  var list = list_result.list
-  var index = 0
-  if (list.len and 1) == 1:
-    for x in list:
-      if index mod 2 == 0 and x.kind == GeneKeyword:
-        echo "MAP ELEM " & $x.kind & " " & $x.keyword
-      else:
-        echo "MAP ELEM " & $x.kind
-    inc(index)
-    let position = (p.line_number, get_col_number(p, p.bufpos))
-    #echo "line ", getCurrentLine(p), " col: ", getColNumber(p, p.bufpos)
-    raise new_exception(ParseError, MAP_EVEN & $position & " " & $list.len & " " & p.filename)
-  else:
-    result.map = new_hmap()
-    var i = 0
-    while i <= list.high - 1:
-      result.map[list[i]] = list[i+1]
-      i = i + 2
-  add_line_col_meta(p, result)
-  discard maybe_add_comments(result, list_result)
+  result.map = read_map(p, false)
+  # var list_result = read_delimited_list(p, '}', true)
+  # var list = list_result.list
+  # var index = 0
+  # if (list.len and 1) == 1:
+  #   for x in list:
+  #     if index mod 2 == 0 and x.kind == GeneKeyword:
+  #       echo "MAP ELEM " & $x.kind & " " & $x.keyword
+  #     else:
+  #       echo "MAP ELEM " & $x.kind
+  #   inc(index)
+  #   let position = (p.line_number, get_col_number(p, p.bufpos))
+  #   #echo "line ", getCurrentLine(p), " col: ", getColNumber(p, p.bufpos)
+  #   raise new_exception(ParseError, MAP_EVEN & $position & " " & $list.len & " " & p.filename)
+  # else:
+  #   result.map = new_hmap()
+  #   var i = 0
+  #   while i <= list.high - 1:
+  #     result.map[list[i]] = list[i+1]
+  #     i = i + 2
+  # add_line_col(p, result)
+  # discard maybe_add_comments(result, list_result)
 
-const
-  NS_MAP_INVALID = "Namespaced map must specify a valid namespace: kind $#, namespace $#, $#:$#"
-  NS_MAP_EVEN = "Namespaced map literal must contain an even number of forms"
+# const
+#   NS_MAP_INVALID = "Namespaced map must specify a valid namespace: kind $#, namespace $#, $#:$#"
+#   NS_MAP_EVEN = "Namespaced map literal must contain an even number of forms"
 
-proc read_ns_map(p: var Parser): GeneValue =
-  let n = read(p)
-  if n.kind != GeneComplexSymbol or n.csymbol.ns != "":
-    let ns_str = if n.csymbol.ns == "": "nil" else: n.csymbol.ns
-    raise new_exception(ParseError, format(NS_MAP_INVALID, n.kind, ns_str, p.filename, p.line_number))
+# proc read_ns_map(p: var Parser): GeneValue =
+#   let n = read(p)
+#   if n.kind != GeneComplexSymbol or n.csymbol.ns != "":
+#     let ns_str = if n.csymbol.ns == "": "nil" else: n.csymbol.ns
+#     raise new_exception(ParseError, format(NS_MAP_INVALID, n.kind, ns_str, p.filename, p.line_number))
 
-  skip_ws(p)
+#   skip_ws(p)
 
-  if p.buf[p.bufpos] != '{':
-    raise new_exception(ParseError, "Namespaced map must specify a map")
-  inc(p.bufpos)
-  let list_result = read_delimited_list(p, '}', true)
-  let list = list_result.list
-  if (list.len and 1) == 1:
-    raise new_exception(ParseError, NS_MAP_EVEN)
-  var
-    map = new_hmap()
-    i = 0
-  while i < list.high:
-    var key = list[i]
-    inc(i)
-    var value = list[i]
-    inc(i)
-    case key.kind
-    of GeneKeyword:
-      if key.keyword.ns == "":
-        map[new_gene_keyword(n.csymbol.name, key.keyword.name)] = value
-      elif key.keyword.ns == "_":
-        map[new_gene_keyword("", key.keyword.name)] = value
-      else:
-        map[key] = value
-    of GeneComplexSymbol:
-      if key.csymbol.ns == "":
-        map[new_gene_complex_symbol(n.csymbol.name, key.csymbol.name)] = value
-      elif key.keyword.ns == "_":
-        map[new_gene_keyword("", key.csymbol.name)] = value
-      else:
-        map[key] = value
-    else:
-      map[key] = value
+#   if p.buf[p.bufpos] != '{':
+#     raise new_exception(ParseError, "Namespaced map must specify a map")
+#   inc(p.bufpos)
+#   let list_result = read_delimited_list(p, '}', true)
+#   let list = list_result.list
+#   if (list.len and 1) == 1:
+#     raise new_exception(ParseError, NS_MAP_EVEN)
+#   var
+#     map = new_hmap()
+#     i = 0
+#   while i < list.high:
+#     var key = list[i]
+#     inc(i)
+#     var value = list[i]
+#     inc(i)
+#     case key.kind
+#     of GeneKeyword:
+#       if key.keyword.ns == "":
+#         map[new_gene_keyword(n.csymbol.name, key.keyword.name)] = value
+#       elif key.keyword.ns == "_":
+#         map[new_gene_keyword("", key.keyword.name)] = value
+#       else:
+#         map[key] = value
+#     of GeneComplexSymbol:
+#       if key.csymbol.ns == "":
+#         map[new_gene_complex_symbol(n.csymbol.name, key.csymbol.name)] = value
+#       elif key.keyword.ns == "_":
+#         map[new_gene_keyword("", key.csymbol.name)] = value
+#       else:
+#         map[key] = value
+#     else:
+#       map[key] = value
 
-    result = GeneValue(kind: GeneMap, map: map)
-    discard maybe_add_comments(result, list_result)
+#     result = GeneValue(kind: GeneMap, map: map)
+#     discard maybe_add_comments(result, list_result)
 
 proc read_vector(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneVector)
@@ -625,7 +677,7 @@ proc read_vector(p: var Parser): GeneValue =
 
 proc read_set(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneSet)
-  let list_result = read_delimited_list(p, '}', true)
+  let list_result = read_delimited_list(p, ']', true)
   var elements = list_result.list
   discard maybe_add_comments(result, list_result)
   var i = 0
@@ -634,191 +686,6 @@ proc read_set(p: var Parser): GeneValue =
   while i <= elements.high:
     result.set_elems[elements[i]] = new_gene_bool(true)
     inc(i)
-    
-proc read_anonymous_fn*(p: var Parser): GeneValue =
-  # TODO: extract arglist from fn body
-  result = GeneValue(kind: GeneGene)
-  var arglist = GeneValue(kind: GeneVector, vec:  @[])
-  result.list = @[new_gene_symbol("fn")]
-  # remember this one came from a macro
-  let meta = new_hmap()
-  meta[new_gene_keyword("", "from-reader-macro")] = new_gene_bool(true)
-  result.list_meta = meta
-
-  var list_result = read_delimited_list(p, ')', true)
-  for item in list_result.list:
-    result.list.add(item)
-  discard maybe_add_comments(result, list_result)
-  return result
-
-proc safely_add_meta(node: GeneValue, meta: HMap): GeneValue
-
-const
-  READER_COND_MSG = "reader conditional should be a list: "
-  READER_COND_FEAT_KW = "feature should be a keyword: "
-  READER_COND_AS_TAGGED_ERR = "'asTagged' option not available for reader conditionals"
-
-proc read_reader_conditional(p: var Parser): GeneValue =
-  # '#? (:clj ...)'
-  let pos = p.bufpos
-  var is_spliced: bool
-  if p.buf[pos] == '@':
-    is_spliced = true
-    inc(p.bufpos)
-  else:
-    is_spliced = false
-
-  let exp = read(p)
-  if exp.kind != GeneGene:
-    raise new_exception(ParseError, READER_COND_MSG & $exp.kind)
-  var
-    i = 0
-    m = new_hmap()
-  while i <= exp.list.high:
-    let feature = exp.list[i]
-    if feature.kind != GeneKeyword:
-      raise new_exception(ParseError, READER_COND_FEAT_KW & $feature.kind & " line " & $p.line_number)
-    inc(i)
-    var val: GeneValue
-    if i <= exp.list.high:
-      val = exp.list[i]
-      # TODO: does not verify if we're trying to splice at toplevel
-      if is_spliced and (val.kind != GeneVector):
-        raise new_exception(ParseError, "Trying to splice a conditional expression with: " & $val.kind & ", element " & $i)
-      inc(i)
-    else:
-      let msg = format("No value for platform tag: $#, line $#", feature.keyword, feature.line)
-      raise new_exception(ParseError, msg)
-    m[feature] = val
-
-  let cond_exprs = p.options.conditional_exprs
-  case cond_exprs
-  of asError:
-    raise new_exception(ParseError, "Reader conditional occured")
-  of asTagged:
-    raise new_exception(ParseError, READER_COND_AS_TAGGED_ERR)
-  of cljSource:
-    let val = m[CljTag]
-    if is_some(val):
-      result = val.get
-    else: result = nil
-  of cljsSource:
-    let val = m[CljsTag]
-    if is_some(val):
-      result = val.get
-    else: result = nil
-
-  # try the :default case
-  if result == nil:
-    let default_val = m[DefaultTag]
-    if is_some(default_val):
-      result = default_val.get
-
-  #TODO: better handle splicing - new node type or sth else?
-  if result != nil and is_spliced:
-    var hmap = new_hmap()
-    hmap[SplicedQKw] = GeneTrue
-    discard add_meta(result, hmap)
-  
-  return result
-
-
-
-
-const META_CANNOT_APPLY_MSG =
-  "Metadata can be applied only to symbols, lists, vectors and map. Got :"
-
-proc add_meta*(node: GeneValue, meta: HMap): GeneValue =
-  case node.kind
-  of GeneSymbol:
-    node.symbol_meta = meta
-  of GeneGene:
-    node.list_meta = meta
-  of GeneMap:
-    node.map_meta = meta
-  of GeneVector:
-    node.vec_meta = meta
-  else:
-    raise new_exception(ParseError, META_CANNOT_APPLY_MSG & $node.kind)
-  result = node
-
-proc get_meta*(node: GeneValue): HMap =
-  case node.kind
-  of GeneSymbol:
-    return node.symbol_meta
-  of GeneGene:
-    return node.list_meta
-  of GeneMap:
-    return node.map_meta
-  of GeneVector:
-    return node.vec_meta
-  else:
-    raise new_exception(ParseError, "Given type does not support metadata")
-
-proc safely_add_meta(node: GeneValue, meta: HMap): GeneValue =
-  var node_meta = get_meta(node)
-  if node_meta == nil:
-    return add_meta(node, meta)
-  else:
-    merge_maps(node_meta, meta)
-    return node
-
-const META_INVALID_MSG =
-  "Metadata must be GeneSymbol, GeneKeyword, GeneString or GeneMap"
-
-proc read_metadata(p: var  Parser): GeneValue =
-  var m: HMap
-  let old_opts = p.options
-  p.options.eof_is_error = true
-  var meta = read(p)
-  case meta.kind
-  of GeneSymbol:
-    m = new_hmap()
-    m[KeyTag] = meta
-  of GeneKeyword:
-    m = new_hmap()
-    m[meta] = GeneTrue
-  of GeneString:
-    m = new_hmap()
-    m[KeyTag] = meta
-  of GeneMap:
-    m = meta.map
-  else:
-    p.options = old_opts
-    raise new_exception(ParseError, META_INVALID_MSG)
-  # read the actual data
-  try:
-    var node = read(p)
-    result = safely_add_meta(node, m) # need to make sure we don't overwrite
-  finally:
-    p.options = old_opts
-
-proc read_tagged(p: var Parser): GeneValue =
-  var node = read(p)
-  if node.kind != GeneComplexSymbol:
-    raise new_exception(ParseError, "tag should be a complex symbol: " & $node.kind)
-  result = GeneValue(kind: GeneTaggedValue, tag: node.csymbol, value: read(p))
-
-proc read_cond_as_tagged(p: var Parser): GeneValue =
-  # reads forms like #+clj foo as GeneTaggedValue
-  var tagged = read_tagged(p)
-  tagged.tag = ("", "+" & tagged.tag.name)
-  return tagged
-
-proc read_cond_matching(p: var Parser, tag: string): GeneValue =
-  var tagged = read_cond_as_tagged(p)
-  if tagged.kind == GeneTaggedValue:
-    if tagged.tag.name == tag:
-      return tagged.value
-    else:
-      return nil
-  raise new_exception(ParseError, "Expected a tagged value, got: " & $tagged.kind)
-
-proc read_cond_clj(p:var Parser): GeneValue =
-  return read_cond_matching(p, "+clj")
-
-proc read_cond_cljs(p:var Parser): GeneValue =
-  return read_cond_matching(p, "+cljs")
 
 proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
@@ -846,13 +713,13 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
   of GeneGene:
-    if node.op != nil:
-      h = h !& hash(node.op)
-    h = h !& hash(node.list)
+    if node.gene_op != nil:
+      h = h !& hash(node.gene_op)
+    h = h !& hash(node.gene_data)
   of GeneMap:
-    for entry in node.map:
-      h = h !& hash(entry.key)
-      h = h !& hash(entry.value)
+    for key, val in node.map:
+      h = h !& hash(key)
+      h = h !& hash(val)
   of GeneVector:
     h = h !& hash(node.vec)
   of GeneSet:
@@ -888,10 +755,7 @@ proc read_dispatch(p: var Parser): GeneValue =
     raise new_exception(ParseError, "EOF while reading dispatch macro")
   let m = dispatch_macros[ch]
   if m == nil:
-    if valid_utf8_alpha(ch):
-      result = read_tagged(p)
-    else:
-      raise  new_exception(ParseError, "No dispatch macro for: " & ch)
+    raise  new_exception(ParseError, "No dispatch macro for: " & ch)
   else:
     p.bufpos = pos + 1
     result = m(p)
@@ -904,9 +768,8 @@ proc init_macro_array() =
   macros['~'] = read_unquoted
   macros['@'] = read_deref
   macros['#'] = read_dispatch
-  macros['^'] = read_metadata
   macros['\\'] = read_character
-  macros['('] = read_list
+  macros['('] = read_gene
   macros['{'] = read_map
   macros['['] = read_vector
   macros[')'] = read_unmatched_delimiter
@@ -914,13 +777,10 @@ proc init_macro_array() =
   macros['}'] = read_unmatched_delimiter
 
 proc init_dispatch_macro_array() =
-  dispatch_macros['^'] = read_metadata
-  dispatch_macros[':'] = read_ns_map
-  dispatch_macros['{'] = read_set
+  # dispatch_macros[':'] = read_ns_map
+  dispatch_macros['['] = read_set
   # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard
-  dispatch_macros['('] = read_anonymous_fn
-  dispatch_macros['?'] = read_reader_conditional
   dispatch_macros['"'] = read_regex
 
 proc init_gene_readers() =
@@ -928,15 +788,7 @@ proc init_gene_readers() =
   init_dispatch_macro_array()
 
 proc init_gene_readers*(options: ParseOptions) =
-  case options.conditional_exprs
-  of asError:
-    discard # the default will throw on #+clj / #+cljs
-  of asTagged:
-    dispatch_macros['+'] = read_cond_as_tagged
-  of cljSource:
-    dispatch_macros['+'] = read_cond_clj
-  of cljsSource:
-    dispatch_macros['+'] = read_cond_cljs
+  discard
 
 init_gene_readers()
 
@@ -1140,7 +992,6 @@ proc read*(s: Stream, filename: string): GeneValue =
   var opts: ParseOptions
   opts.eof_is_error = true
   opts.suppress_read = false
-  opts.conditional_exprs = asError
   opts.comments_handling = discardComments
   p.options = opts
   p.open(s, filename)
@@ -1174,8 +1025,3 @@ proc read*(buffer: string, options: ParseOptions): GeneValue =
   p.open(s, "*input*")
   defer: p.close()
   result = read(p)
-
-# DONE: handling cond forms that are returned as nil (e.g. ommited)
-# TODO: special comments handlers experimenting with literate progrmming
-# TODO: util method for reading strings but accepting ParseOpts
-# TODO: asTagged untested or not working? maybe drop?

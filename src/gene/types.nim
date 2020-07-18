@@ -203,14 +203,16 @@ type
       keyword*: tuple[ns, name: string]
       is_namespaced*: bool
     of GeneGene:
-      op*: GeneValue
-      list*: seq[GeneValue]
-      list_meta*: HMap
+      gene_op*: GeneValue
+      gene_props*: Table[string, GeneValue]
+      gene_data*: seq[GeneValue]
+      gene_meta*: HMap
       # A gene can be normalized to match expected format
       # Example: (a = 1) => (= a 1)
-      normalized*: bool
+      gene_normalized*: bool
     of GeneMap:
-      map*: HMap
+      # map*: HMap
+      map*: Table[string, GeneValue]
       map_meta*: HMap
     of GeneVector:
       vec*: seq[GeneValue]
@@ -293,7 +295,7 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneKeyword:
       return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
     of GeneGene:
-      return this.op == that.op and this.list == that.list
+      return this.gene_op == that.gene_op and this.gene_data == that.gene_data
     of GeneMap:
       return this.map == that.map
     of GeneVector:
@@ -435,15 +437,15 @@ proc is_truthy*(self: GeneValue): bool =
     return true
 
 proc normalize*(self: GeneValue) =
-  if self.list.len == 0:
+  if self.gene_data.len == 0:
     return
-  var first = self.list[0]
+  var first = self.gene_data[0]
   if first.kind == GeneSymbol:
     if first.symbol in BINARY_OPS:
-      var op = self.op
-      self.list.delete 0
-      self.list.insert op, 0
-      self.op = first
+      var op = self.gene_op
+      self.gene_data.delete 0
+      self.gene_data.insert op, 0
+      self.gene_op = first
 
 #################### Document ###################
 
