@@ -3,7 +3,6 @@ import strformat, logging
 import ./types
 import ./vm
 import ./compiler
-import ./interpreter
 
 #################### Interfaces ##################
 

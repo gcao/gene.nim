@@ -591,86 +591,16 @@ proc read_gene(p: var Parser): GeneValue =
   result.gene_op = read_gene_op(p)
   skip_ws(p)
   if p.buf[p.bufpos] == ':':
-    result.gene_props = read_map(p, true)
+    let props = read_map(p, true)
+    result.gene_props = props
   var result_list = read_delimited_list(p, ')', true)
   result.gene_data = result_list.list
   discard maybe_add_comments(result, result_list)
 
-# const
-#   MAP_EVEN = "Map literal must contain even number of forms "
-
 proc read_map(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneMap)
-  result.map = read_map(p, false)
-  # var list_result = read_delimited_list(p, '}', true)
-  # var list = list_result.list
-  # var index = 0
-  # if (list.len and 1) == 1:
-  #   for x in list:
-  #     if index mod 2 == 0 and x.kind == GeneKeyword:
-  #       echo "MAP ELEM " & $x.kind & " " & $x.keyword
-  #     else:
-  #       echo "MAP ELEM " & $x.kind
-  #   inc(index)
-  #   let position = (p.line_number, get_col_number(p, p.bufpos))
-  #   #echo "line ", getCurrentLine(p), " col: ", getColNumber(p, p.bufpos)
-  #   raise new_exception(ParseError, MAP_EVEN & $position & " " & $list.len & " " & p.filename)
-  # else:
-  #   result.map = new_hmap()
-  #   var i = 0
-  #   while i <= list.high - 1:
-  #     result.map[list[i]] = list[i+1]
-  #     i = i + 2
-  # add_line_col(p, result)
-  # discard maybe_add_comments(result, list_result)
-
-# const
-#   NS_MAP_INVALID = "Namespaced map must specify a valid namespace: kind $#, namespace $#, $#:$#"
-#   NS_MAP_EVEN = "Namespaced map literal must contain an even number of forms"
-
-# proc read_ns_map(p: var Parser): GeneValue =
-#   let n = read(p)
-#   if n.kind != GeneComplexSymbol or n.csymbol.ns != "":
-#     let ns_str = if n.csymbol.ns == "": "nil" else: n.csymbol.ns
-#     raise new_exception(ParseError, format(NS_MAP_INVALID, n.kind, ns_str, p.filename, p.line_number))
-
-#   skip_ws(p)
-
-#   if p.buf[p.bufpos] != '{':
-#     raise new_exception(ParseError, "Namespaced map must specify a map")
-#   inc(p.bufpos)
-#   let list_result = read_delimited_list(p, '}', true)
-#   let list = list_result.list
-#   if (list.len and 1) == 1:
-#     raise new_exception(ParseError, NS_MAP_EVEN)
-#   var
-#     map = new_hmap()
-#     i = 0
-#   while i < list.high:
-#     var key = list[i]
-#     inc(i)
-#     var value = list[i]
-#     inc(i)
-#     case key.kind
-#     of GeneKeyword:
-#       if key.keyword.ns == "":
-#         map[new_gene_keyword(n.csymbol.name, key.keyword.name)] = value
-#       elif key.keyword.ns == "_":
-#         map[new_gene_keyword("", key.keyword.name)] = value
-#       else:
-#         map[key] = value
-#     of GeneComplexSymbol:
-#       if key.csymbol.ns == "":
-#         map[new_gene_complex_symbol(n.csymbol.name, key.csymbol.name)] = value
-#       elif key.keyword.ns == "_":
-#         map[new_gene_keyword("", key.csymbol.name)] = value
-#       else:
-#         map[key] = value
-#     else:
-#       map[key] = value
-
-#     result = GeneValue(kind: GeneMap, map: map)
-#     discard maybe_add_comments(result, list_result)
+  let map = read_map(p, false)
+  result.map = map
 
 proc read_vector(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneVector)

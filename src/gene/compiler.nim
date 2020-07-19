@@ -1,4 +1,4 @@
-import sets, sequtils, tables, oids, strutils
+import sets, tables, oids, strutils
 
 import ./types
 import ./parser

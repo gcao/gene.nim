@@ -3,7 +3,6 @@ import sequtils, tables
 import ./types
 import ./parser
 import ./vm
-import ./compiler
 
 type
   IfState = enum
