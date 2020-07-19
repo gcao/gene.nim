@@ -13,6 +13,9 @@ test_parser("+5.0E5", new_gene_float(+5.0E5))
 test_parser("true", GeneTrue)
 test_parser("false", GeneFalse)
 
+test_parser("{}", new_gene_map(Table[string, GeneValue]()))
+test_parser("{:a 1}", new_gene_map({"a": new_gene_int(1)}.toTable))
+
 test "Parser":
   var node: GeneValue
   var nodes: seq[GeneValue]

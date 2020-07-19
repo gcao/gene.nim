@@ -1,4 +1,4 @@
-import sequtils
+import sequtils, tables
 
 import ./types
 import ./parser
@@ -198,6 +198,13 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return cast[GeneValue](self[name])
   of GeneGene:
     return self.eval_gene(node)
+  of GeneVector:
+    return new_gene_vec(node.vec.mapIt(self.eval(it)))
+  of GeneMap:
+    var map = Table[string, GeneValue]()
+    for key in node.map.keys:
+      map[key] = self.eval(node.map[key])
+    return new_gene_map(map)
   else:
     todo($node)
 

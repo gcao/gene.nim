@@ -389,25 +389,39 @@ proc new_gene_keyword*(ns, name: string): GeneValue =
 proc new_gene_keyword*(name: string): GeneValue =
   return GeneValue(kind: GeneKeyword, keyword: ("", name))
 
+proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
+  return GeneValue(
+    kind: GeneVector,
+    vec: items,
+  )
+
+proc new_gene_vec*(items: varargs[GeneValue]): GeneValue = new_gene_vec(@items)
+
+proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
+  return GeneValue(
+    kind: GeneMap,
+    map: map,
+  )
+
 proc new_gene_gene*(op: GeneValue): GeneValue =
   return GeneValue(
     kind: GeneGene,
     gene_op: op,
   )
 
-proc new_gene_gene*(op: GeneValue, data: seq[GeneValue]): GeneValue =
+proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
     gene_op: op,
-    gene_data: data,
+    gene_data: @data,
   )
 
-proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: seq[GeneValue]): GeneValue =
+proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
     gene_op: op,
     gene_props: props,
-    gene_data: data,
+    gene_data: @data,
   )
 
 proc new_gene_internal*(value: Internal): GeneValue =

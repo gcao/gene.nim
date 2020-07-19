@@ -1,5 +1,7 @@
 # To run these tests, simply execute `nimble test` or `nim c -r tests/test_interpreter.nim`
 
+import tables
+
 import gene/types
 import ./helpers
 
@@ -7,7 +9,14 @@ test_eval "nil", GeneNil
 test_eval "1", new_gene_int(1)
 test_eval "true", GeneTrue
 test_eval "false", GeneFalse
+
 test_eval "1 2 3", new_gene_int(3)
+
+test_eval "[]", new_gene_vec()
+test_eval "[1 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
+
+test_eval "{}", new_gene_map(Table[string, GeneValue]())
+test_eval "{:a 1}", new_gene_map({"a": new_gene_int(1)}.toTable)
 
 test_eval "(1 + 2)", new_gene_int(3)
 test_eval "(1 - 2)", new_gene_int(-1)

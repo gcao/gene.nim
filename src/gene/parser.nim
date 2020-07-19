@@ -559,8 +559,11 @@ proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
           key = read_token(p, false)
           state = PropState.Value
       elif part_of_gene:
+        if ch == ')':
+          p.bufPos.inc
         return
       elif ch == '}':
+        p.bufPos.inc
         return
       else:
         raise new_exception(ParseError, "Expect key at " & $p.bufpos & " but found " & p.buf[p.bufpos])
