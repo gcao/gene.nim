@@ -1,19 +1,22 @@
-# To run these tests, simply execute `nimble test`.
+# To run these tests, simply execute `nimble test` or `nim c -r tests/test_types.nim`
 
 import unittest
 
 import gene/types
 
-test "Types":
-  var value = GeneValue(
-    kind: GeneGene,
-    gene_op: new_gene_int(1),
-    gene_data: @[
+test "normalize":
+  var value = new_gene_gene(
+    new_gene_int(1),
+    @[
       new_gene_symbol("+"),
       new_gene_int(2),
     ],
   )
   value.normalize
-  check value.gene_op == new_gene_symbol("+")
-  check value.gene_data[0] == new_gene_int(1)
-  check value.gene_data[1] == new_gene_int(2)
+  check value == new_gene_gene(
+    new_gene_symbol("+"),
+    @[
+      new_gene_int(1),
+      new_gene_int(2),
+    ],
+  )

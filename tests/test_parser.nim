@@ -1,37 +1,26 @@
-# To run these tests, simply execute `nimble test`.
+# To run these tests, simply execute `nimble test` or `nim c -r tests/test_parser.nim`
 
 import unittest, options, tables, strutils
 
-import gene/parser
 import gene/types
+import gene/parser
+import ./helpers
+
+test_parser("nil", GeneNil)
+test_parser("10", new_gene_int(10))
+test_parser("10e10", new_gene_float(10e10))
+test_parser("+5.0E5", new_gene_float(+5.0E5))
+test_parser("true", GeneTrue)
+test_parser("false", GeneFalse)
 
 test "Parser":
   var node: GeneValue
   var nodes: seq[GeneValue]
 
-  node = read("nil")
-  check node.kind == GeneNilKind
-
-  node = read("10")
-  check node.kind == GeneInt
-  check node.num == 10
-
   nodes = read_all("10 11")
   check nodes.len == 2
   check nodes[0].num == 10
   check nodes[1].num == 11
-
-  node = read("10e10")
-  check node.kind == GeneFloat
-  check node.fnum == 10e10
-
-  node = read("+5.0E5")
-  check node.kind == GeneFloat
-  check node.fnum == +5.0E5
-
-  node = read("true")
-  check node.kind == GeneBool
-  check node.boolVal == true
 
   node = read("1 2 3")
   check node.kind == GeneInt

@@ -101,6 +101,14 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
         return new_gene_bool(first.num < second.num)
       else:
         todo($node)
+    elif op.symbol == "&&":
+      var first = self.eval(node.gene_data[0])
+      var second = self.eval(node.gene_data[1])
+      return new_gene_bool(first.is_truthy and second.is_truthy)
+    elif op.symbol == "||":
+      var first = self.eval(node.gene_data[0])
+      var second = self.eval(node.gene_data[1])
+      return new_gene_bool(first.is_truthy or second.is_truthy)
     else:
       var target = self.eval(op)
       if target.kind == GeneInternal and target.internal.kind == GeneFunction:
