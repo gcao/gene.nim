@@ -312,6 +312,8 @@ proc `==`*(this, that: GeneValue): bool =
       return this.internal == that.internal
 
 proc `$`*(node: GeneValue): string =
+  if node.isNil:
+    return "nil"
   case node.kind
   of GeneNilKind:
     result = "nil"
