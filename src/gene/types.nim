@@ -1,5 +1,7 @@
 import strutils, oids, sets, tables
 
+const CORE_REGISTERS* = 8
+
 const BINARY_OPS* = [
   "+", "-", "*", "/",
   "=", "+=", "-=", "*=", "/=",
@@ -9,6 +11,37 @@ const BINARY_OPS* = [
 ]
 
 type
+  ## This is the root of a running application
+  Application* = ref object
+    ns*: Namespace
+
+  VM* = ref object
+    root_ns*: Namespace
+    cur_stack*: Stack
+    cur_block*: Block
+    pos*: int
+
+  Caller* = ref object
+    stack*: Stack
+    blk*: Block
+    pos*: int
+
+  Namespace* = ref object
+    parent*: Namespace
+    members*: Table[string, GeneValue]
+
+  Stack* {.acyclic.} = ref object
+    parent*: Stack
+    cur_ns*: Namespace
+    cur_scope*: Scope
+    registers*: array[CORE_REGISTERS, GeneValue]
+    more_regs*: seq[GeneValue]
+    caller*: Caller
+
+  Scope* = ref object
+    parent*: Scope
+    members*: Table[string, GeneValue]
+
   RunningMode* = enum
     Interpreted
     Compiled
@@ -101,6 +134,7 @@ type
     reg*: int       # Optional: Default register
     reg2*: int      # Optional: Second register
     val*: GeneValue # Optional: Default immediate value
+    callback*: proc(vm: var VM, instr: Instruction)
 
   Block* = ref object
     id*: Oid

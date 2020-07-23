@@ -6,6 +6,8 @@ import ./compiler
 
 #################### Interfaces ##################
 
+proc run_default*(self: var VM, instr: Instruction)
+
 #################### Implementations #############
 
 proc run*(self: var VM, module: Module): GeneValue =
@@ -18,8 +20,9 @@ proc run*(self: var VM, module: Module): GeneValue =
     debug(&"{self.pos:>4} {instr}")
     case instr.kind:
     of Default:
-      self.pos += 1
-      self.cur_stack[0] = instr.val
+      self.run_default(instr)
+      # self.pos += 1
+      # self.cur_stack[0] = instr.val
     of Save:
       self.pos += 1
       self.cur_stack[instr.reg] = instr.val
@@ -105,3 +108,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       todo($instr)
 
   result = self.cur_stack.default
+
+proc run_default*(self: var VM, instr: Instruction) =
+  self.pos += 1
+  self.cur_stack[0] = instr.val

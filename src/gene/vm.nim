@@ -2,40 +2,6 @@ import tables
 
 import ./types
 
-const CORE_REGISTERS* = 8
-
-type
-  ## This is the root of a running application
-  Application* = ref object
-    ns: Namespace
-
-  VM* = ref object
-    root_ns*: Namespace
-    cur_stack*: Stack
-    cur_block*: Block
-    pos*: int
-
-  Caller* = ref object
-    stack*: Stack
-    blk*: Block
-    pos*: int
-
-  Namespace* = ref object
-    parent*: Namespace
-    members*: Table[string, GeneValue]
-
-  Stack* {.acyclic.} = ref object
-    parent*: Stack
-    cur_ns*: Namespace
-    cur_scope*: Scope
-    registers: array[CORE_REGISTERS, GeneValue]
-    more_regs: seq[GeneValue]
-    caller*: Caller
-
-  Scope* = ref object
-    parent*: Scope
-    members*: Table[string, GeneValue]
-
 #################### Interfaces ##################
 
 #################### Namespace ###################
