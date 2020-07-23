@@ -63,3 +63,5 @@ test_eval """
   )
   (fib 6)
 """, new_gene_int(8)
+
+# test_eval "(class A)", new_gene_map({"a": new_gene_int(1)}.toTable)
