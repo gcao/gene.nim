@@ -22,6 +22,12 @@ proc test_parser*(code: string, result: GeneValue) =
   test "Parser / read: " & code:
     check read(code) == result
 
+proc test_eval*(code: string, result: GeneValue) =
+  var code = cleanup(code)
+  test "Interpreter / eval: " & code:
+    var vm = new_vm()
+    check vm.eval(code) == result
+
 proc test_eval*(code: string, callback: proc(result: GeneValue)) =
   var code = cleanup(code)
   test "Interpreter / eval: " & code:
