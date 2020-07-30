@@ -120,6 +120,10 @@ type
     # TODO: support (main ...)
     # main_block* Block
 
+  Class* = ref object
+    name*: string
+    methods*: Table[string, Function]
+
   Function* = ref object
     name*: string
     args*: seq[string]
@@ -132,6 +136,7 @@ type
   GeneInternalKind* = enum
     GeneFunction
     GeneArguments
+    GeneClass
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -139,6 +144,8 @@ type
       fn*: Function
     of GeneArguments:
       args*: Arguments
+    of GeneClass:
+      class*: Class
 
   GeneKind* = enum
     GeneNilKind
@@ -439,6 +446,15 @@ proc new_gene_arguments*(): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneArguments, args: new_args()),
+  )
+
+proc new_class*(name: string): Class =
+  return Class(name: name)
+
+proc new_gene_internal*(class: Class): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneClass, class: class),
   )
 
 ### === VALS ===

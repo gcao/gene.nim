@@ -26,6 +26,7 @@ type
 
   Stack* {.acyclic.} = ref object
     parent*: Stack
+    self*: GeneValue
     cur_ns*: Namespace
     cur_scope*: Scope
     registers: array[CORE_REGISTERS, GeneValue]
