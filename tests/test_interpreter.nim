@@ -1,6 +1,6 @@
 # To run these tests, simply execute `nimble test` or `nim c -r tests/test_interpreter.nim`
 
-import tables
+import unittest, tables
 
 import gene/types
 import ./helpers
@@ -64,5 +64,5 @@ test_eval """
   (fib 6)
 """, new_gene_int(8)
 
-test_eval "(class A)", proc (r: GeneValue) =
+test_eval "(class A)", proc(r: GeneValue) =
   check r.internal.class.name == "A"
