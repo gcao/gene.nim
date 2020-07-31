@@ -421,7 +421,7 @@ proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
     map: map,
   )
 
-# proc new_gene_gene*(op: GeneValue): GeneValue =
+# proc new_gene_gene_simple*(op: GeneValue): GeneValue =
 #   return GeneValue(
 #     kind: GeneGene,
 #     gene_op: op,
@@ -508,6 +508,8 @@ proc is_truthy*(self: GeneValue): bool =
     return true
 
 proc normalize*(self: GeneValue) =
+  if self.gene_normalized:
+    return
   if self.gene_data.len == 0:
     return
   var first = self.gene_data[0]
@@ -517,6 +519,13 @@ proc normalize*(self: GeneValue) =
       self.gene_data.delete 0
       self.gene_data.insert op, 0
       self.gene_op = first
+      self.gene_normalized = true
+    elif first.symbol[0] == '.':
+      self.gene_props["self"] = self.gene_op
+      self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
+      self.gene_data.delete 0
+      self.gene_op = new_gene_symbol("$invoke_method")
+      self.gene_normalized = true
 
 #################### Document ###################
 

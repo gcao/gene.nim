@@ -72,3 +72,11 @@ test_eval """
   (new A)
 """, proc(r: GeneValue) =
   check r.instance.class.name == "A"
+
+test_eval """
+  (class A
+    (method test [] 1)
+  )
+  (var a (new A))
+  (a .test)
+""", new_gene_int(1)
