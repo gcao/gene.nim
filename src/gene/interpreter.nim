@@ -32,6 +32,7 @@ proc eval_gene*(self: var VM, node: GeneValue): GeneValue
 proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
 proc eval_fn*(self: var VM, node: GeneValue): GeneValue
 proc eval_class*(self: var VM, node: GeneValue): GeneValue
+proc eval_new*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 
 #################### Implementations #############
@@ -55,6 +56,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_fn(node)
     elif op.symbol == "class":
       return self.eval_class(node)
+    elif op.symbol == "new":
+      return self.eval_new(node)
     elif op.symbol == "=":
       var first = node.gene_data[0]
       var second = node.gene_data[1]
@@ -177,6 +180,7 @@ proc eval_class*(self: var VM, node: GeneValue): GeneValue =
   var class = Class(name: name)
   var internal = Internal(kind: GeneClass, class: class)
   result = new_gene_internal(internal)
+  self.cur_stack.cur_ns[name] = result
 
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
@@ -185,6 +189,11 @@ proc eval_class*(self: var VM, node: GeneValue): GeneValue =
     discard self.eval child
 
   self.cur_stack = stack
+
+proc eval_new*(self: var VM, node: GeneValue): GeneValue =
+  var class = self.eval(node.gene_data[0])
+  var instance = new_instance(class.internal.class)
+  return new_gene_instance(instance)
 
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack

@@ -668,6 +668,8 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.regex)
   of GeneInternal:
     todo($node.internal.kind)
+  of GeneInstance:
+    h = h !& hash(node.instance.value)
   result = !$h
 
 proc read_regex(p: var Parser): GeneValue =

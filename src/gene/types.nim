@@ -124,6 +124,10 @@ type
     name*: string
     methods*: Table[string, Function]
 
+  Instance* = ref object
+    class*: Class
+    value*: GeneValue
+
   Function* = ref object
     name*: string
     args*: seq[string]
@@ -166,6 +170,7 @@ type
     GeneCommentLine
     GeneRegex
     GeneInternal
+    GeneInstance
 
   CommentPlacement* = enum
     Before
@@ -236,6 +241,8 @@ type
       regex*: string
     of GeneInternal:
       internal*: Internal
+    of GeneInstance:
+      instance*: Instance
     line*: int
     column*: int
     comments*: seq[Comment]
@@ -317,6 +324,8 @@ proc `==`*(this, that: GeneValue): bool =
       return this.regex == that.regex
     of GeneInternal:
       return this.internal == that.internal
+    of GeneInstance:
+      return this.instance == that.instance
 
 proc `$`*(node: GeneValue): string =
   if node.isNil:
@@ -412,11 +421,11 @@ proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
     map: map,
   )
 
-proc new_gene_gene*(op: GeneValue): GeneValue =
-  return GeneValue(
-    kind: GeneGene,
-    gene_op: op,
-  )
+# proc new_gene_gene*(op: GeneValue): GeneValue =
+#   return GeneValue(
+#     kind: GeneGene,
+#     gene_op: op,
+#   )
 
 proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
   return GeneValue(
@@ -451,10 +460,19 @@ proc new_gene_arguments*(): GeneValue =
 proc new_class*(name: string): Class =
   return Class(name: name)
 
+proc new_instance*(class: Class): Instance =
+  return Instance(value: new_gene_gene(GeneNil), class: class)
+
 proc new_gene_internal*(class: Class): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneClass, class: class),
+  )
+
+proc new_gene_instance*(instance: Instance): GeneValue =
+  return GeneValue(
+    kind: GeneInstance,
+    instance: instance,
   )
 
 ### === VALS ===

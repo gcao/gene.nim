@@ -66,3 +66,9 @@ test_eval """
 
 test_eval "(class A)", proc(r: GeneValue) =
   check r.internal.class.name == "A"
+
+test_eval """
+  (class A)
+  (new A)
+""", proc(r: GeneValue) =
+  check r.instance.class.name == "A"
