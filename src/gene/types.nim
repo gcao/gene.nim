@@ -167,6 +167,10 @@ type
     of GeneNamespace:
       ns*: Namespace
 
+  ComplexSymbol* = ref object
+    first*: string
+    rest*: seq[string]
+
   GeneKind* = enum
     GeneNilKind
     GeneBool
@@ -223,10 +227,8 @@ type
       str*: string
     of GeneSymbol:
       symbol*: string
-      symbol_meta*: HMap
     of GeneComplexSymbol:
-      csymbol*: tuple[ns, name: string]
-      csymbol_meta*: HMap
+      csymbol*: ComplexSymbol
     of GeneKeyword:
       keyword*: tuple[ns, name: string]
       is_namespaced*: bool
@@ -234,20 +236,16 @@ type
       gene_op*: GeneValue
       gene_props*: Table[string, GeneValue]
       gene_data*: seq[GeneValue]
-      gene_meta*: HMap
       # A gene can be normalized to match expected format
       # Example: (a = 1) => (= a 1)
       gene_normalized*: bool
     of GeneMap:
       # map*: HMap
       map*: Table[string, GeneValue]
-      map_meta*: HMap
     of GeneVector:
       vec*: seq[GeneValue]
-      vec_meta*: HMap
     of GeneSet:
       set_elems*: HMap
-      set_meta*: HMap
     of GeneTaggedValue:
       tag*:  tuple[ns, name: string]
       value*: GeneValue
@@ -295,6 +293,11 @@ proc `[]=`*(self: Arguments, i: int, val: GeneValue) =
   while i >= self.positional.len:
     self.positional.add(GeneNil)
   self.positional[i] = val
+
+#################### ComplexSymbol ###############
+
+proc `==`*(this, that: ComplexSymbol): bool =
+  return this.first == that.first and this.rest == that.rest
 
 #################### GeneValue ###################
 
@@ -365,10 +368,10 @@ proc `$`*(node: GeneValue): string =
   of GeneSymbol:
     result = node.symbol
   of GeneComplexSymbol:
-    if node.csymbol.ns == "":
-      result = node.csymbol.name
+    if node.csymbol.first == "":
+      result = "/" & node.csymbol.rest.join("/")
     else:
-      result = node.csymbol.ns & "/" & node.csymbol.name
+      result = node.csymbol.first & "/" & node.csymbol.rest.join("/")
   of GeneInternal:
     case node.internal.kind:
     of GeneFunction:
@@ -416,8 +419,8 @@ proc new_gene_bool*(s: string): GeneValue =
 proc new_gene_symbol*(name: string): GeneValue =
   return GeneValue(kind: GeneSymbol, symbol: name)
 
-proc new_gene_complex_symbol*(ns, name: string): GeneValue =
-  return GeneValue(kind: GeneComplexSymbol, csymbol: (ns, name))
+proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
+  return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
 
 proc new_gene_keyword*(ns, name: string): GeneValue =
   return GeneValue(kind: GeneKeyword, keyword: (ns, name))

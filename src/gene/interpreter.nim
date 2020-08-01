@@ -59,6 +59,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_if(node.gene_data)
     elif op.symbol == "fn":
       return self.eval_fn(node)
+    elif op.symbol == "ns":
+      return self.eval_ns(node)
     elif op.symbol == "class":
       return self.eval_class(node)
     elif op.symbol == "method":
@@ -190,6 +192,17 @@ proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
   var name = node.gene_data[0].symbol
   var ns = new_namespace(name)
   result = new_gene_internal(ns)
+  self.cur_stack.cur_ns[name] = result
+
+  var stack = self.cur_stack
+  self.cur_stack = stack.grow()
+  self.cur_stack.self = result
+  self.cur_stack.cur_ns = ns
+  for i in 1..<node.gene_data.len:
+    var child = node.gene_data[i]
+    discard self.eval child
+
+  self.cur_stack = stack
 
 proc eval_class*(self: var VM, node: GeneValue): GeneValue =
   var name = node.gene_data[0].symbol
@@ -294,6 +307,9 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
   of GeneBool:
     return new_gene_bool(node.boolVal)
   of GeneSymbol:
+    var name = node.symbol
+    return cast[GeneValue](self[name])
+  of GeneComplexSymbol:
     var name = node.symbol
     return cast[GeneValue](self[name])
   of GeneGene:

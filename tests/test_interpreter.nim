@@ -87,4 +87,5 @@ test_eval """
 test_eval "($ARGV)", proc(r: GeneValue) =
   check r.vec.len == 1
 
-test_eval "(ns test)", new_gene_internal(new_namespace("test"))
+test_eval "(ns test)", proc(r: GeneValue) =
+  check r.internal.ns.name == "test"
