@@ -31,6 +31,7 @@ proc eval*(self: var VM, node: GeneValue): GeneValue
 proc eval_gene*(self: var VM, node: GeneValue): GeneValue
 proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
 proc eval_fn*(self: var VM, node: GeneValue): GeneValue
+proc eval_ns*(self: var VM, node: GeneValue): GeneValue
 proc eval_class*(self: var VM, node: GeneValue): GeneValue
 proc eval_method*(self: var VM, node: GeneValue): GeneValue
 proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
@@ -184,6 +185,11 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var internal = Internal(kind: GeneFunction, fn: fn)
   result = new_gene_internal(internal)
   self.cur_stack.cur_ns[name] = result
+
+proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
+  var name = node.gene_data[0].symbol
+  var ns = new_namespace(name)
+  result = new_gene_internal(ns)
 
 proc eval_class*(self: var VM, node: GeneValue): GeneValue =
   var name = node.gene_data[0].symbol

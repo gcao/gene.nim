@@ -5,10 +5,6 @@ import ./types
 const CORE_REGISTERS* = 8
 
 type
-  ## This is the root of a running application
-  Application* = ref object
-    ns: Namespace
-
   VM* = ref object
     root_ns*: Namespace
     cur_stack*: Stack
@@ -19,10 +15,6 @@ type
     stack*: Stack
     blk*: Block
     pos*: int
-
-  Namespace* = ref object
-    parent*: Namespace
-    members*: Table[string, GeneValue]
 
   Stack* {.acyclic.} = ref object
     parent*: Stack
@@ -41,16 +33,10 @@ type
 
 #################### Namespace ###################
 
-proc new_namespace*(): Namespace = Namespace(members: Table[string, GeneValue]())
-
 proc `[]`*(self: Namespace, key: string): GeneValue = self.members[key]
 
 proc `[]=`*(self: var Namespace, key: string, val: GeneValue) =
   self.members[key] = val
-
-#################### Application #######################
-
-let APP* = Application(ns: new_namespace())
 
 #################### Scope #######################
 

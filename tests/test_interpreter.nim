@@ -86,3 +86,5 @@ test_eval """
 # ($ARGV 1) returns first argument
 test_eval "($ARGV)", proc(r: GeneValue) =
   check r.vec.len == 1
+
+test_eval "(ns test)", new_gene_internal(new_namespace("test"))

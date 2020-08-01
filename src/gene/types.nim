@@ -9,8 +9,10 @@ const BINARY_OPS* = [
 ]
 
 type
+  ## This is the root of a running application
   Application* = ref object
     name*: string
+    ns*: Namespace
     program*: string
     args*: seq[string]
 
@@ -118,6 +120,12 @@ type
     next*: int
     freed*: HashSet[int]
 
+  Namespace* = ref object
+    parent*: Namespace
+    name*: string
+    members*: Table[string, GeneValue]
+    # cache*: Table[string, GeneValue]
+
   Module* = ref object
     id*: Oid
     blocks*: Table[Oid, Block]
@@ -146,6 +154,7 @@ type
     GeneFunction
     GeneArguments
     GeneClass
+    GeneNamespace
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -155,6 +164,8 @@ type
       args*: Arguments
     of GeneClass:
       class*: Class
+    of GeneNamespace:
+      ns*: Namespace
 
   GeneKind* = enum
     GeneNilKind
@@ -258,10 +269,11 @@ type
     data*: seq[GeneValue]
 
 let
-  APP* = Application()
   GeneNil*   = GeneValue(kind: GeneNilKind)
   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+
+var APP*: Application
 
 #################### Function ####################
 
@@ -469,6 +481,25 @@ proc new_class*(name: string): Class =
 proc new_instance*(class: Class): Instance =
   return Instance(value: new_gene_gene(GeneNil), class: class)
 
+proc new_namespace*(): Namespace =
+  return Namespace(
+    name: "<root>",
+    members: Table[string, GeneValue](),
+  )
+
+proc new_namespace*(name: string): Namespace =
+  return Namespace(
+    name: name,
+    members: Table[string, GeneValue](),
+  )
+
+proc new_namespace*(parent: Namespace, name: string): Namespace =
+  return Namespace(
+    parent: parent,
+    name: name,
+    members: Table[string, GeneValue](),
+  )
+
 proc new_gene_internal*(class: Class): GeneValue =
   return GeneValue(
     kind: GeneInternal,
@@ -479,6 +510,12 @@ proc new_gene_instance*(instance: Instance): GeneValue =
   return GeneValue(
     kind: GeneInstance,
     instance: instance,
+  )
+
+proc new_gene_internal*(ns: Namespace): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
 ### === VALS ===
@@ -537,3 +574,9 @@ proc normalize*(self: GeneValue) =
 
 proc new_doc*(data: seq[GeneValue]): GeneDocument =
   return GeneDocument(data: data)
+
+#################### Application #######################
+
+APP = Application(
+  ns: new_namespace("global")
+)
