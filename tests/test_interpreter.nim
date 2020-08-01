@@ -97,3 +97,15 @@ test_eval """
   n/A
 """, proc(r: GeneValue) =
   check r.internal.class.name == "A"
+
+test_eval """
+  (ns n)
+  n
+""", proc(r: GeneValue) =
+  check r.internal.ns.name == "n"
+
+test_eval """
+  (ns n)
+  /n
+""", proc(r: GeneValue) =
+  check r.internal.ns.name == "n"

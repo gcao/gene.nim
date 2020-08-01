@@ -311,7 +311,10 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return cast[GeneValue](self[name])
   of GeneComplexSymbol:
     var sym = node.csymbol
-    result = self[sym.first]
+    if sym.first == "":
+      result = new_gene_internal(self.cur_stack.cur_ns)
+    else:
+      result = self[sym.first]
     for name in sym.rest:
       result = result.internal.ns[name]
     return result
