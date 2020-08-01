@@ -89,3 +89,11 @@ test_eval "($ARGV)", proc(r: GeneValue) =
 
 test_eval "(ns test)", proc(r: GeneValue) =
   check r.internal.ns.name == "test"
+
+test_eval """
+  (ns n
+    (class A)
+  )
+  n/A
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "A"

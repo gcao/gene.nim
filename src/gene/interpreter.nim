@@ -310,8 +310,11 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     var name = node.symbol
     return cast[GeneValue](self[name])
   of GeneComplexSymbol:
-    var name = node.symbol
-    return cast[GeneValue](self[name])
+    var sym = node.csymbol
+    result = self[sym.first]
+    for name in sym.rest:
+      result = result.internal.ns[name]
+    return result
   of GeneGene:
     return self.eval_gene(node)
   of GeneVector:
