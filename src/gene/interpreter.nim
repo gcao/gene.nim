@@ -1,4 +1,4 @@
-import sequtils, tables
+import os, sequtils, tables
 
 import ./types
 import ./parser
@@ -31,7 +31,13 @@ proc eval*(self: var VM, node: GeneValue): GeneValue
 proc eval_gene*(self: var VM, node: GeneValue): GeneValue
 proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
 proc eval_fn*(self: var VM, node: GeneValue): GeneValue
+proc eval_class*(self: var VM, node: GeneValue): GeneValue
+proc eval_method*(self: var VM, node: GeneValue): GeneValue
+proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
+proc eval_new*(self: var VM, node: GeneValue): GeneValue
+proc eval_argv*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
+proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue
 
 #################### Implementations #############
 
@@ -52,6 +58,16 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_if(node.gene_data)
     elif op.symbol == "fn":
       return self.eval_fn(node)
+    elif op.symbol == "class":
+      return self.eval_class(node)
+    elif op.symbol == "method":
+      return self.eval_method(node)
+    elif op.symbol == "new":
+      return self.eval_new(node)
+    elif op.symbol == "$invoke_method":
+      return self.eval_invoke_method(node)
+    elif op.symbol == "$ARGV":
+      return self.eval_argv(node)
     elif op.symbol == "=":
       var first = node.gene_data[0]
       var second = node.gene_data[1]
@@ -169,9 +185,88 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   result = new_gene_internal(internal)
   self.cur_stack.cur_ns[name] = result
 
+proc eval_class*(self: var VM, node: GeneValue): GeneValue =
+  var name = node.gene_data[0].symbol
+  var class = Class(name: name)
+  var internal = Internal(kind: GeneClass, class: class)
+  result = new_gene_internal(internal)
+  self.cur_stack.cur_ns[name] = result
+
+  var stack = self.cur_stack
+  self.cur_stack = stack.grow()
+  self.cur_stack.self = result
+  for i in 1..<node.gene_data.len:
+    var child = node.gene_data[i]
+    discard self.eval child
+
+  self.cur_stack = stack
+
+proc eval_method(self: var VM, node: GeneValue): GeneValue =
+  var name = node.gene_data[0].symbol
+  var args: seq[string] = @[]
+  var a = node.gene_data[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  var fn = Function(name: name, args: args, body: body)
+  var internal = Internal(kind: GeneFunction, fn: fn)
+  result = new_gene_internal(internal)
+  self.cur_stack.self.internal.class.methods[name] = fn
+
+proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue =
+  var instance = self.eval(node.gene_props["self"])
+  var class = instance.instance.class
+  var meth = class.methods[node.gene_props["method"].str]
+
+  var this = self
+  var args = node.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
+  return self.call_method(instance, meth, new_args(args))
+
+proc eval_new*(self: var VM, node: GeneValue): GeneValue =
+  var class = self.eval(node.gene_data[0])
+  var instance = new_instance(class.internal.class)
+  return new_gene_instance(instance)
+
+proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
+  if node.gene_data.len == 1:
+    if node.gene_data[0] == new_gene_int(0):
+      return new_gene_string_move(getAppFilename())
+    else:
+      var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
+      return argv[node.gene_data[0].num - 1]
+
+  var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
+  argv.insert(new_gene_string_move(getAppFilename()))
+  return new_gene_vec(argv)
+
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
+  for i in 0..<fn.args.len:
+    var arg = fn.args[i]
+    var val = args[i]
+    self.cur_stack.cur_scope[arg] = val
+
+  try:
+    for node in fn.body:
+      result = self.eval node
+
+  finally:
+    self.cur_stack = stack
+
+proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue =
+  var stack = self.cur_stack
+  self.cur_stack = stack.grow()
+  self.cur_stack.self = instance
   for i in 0..<fn.args.len:
     var arg = fn.args[i]
     var val = args[i]

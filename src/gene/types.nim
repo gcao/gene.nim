@@ -9,6 +9,11 @@ const BINARY_OPS* = [
 ]
 
 type
+  Application* = ref object
+    name*: string
+    program*: string
+    args*: seq[string]
+
   RunningMode* = enum
     Interpreted
     Compiled
@@ -120,6 +125,14 @@ type
     # TODO: support (main ...)
     # main_block* Block
 
+  Class* = ref object
+    name*: string
+    methods*: Table[string, Function]
+
+  Instance* = ref object
+    class*: Class
+    value*: GeneValue
+
   Function* = ref object
     name*: string
     args*: seq[string]
@@ -132,6 +145,7 @@ type
   GeneInternalKind* = enum
     GeneFunction
     GeneArguments
+    GeneClass
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -139,6 +153,8 @@ type
       fn*: Function
     of GeneArguments:
       args*: Arguments
+    of GeneClass:
+      class*: Class
 
   GeneKind* = enum
     GeneNilKind
@@ -159,6 +175,7 @@ type
     GeneCommentLine
     GeneRegex
     GeneInternal
+    GeneInstance
 
   CommentPlacement* = enum
     Before
@@ -229,6 +246,8 @@ type
       regex*: string
     of GeneInternal:
       internal*: Internal
+    of GeneInstance:
+      instance*: Instance
     line*: int
     column*: int
     comments*: seq[Comment]
@@ -239,6 +258,7 @@ type
     data*: seq[GeneValue]
 
 let
+  APP* = Application()
   GeneNil*   = GeneValue(kind: GeneNilKind)
   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
@@ -310,6 +330,8 @@ proc `==`*(this, that: GeneValue): bool =
       return this.regex == that.regex
     of GeneInternal:
       return this.internal == that.internal
+    of GeneInstance:
+      return this.instance == that.instance
 
 proc `$`*(node: GeneValue): string =
   if node.isNil:
@@ -405,11 +427,11 @@ proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
     map: map,
   )
 
-proc new_gene_gene*(op: GeneValue): GeneValue =
-  return GeneValue(
-    kind: GeneGene,
-    gene_op: op,
-  )
+# proc new_gene_gene_simple*(op: GeneValue): GeneValue =
+#   return GeneValue(
+#     kind: GeneGene,
+#     gene_op: op,
+#   )
 
 proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
   return GeneValue(
@@ -439,6 +461,24 @@ proc new_gene_arguments*(): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneArguments, args: new_args()),
+  )
+
+proc new_class*(name: string): Class =
+  return Class(name: name)
+
+proc new_instance*(class: Class): Instance =
+  return Instance(value: new_gene_gene(GeneNil), class: class)
+
+proc new_gene_internal*(class: Class): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneClass, class: class),
+  )
+
+proc new_gene_instance*(instance: Instance): GeneValue =
+  return GeneValue(
+    kind: GeneInstance,
+    instance: instance,
   )
 
 ### === VALS ===
@@ -474,6 +514,8 @@ proc is_truthy*(self: GeneValue): bool =
     return true
 
 proc normalize*(self: GeneValue) =
+  if self.gene_normalized:
+    return
   if self.gene_data.len == 0:
     return
   var first = self.gene_data[0]
@@ -483,6 +525,13 @@ proc normalize*(self: GeneValue) =
       self.gene_data.delete 0
       self.gene_data.insert op, 0
       self.gene_op = first
+      self.gene_normalized = true
+    elif first.symbol[0] == '.':
+      self.gene_props["self"] = self.gene_op
+      self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
+      self.gene_data.delete 0
+      self.gene_op = new_gene_symbol("$invoke_method")
+      self.gene_normalized = true
 
 #################### Document ###################
 

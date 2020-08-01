@@ -28,6 +28,12 @@ proc test_eval*(code: string, result: GeneValue) =
     var vm = new_vm()
     check vm.eval(code) == result
 
+proc test_eval*(code: string, callback: proc(result: GeneValue)) =
+  var code = cleanup(code)
+  test "Interpreter / eval: " & code:
+    var vm = new_vm()
+    callback vm.eval(code)
+
 proc test_compiler*(code: string, result: GeneValue) =
   var code = cleanup(code)
   test "Compiler / VM: " & code:

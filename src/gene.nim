@@ -4,7 +4,7 @@
 # import nimprof
 # setSamplingFrequency(1)
 
-import times, parseopt, strutils, logging
+import times, strutils, logging
 
 import gene/types
 import gene/vm
@@ -12,31 +12,9 @@ import gene/parser
 import gene/interpreter
 import gene/compiler
 import gene/cpu
+import cmdline/option_parser
 
-var file: string
-var running_mode = RunningMode.Interpreted
-var debugging = false
-
-proc parseOptions() =
-  for kind, key, value in getOpt():
-    case kind
-    of cmdArgument:
-      file = key
-
-    of cmdLongOption, cmdShortOption:
-      case key
-      of "mode", "m":
-        if value.cmpIgnoreCase("compiled") == 0:
-          running_mode = RunningMode.Compiled
-      of "d":
-        debugging = true
-      else:
-        echo "Unknown option: ", key
-
-    of cmdEnd:
-      discard
-
-proc setupLogger() =
+proc setupLogger(debugging: bool) =
   var consoleLogger = newConsoleLogger()
   addHandler(consoleLogger)
   consoleLogger.levelThreshold = Level.lvlInfo
@@ -58,14 +36,14 @@ proc prompt(message: string): string =
   return "\u001B[36m" & message & "\u001B[0m"
 
 proc main() =
-  parseOptions()
-  setupLogger()
+  var options = parseOptions()
+  setupLogger(options.debugging)
 
-  if file == "":
+  if options.repl:
     echo "Welcome to interactive Gene!"
     echo "Note: press Ctrl-D to exit."
 
-    if debugging:
+    if options.debugging:
       echo "The logger level is set to DEBUG."
 
     var vm = new_vm()
@@ -81,7 +59,7 @@ proc main() =
           discard
 
         var r: GeneValue
-        if running_mode == Interpreted:
+        if options.running_mode == Interpreted:
           r = vm.eval(input)
         else:
           var c = new_compiler()
@@ -109,7 +87,8 @@ proc main() =
 
   else:
     var vm = new_vm()
-    if running_mode == Interpreted:
+    var file = options.file
+    if options.running_mode == Interpreted:
       let parsed = read_all(readFile(file))
       let start = cpuTime()
       let result = vm.eval(parsed)
