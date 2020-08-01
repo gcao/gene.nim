@@ -80,3 +80,9 @@ test_eval """
   (var a (new A))
   (a .test)
 """, new_gene_int(1)
+
+# ($ARGV) returns command line as array of string
+# ($ARGV 0) returns the program name
+# ($ARGV 1) returns first argument
+test_eval "($ARGV)", proc(r: GeneValue) =
+  check r.vec.len == 1

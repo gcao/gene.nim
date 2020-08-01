@@ -1,4 +1,4 @@
-import sequtils, tables
+import os, sequtils, tables
 
 import ./types
 import ./parser
@@ -35,6 +35,7 @@ proc eval_class*(self: var VM, node: GeneValue): GeneValue
 proc eval_method*(self: var VM, node: GeneValue): GeneValue
 proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
 proc eval_new*(self: var VM, node: GeneValue): GeneValue
+proc eval_argv*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue
 
@@ -65,6 +66,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_new(node)
     elif op.symbol == "$invoke_method":
       return self.eval_invoke_method(node)
+    elif op.symbol == "$ARGV":
+      return self.eval_argv(node)
     elif op.symbol == "=":
       var first = node.gene_data[0]
       var second = node.gene_data[1]
@@ -232,6 +235,18 @@ proc eval_new*(self: var VM, node: GeneValue): GeneValue =
   var class = self.eval(node.gene_data[0])
   var instance = new_instance(class.internal.class)
   return new_gene_instance(instance)
+
+proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
+  if node.gene_data.len == 1:
+    if node.gene_data[0] == new_gene_int(0):
+      return new_gene_string_move(getAppFilename())
+    else:
+      var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
+      return argv[node.gene_data[0].num - 1]
+
+  var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
+  argv.insert(new_gene_string_move(getAppFilename()))
+  return new_gene_vec(argv)
 
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack

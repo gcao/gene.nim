@@ -9,6 +9,11 @@ const BINARY_OPS* = [
 ]
 
 type
+  Application* = ref object
+    name*: string
+    program*: string
+    args*: seq[string]
+
   RunningMode* = enum
     Interpreted
     Compiled
@@ -253,6 +258,7 @@ type
     data*: seq[GeneValue]
 
 let
+  APP* = Application()
   GeneNil*   = GeneValue(kind: GeneNilKind)
   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
