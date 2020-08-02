@@ -37,6 +37,7 @@ proc eval_method*(self: var VM, node: GeneValue): GeneValue
 proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
 proc eval_new*(self: var VM, node: GeneValue): GeneValue
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue
+proc eval_import*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue
 
@@ -61,6 +62,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_fn(node)
     elif op.symbol == "ns":
       return self.eval_ns(node)
+    elif op.symbol == "import":
+      return self.eval_import(node)
     elif op.symbol == "class":
       return self.eval_class(node)
     elif op.symbol == "method":
@@ -267,6 +270,16 @@ proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
   argv.insert(new_gene_string_move(getAppFilename()))
   return new_gene_vec(argv)
 
+proc eval_import*(self: var VM, node: GeneValue): GeneValue =
+  var module = node.gene_props["module"].str
+  var ns = APP.namespaces[module]
+  if ns == nil:
+    todo("Evaluate module")
+  for name in node.gene_props["names"].vec:
+    var s = name.symbol
+    self.cur_stack.cur_ns[s] = ns[s]
+  return GeneNil
+
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
@@ -319,6 +332,7 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
       result = result.internal.ns[name]
     return result
   of GeneGene:
+    node.normalize
     return self.eval_gene(node)
   of GeneVector:
     return new_gene_vec(node.vec.mapIt(self.eval(it)))
@@ -338,3 +352,14 @@ proc eval*(self: var VM, buffer: string): GeneValue =
   var parsed = read_all(buffer)
   for node in parsed:
     result = self.eval node
+
+proc eval_module*(self: var VM, name: string, buffer: string) =
+  var stack = self.cur_stack.grow()
+  self.cur_stack = stack
+  stack.cur_ns = new_namespace()
+  stack.cur_ns.name = name
+  APP.namespaces[name] = stack.cur_ns
+
+  var parsed = read_all(buffer)
+  for node in parsed:
+    discard self.eval node

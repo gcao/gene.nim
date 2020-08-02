@@ -6,7 +6,6 @@ const CORE_REGISTERS* = 8
 
 type
   VM* = ref object
-    root_ns*: Namespace
     cur_stack*: Stack
     cur_block*: Block
     pos*: int
@@ -94,7 +93,6 @@ proc `[]=`*(self: var Stack, i: int, val: GeneValue) =
 proc new_vm*(): VM =
   var ns = new_namespace()
   return VM(
-    root_ns: ns,
     cur_stack: new_stack(ns),
     pos: -1,
   )

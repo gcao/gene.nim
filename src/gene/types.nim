@@ -15,6 +15,7 @@ type
     ns*: Namespace
     program*: string
     args*: seq[string]
+    namespaces*: Table[string, Namespace]
 
   RunningMode* = enum
     Interpreted
@@ -556,22 +557,39 @@ proc is_truthy*(self: GeneValue): bool =
 proc normalize*(self: GeneValue) =
   if self.gene_normalized:
     return
+  self.gene_normalized = true
+
+  var op = self.gene_op
+  if op.kind == GeneSymbol:
+    if op.symbol == "import":
+      var names: seq[GeneValue] = @[]
+      var module: GeneValue
+      var expect_module = false
+      for val in self.gene_data:
+        if expect_module:
+          module = val
+        elif val.kind == GeneSymbol and val.symbol == "from":
+          expect_module = true
+        else:
+          names.add(val)
+      self.gene_props["names"] = new_gene_vec(names)
+      self.gene_props["module"] = module
+      return
+
   if self.gene_data.len == 0:
     return
+
   var first = self.gene_data[0]
   if first.kind == GeneSymbol:
     if first.symbol in BINARY_OPS:
-      var op = self.gene_op
       self.gene_data.delete 0
       self.gene_data.insert op, 0
       self.gene_op = first
-      self.gene_normalized = true
     elif first.symbol[0] == '.':
-      self.gene_props["self"] = self.gene_op
+      self.gene_props["self"] = op
       self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
       self.gene_data.delete 0
       self.gene_op = new_gene_symbol("$invoke_method")
-      self.gene_normalized = true
 
 #################### Document ###################
 
