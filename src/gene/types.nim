@@ -9,10 +9,13 @@ const BINARY_OPS* = [
 ]
 
 type
+  ## This is the root of a running application
   Application* = ref object
     name*: string
+    ns*: Namespace
     program*: string
     args*: seq[string]
+    namespaces*: Table[string, Namespace]
 
   RunningMode* = enum
     Interpreted
@@ -118,6 +121,12 @@ type
     next*: int
     freed*: HashSet[int]
 
+  Namespace* = ref object
+    parent*: Namespace
+    name*: string
+    members*: Table[string, GeneValue]
+    # cache*: Table[string, GeneValue]
+
   Module* = ref object
     id*: Oid
     blocks*: Table[Oid, Block]
@@ -146,6 +155,7 @@ type
     GeneFunction
     GeneArguments
     GeneClass
+    GeneNamespace
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -155,6 +165,12 @@ type
       args*: Arguments
     of GeneClass:
       class*: Class
+    of GeneNamespace:
+      ns*: Namespace
+
+  ComplexSymbol* = ref object
+    first*: string
+    rest*: seq[string]
 
   GeneKind* = enum
     GeneNilKind
@@ -212,10 +228,8 @@ type
       str*: string
     of GeneSymbol:
       symbol*: string
-      symbol_meta*: HMap
     of GeneComplexSymbol:
-      csymbol*: tuple[ns, name: string]
-      csymbol_meta*: HMap
+      csymbol*: ComplexSymbol
     of GeneKeyword:
       keyword*: tuple[ns, name: string]
       is_namespaced*: bool
@@ -223,20 +237,16 @@ type
       gene_op*: GeneValue
       gene_props*: Table[string, GeneValue]
       gene_data*: seq[GeneValue]
-      gene_meta*: HMap
       # A gene can be normalized to match expected format
       # Example: (a = 1) => (= a 1)
       gene_normalized*: bool
     of GeneMap:
       # map*: HMap
       map*: Table[string, GeneValue]
-      map_meta*: HMap
     of GeneVector:
       vec*: seq[GeneValue]
-      vec_meta*: HMap
     of GeneSet:
       set_elems*: HMap
-      set_meta*: HMap
     of GeneTaggedValue:
       tag*:  tuple[ns, name: string]
       value*: GeneValue
@@ -258,10 +268,11 @@ type
     data*: seq[GeneValue]
 
 let
-  APP* = Application()
   GeneNil*   = GeneValue(kind: GeneNilKind)
   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+
+var APP*: Application
 
 #################### Function ####################
 
@@ -283,6 +294,11 @@ proc `[]=`*(self: Arguments, i: int, val: GeneValue) =
   while i >= self.positional.len:
     self.positional.add(GeneNil)
   self.positional[i] = val
+
+#################### ComplexSymbol ###############
+
+proc `==`*(this, that: ComplexSymbol): bool =
+  return this.first == that.first and this.rest == that.rest
 
 #################### GeneValue ###################
 
@@ -353,10 +369,10 @@ proc `$`*(node: GeneValue): string =
   of GeneSymbol:
     result = node.symbol
   of GeneComplexSymbol:
-    if node.csymbol.ns == "":
-      result = node.csymbol.name
+    if node.csymbol.first == "":
+      result = "/" & node.csymbol.rest.join("/")
     else:
-      result = node.csymbol.ns & "/" & node.csymbol.name
+      result = node.csymbol.first & "/" & node.csymbol.rest.join("/")
   of GeneInternal:
     case node.internal.kind:
     of GeneFunction:
@@ -404,8 +420,8 @@ proc new_gene_bool*(s: string): GeneValue =
 proc new_gene_symbol*(name: string): GeneValue =
   return GeneValue(kind: GeneSymbol, symbol: name)
 
-proc new_gene_complex_symbol*(ns, name: string): GeneValue =
-  return GeneValue(kind: GeneComplexSymbol, csymbol: (ns, name))
+proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
+  return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
 
 proc new_gene_keyword*(ns, name: string): GeneValue =
   return GeneValue(kind: GeneKeyword, keyword: (ns, name))
@@ -469,6 +485,25 @@ proc new_class*(name: string): Class =
 proc new_instance*(class: Class): Instance =
   return Instance(value: new_gene_gene(GeneNil), class: class)
 
+proc new_namespace*(): Namespace =
+  return Namespace(
+    name: "<root>",
+    members: Table[string, GeneValue](),
+  )
+
+proc new_namespace*(name: string): Namespace =
+  return Namespace(
+    name: name,
+    members: Table[string, GeneValue](),
+  )
+
+proc new_namespace*(parent: Namespace, name: string): Namespace =
+  return Namespace(
+    parent: parent,
+    name: name,
+    members: Table[string, GeneValue](),
+  )
+
 proc new_gene_internal*(class: Class): GeneValue =
   return GeneValue(
     kind: GeneInternal,
@@ -479,6 +514,12 @@ proc new_gene_instance*(instance: Instance): GeneValue =
   return GeneValue(
     kind: GeneInstance,
     instance: instance,
+  )
+
+proc new_gene_internal*(ns: Namespace): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
 ### === VALS ===
@@ -516,24 +557,47 @@ proc is_truthy*(self: GeneValue): bool =
 proc normalize*(self: GeneValue) =
   if self.gene_normalized:
     return
+  self.gene_normalized = true
+
+  var op = self.gene_op
+  if op.kind == GeneSymbol:
+    if op.symbol == "import":
+      var names: seq[GeneValue] = @[]
+      var module: GeneValue
+      var expect_module = false
+      for val in self.gene_data:
+        if expect_module:
+          module = val
+        elif val.kind == GeneSymbol and val.symbol == "from":
+          expect_module = true
+        else:
+          names.add(val)
+      self.gene_props["names"] = new_gene_vec(names)
+      self.gene_props["module"] = module
+      return
+
   if self.gene_data.len == 0:
     return
+
   var first = self.gene_data[0]
   if first.kind == GeneSymbol:
     if first.symbol in BINARY_OPS:
-      var op = self.gene_op
       self.gene_data.delete 0
       self.gene_data.insert op, 0
       self.gene_op = first
-      self.gene_normalized = true
     elif first.symbol[0] == '.':
-      self.gene_props["self"] = self.gene_op
+      self.gene_props["self"] = op
       self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
       self.gene_data.delete 0
       self.gene_op = new_gene_symbol("$invoke_method")
-      self.gene_normalized = true
 
 #################### Document ###################
 
 proc new_doc*(data: seq[GeneValue]): GeneDocument =
   return GeneDocument(data: data)
+
+#################### Application #######################
+
+APP = Application(
+  ns: new_namespace("global")
+)

@@ -31,11 +31,13 @@ proc eval*(self: var VM, node: GeneValue): GeneValue
 proc eval_gene*(self: var VM, node: GeneValue): GeneValue
 proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
 proc eval_fn*(self: var VM, node: GeneValue): GeneValue
+proc eval_ns*(self: var VM, node: GeneValue): GeneValue
 proc eval_class*(self: var VM, node: GeneValue): GeneValue
 proc eval_method*(self: var VM, node: GeneValue): GeneValue
 proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
 proc eval_new*(self: var VM, node: GeneValue): GeneValue
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue
+proc eval_import*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue
 
@@ -58,6 +60,10 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_if(node.gene_data)
     elif op.symbol == "fn":
       return self.eval_fn(node)
+    elif op.symbol == "ns":
+      return self.eval_ns(node)
+    elif op.symbol == "import":
+      return self.eval_import(node)
     elif op.symbol == "class":
       return self.eval_class(node)
     elif op.symbol == "method":
@@ -185,6 +191,22 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   result = new_gene_internal(internal)
   self.cur_stack.cur_ns[name] = result
 
+proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
+  var name = node.gene_data[0].symbol
+  var ns = new_namespace(name)
+  result = new_gene_internal(ns)
+  self.cur_stack.cur_ns[name] = result
+
+  var stack = self.cur_stack
+  self.cur_stack = stack.grow()
+  self.cur_stack.self = result
+  self.cur_stack.cur_ns = ns
+  for i in 1..<node.gene_data.len:
+    var child = node.gene_data[i]
+    discard self.eval child
+
+  self.cur_stack = stack
+
 proc eval_class*(self: var VM, node: GeneValue): GeneValue =
   var name = node.gene_data[0].symbol
   var class = Class(name: name)
@@ -248,6 +270,16 @@ proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
   argv.insert(new_gene_string_move(getAppFilename()))
   return new_gene_vec(argv)
 
+proc eval_import*(self: var VM, node: GeneValue): GeneValue =
+  var module = node.gene_props["module"].str
+  var ns = APP.namespaces[module]
+  if ns == nil:
+    todo("Evaluate module")
+  for name in node.gene_props["names"].vec:
+    var s = name.symbol
+    self.cur_stack.cur_ns[s] = ns[s]
+  return GeneNil
+
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
@@ -290,7 +322,17 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
   of GeneSymbol:
     var name = node.symbol
     return cast[GeneValue](self[name])
+  of GeneComplexSymbol:
+    var sym = node.csymbol
+    if sym.first == "":
+      result = new_gene_internal(self.cur_stack.cur_ns)
+    else:
+      result = self[sym.first]
+    for name in sym.rest:
+      result = result.internal.ns[name]
+    return result
   of GeneGene:
+    node.normalize
     return self.eval_gene(node)
   of GeneVector:
     return new_gene_vec(node.vec.mapIt(self.eval(it)))
@@ -310,3 +352,14 @@ proc eval*(self: var VM, buffer: string): GeneValue =
   var parsed = read_all(buffer)
   for node in parsed:
     result = self.eval node
+
+proc eval_module*(self: var VM, name: string, buffer: string) =
+  var stack = self.cur_stack.grow()
+  self.cur_stack = stack
+  stack.cur_ns = new_namespace()
+  stack.cur_ns.name = name
+  APP.namespaces[name] = stack.cur_ns
+
+  var parsed = read_all(buffer)
+  for node in parsed:
+    discard self.eval node

@@ -3,6 +3,8 @@
 import unittest, tables
 
 import gene/types
+import gene/vm
+import gene/interpreter
 import ./helpers
 
 test_eval "nil", GeneNil
@@ -51,6 +53,9 @@ test_eval """
   )
 """, new_gene_int(2)
 
+test_eval "(fn f a a)", proc(r: GeneValue) =
+  check r.internal.fn.name == "f"
+
 test_eval "(fn f [] 1) (f)", new_gene_int(1)
 test_eval "(fn f a (a + 1)) (f 1)", new_gene_int(2)
 test_eval """
@@ -86,3 +91,49 @@ test_eval """
 # ($ARGV 1) returns first argument
 test_eval "($ARGV)", proc(r: GeneValue) =
   check r.vec.len == 1
+
+test_eval "(ns test)", proc(r: GeneValue) =
+  check r.internal.ns.name == "test"
+
+test_eval """
+  (ns n
+    (class A)
+  )
+  n/A
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "A"
+
+test_eval """
+  (ns n)
+  n
+""", proc(r: GeneValue) =
+  check r.internal.ns.name == "n"
+
+test_eval """
+  (ns n)
+  /n
+""", proc(r: GeneValue) =
+  check r.internal.ns.name == "n"
+
+# * import/export
+#
+# file1.nim
+# (ns n
+#   (fn f a a)
+# )
+# file2.nim
+# (import n from "./file1")
+# n/f     # is resolved to function f in file1.nim
+#
+test "Import":
+  var vm = new_vm()
+  vm.eval_module "file1", """
+    (ns n
+      (fn f a a)
+    )
+  """
+  var result = vm.eval """
+    (import n from "file1")
+    n/f
+  """
+  check result.internal.fn.name == "f"

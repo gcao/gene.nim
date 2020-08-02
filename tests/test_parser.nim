@@ -13,6 +13,10 @@ test_parser("+5.0E5", new_gene_float(+5.0E5))
 test_parser("true", GeneTrue)
 test_parser("false", GeneFalse)
 
+test_parser("A", new_gene_symbol("A"))
+test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
+test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
+
 test_parser("{}", new_gene_map(Table[string, GeneValue]()))
 test_parser("{:a 1}", new_gene_map({"a": new_gene_int(1)}.toTable))
 
@@ -193,18 +197,18 @@ test "Parser":
   check node.kind == GeneSymbol
   check node.symbol == "symbol-👋"
 
-  node = read(":foo")
-  check node.kind == GeneKeyword
-  check node.keyword.name == "foo"
-  check node.is_namespaced == false
-  check $node == ":foo"
+  # node = read(":foo")
+  # check node.kind == GeneKeyword
+  # check node.keyword.name == "foo"
+  # check node.is_namespaced == false
+  # check $node == ":foo"
 
-  node = read("::foobar")
-  check node.kind == GeneKeyword
-  check node.keyword.name == "foobar"
-  check node.keyword.ns == ""
-  check node.is_namespaced == true
-  check $node == "::foobar"
+  # node = read("::foobar")
+  # check node.kind == GeneKeyword
+  # check node.keyword.name == "foobar"
+  # check node.keyword.ns == ""
+  # check node.is_namespaced == true
+  # check $node == "::foobar"
 
   node = read("+foo+")
   check node.kind == GeneSymbol
@@ -231,11 +235,11 @@ test "Parser":
   check node.kind == GeneMap
   check node.map.len == 2
 
-  try:
-    node = read("moo/bar/baz")
-    raise new_exception(Exception, "FAILURE")
-  except ParseError:
-    discard
+  # try:
+  #   node = read("moo/bar/baz")
+  #   raise new_exception(Exception, "FAILURE")
+  # except ParseError:
+  #   discard
 
   node = read("[1 2 , 3,4]")
   check node.kind == GeneVector

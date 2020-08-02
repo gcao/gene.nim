@@ -302,49 +302,54 @@ proc skip_ws(p: var Parser) =
   p.bufpos = pos
 
 proc match_symbol(s: string): GeneValue =
-  let
-    ns_pat   = re"[:]?([\D].*)"
-    name_pat = re"(\D.*)"
-    split_sym = s.split('/')
-  var
-    ns: string
-    name: string
-  case split_sym.len
-  of 1:
-    ns   = ""
-    name = split_sym[0]
-  of 2:
-    ns   = split_sym[0]
-    name = split_sym[1]
+  let split_sym = s.split('/')
+  if split_sym.len > 1:
+    return new_gene_complex_symbol(split_sym[0], split_sym[1..^1])
   else:
-    return nil
+    return new_gene_symbol(s)
+  # let
+  #   ns_pat   = re"[:]?([\D].*)"
+  #   name_pat = re"(\D.*)"
+  #   split_sym = s.split('/')
+  # var
+  #   ns: string
+  #   name: string
+  # case split_sym.len
+  # of 1:
+  #   ns   = ""
+  #   name = split_sym[0]
+  # of 2:
+  #   ns   = split_sym[0]
+  #   name = split_sym[1]
+  # else:
+  #   return nil
 
-  if ns != "":
-    let ns_m = ns.match(ns_pat)
-    if ns_m.is_some():
-      ns = ns_m.get().captures[0]
-  if name != "":
-    let name_m = name.match(name_pat)
-    if name_m.is_some():
-      name = name_m.get().captures[0]
-  if s[0] == ':':
-    result = GeneValue(kind: GeneKeyword)
-    # locally namespaced kw (e.g. ::foo)
-    if split_sym.len == 1:
-      if 2 < s.high() and s[1] == ':':
-        result.keyword = (ns, name.substr(2, name.len))
-        result.is_namespaced = true
-      else:
-        result.keyword = (ns, name.substr(1,name.len))
-        result.is_namespaced = false
-    else:
-      result.keyword = (ns, name)
-      result.is_namespaced = false
-  else:
-    result = GeneValue(kind: GeneSymbol)
-    # TODO: complex symbol
-    # result.symbol = (ns, name)
-    result.symbol = name
+  # if ns != "":
+  #   let ns_m = ns.match(ns_pat)
+  #   if ns_m.is_some():
+  #     ns = ns_m.get().captures[0]
+  # if name != "":
+  #   let name_m = name.match(name_pat)
+  #   if name_m.is_some():
+  #     name = name_m.get().captures[0]
+  # if s[0] == ':':
+  #   result = GeneValue(kind: GeneKeyword)
+  #   # locally namespaced kw (e.g. ::foo)
+  #   if split_sym.len == 1:
+  #     if 2 < s.high() and s[1] == ':':
+  #       result.keyword = (ns, name.substr(2, name.len))
+  #       result.is_namespaced = true
+  #     else:
+  #       result.keyword = (ns, name.substr(1,name.len))
+  #       result.is_namespaced = false
+  #   else:
+  #     result.keyword = (ns, name)
+  #     result.is_namespaced = false
+  # else:
+  #   result = GeneValue(kind: GeneSymbol)
+  #   # TODO: complex symbol
+  #   # result.symbol = (ns, name)
+  #   result.symbol = name
 
 proc interpret_token(token: string): GeneValue =
   result = nil
@@ -641,7 +646,7 @@ proc hash*(node: GeneValue): Hash =
   of GeneSymbol:
     h = h !& hash(node.symbol)
   of GeneComplexSymbol:
-    h = h !& hash(node.csymbol)
+    h = h !& hash(node.csymbol.first & "/" & node.csymbol.rest.join("/"))
   of GeneKeyword:
     h = h !& hash(node.keyword)
     h = h !& hash(node.is_namespaced)
