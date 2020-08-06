@@ -86,6 +86,11 @@ test_eval """
   (a .test)
 """, new_gene_int(1)
 
+test_eval """
+  (import from "src/core.gene")
+  ("test" .len)
+""", new_gene_int(4)
+
 # ($ARGV) returns command line as array of string
 # ($ARGV 0) returns the program name
 # ($ARGV 1) returns first argument
@@ -138,4 +143,12 @@ test "Import":
   """
   check result.internal.fn.name == "f"
 
-test_eval """($call_native "str_len" "test")""", new_gene_int(4)
+test_eval """
+  (import from "src/core.gene")
+  global/String
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "String"
+
+test_eval """
+  ($call_native "str_len" "test")
+""", new_gene_int(4)

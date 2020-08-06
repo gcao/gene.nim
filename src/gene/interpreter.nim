@@ -41,6 +41,7 @@ proc eval_import*(self: var VM, node: GeneValue): GeneValue
 proc eval_call_native*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue
+proc eval_module*(self: var VM, name: string)
 
 #################### Implementations #############
 
@@ -211,11 +212,30 @@ proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
   self.cur_stack = stack
 
 proc eval_class*(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].symbol
+  var name: string
+  var ns: Namespace
+  var first = node.gene_data[0]
+  case first.kind:
+  of GeneSymbol:
+    name = first.symbol
+    ns = self.cur_stack.cur_ns
+  of GeneComplexSymbol:
+    var nsName = first.csymbol.first
+    var rest = first.csymbol.rest
+    name = rest[^1]
+    if nsName == "global":
+      ns = APP.ns
+    else:
+      ns = self.cur_stack.cur_ns[nsName].internal.ns
+    for i in 0..<rest.len - 1:
+      ns = ns[rest[i]].internal.ns
+  else:
+    not_allowed()
+
   var class = Class(name: name)
   var internal = Internal(kind: GeneClass, class: class)
   result = new_gene_internal(internal)
-  self.cur_stack.cur_ns[name] = result
+  ns[name] = result
 
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
@@ -249,9 +269,15 @@ proc eval_method(self: var VM, node: GeneValue): GeneValue =
 
 proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue =
   var instance = self.eval(node.gene_props["self"])
-  var class = instance.instance.class
+  var class: Class
+  case instance.kind:
+  of GeneInstance:
+    class = instance.instance.class
+  of GeneString:
+    class = APP.ns["String"].internal.class
+  else:
+    todo()
   var meth = class.methods[node.gene_props["method"].str]
-
   var this = self
   var args = node.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
   return self.call_method(instance, meth, new_args(args))
@@ -275,7 +301,10 @@ proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
 
 proc eval_import*(self: var VM, node: GeneValue): GeneValue =
   var module = node.gene_props["module"].str
-  var ns = APP.namespaces[module]
+  var ns: Namespace
+  if not APP.namespaces.hasKey(module):
+    self.eval_module(module)
+  ns = APP.namespaces[module]
   if ns == nil:
     todo("Evaluate module")
   for name in node.gene_props["names"].vec:
@@ -335,11 +364,19 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return new_gene_bool(node.boolVal)
   of GeneSymbol:
     var name = node.symbol
-    return cast[GeneValue](self[name])
+    case name:
+    of "global":
+      return new_gene_internal(APP.ns)
+    of "self":
+      return self.cur_stack.self
+    else:
+      return self[name]
   of GeneComplexSymbol:
     var sym = node.csymbol
     if sym.first == "":
       result = new_gene_internal(self.cur_stack.cur_ns)
+    elif sym.first == "global":
+      result = new_gene_internal(APP.ns)
     else:
       result = self[sym.first]
     for name in sym.rest:
@@ -377,3 +414,6 @@ proc eval_module*(self: var VM, name: string, buffer: string) =
   var parsed = read_all(buffer)
   for node in parsed:
     discard self.eval node
+
+proc eval_module*(self: var VM, name: string) =
+  self.eval_module(name, $readFile(name))
