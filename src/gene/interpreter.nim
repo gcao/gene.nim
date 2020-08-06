@@ -38,6 +38,7 @@ proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
 proc eval_new*(self: var VM, node: GeneValue): GeneValue
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue
 proc eval_import*(self: var VM, node: GeneValue): GeneValue
+proc eval_call_native*(self: var VM, node: GeneValue): GeneValue
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
 proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue
 
@@ -74,6 +75,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_invoke_method(node)
     elif op.symbol == "$ARGV":
       return self.eval_argv(node)
+    elif op.symbol == "$call_native":
+      return self.eval_call_native(node)
     elif op.symbol == "=":
       var first = node.gene_data[0]
       var second = node.gene_data[1]
@@ -280,6 +283,15 @@ proc eval_import*(self: var VM, node: GeneValue): GeneValue =
     self.cur_stack.cur_ns[s] = ns[s]
   return GeneNil
 
+proc eval_call_native*(self: var VM, node: GeneValue): GeneValue =
+  var name = node.gene_data[0].str
+  case name:
+  of "str_len":
+    var arg0 = self.eval(node.gene_data[1]).str
+    return new_gene_int(len(arg0))
+  else:
+    todo()
+
 proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
@@ -317,6 +329,8 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return GeneNil
   of GeneInt:
     return new_gene_int(node.num)
+  of GeneString:
+    return new_gene_string_move(node.str)
   of GeneBool:
     return new_gene_bool(node.boolVal)
   of GeneSymbol:

@@ -137,3 +137,5 @@ test "Import":
     n/f
   """
   check result.internal.fn.name == "f"
+
+test_eval """($call_native "str_len" "test")""", new_gene_int(4)
