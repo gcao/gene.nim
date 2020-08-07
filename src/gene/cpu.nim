@@ -60,6 +60,14 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.pos += 1
       var fn = instr.val
       self.cur_stack.cur_ns[fn.internal.fn.name] = fn
+      self.cur_stack[0] = instr.val
+    of CreateNamespace:
+      self.pos += 1
+      var name = instr.val.str
+      var ns = new_namespace(name)
+      var val = new_gene_internal(ns)
+      self.cur_stack.cur_ns[name] = val
+      self.cur_stack[0] = val
     of CreateArguments:
       self.pos += 1
       var args = instr.val
@@ -92,6 +100,10 @@ proc run*(self: var VM, module: Module): GeneValue =
         self.cur_stack = caller.stack
         self.cur_block = caller.blk
         self.pos = caller.pos
+
+    of CallBlockById:
+      todo()
+
     of SetItem:
       self.pos += 1
       var val = self.cur_stack[instr.reg]

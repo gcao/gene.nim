@@ -629,6 +629,8 @@ proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
   h = h !& hash(node.kind)
   case node.kind
+  of GeneAny:
+    todo()
   of GeneNilKind:
     h = h !& hash(0)
   of GeneBool:
@@ -664,9 +666,6 @@ proc hash*(node: GeneValue): Hash =
     for entry in node.set_elems:
       h = h !& hash(entry.key)
       h = h !& hash(entry.value)
-  of GeneTaggedValue:
-    h = h !& hash(node.tag)
-    h = h !& hash(node.value)
   of GeneCommentLine:
     h = h !& hash(node.comment)
   of GeneRegex:

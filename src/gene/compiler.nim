@@ -27,16 +27,19 @@ type
 
     ## else
     Else
+
 #################### Interfaces ##################
 
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_fn_body*(self: var Compiler, fn: Function): Block
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
 
-proc compile_fn_body*(self: var Compiler, fn: Function): Block
 
 #################### Instruction #################
 
@@ -95,6 +98,9 @@ proc instr_function*(fn: Function): Instruction =
 
 proc instr_arguments*(reg: int): Instruction =
   return Instruction(kind: CreateArguments, reg: reg, val: new_gene_arguments())
+
+proc instr_ns*(name: string): Instruction =
+  return Instruction(kind: CreateNamespace, val: new_gene_string_move(name))
 
 proc instr_call*(reg: int): Instruction =
   return Instruction(kind: Call, reg: reg)
@@ -185,6 +191,12 @@ proc compile_fn_body*(self: var Compiler, fn: Function): Block =
     self.compile(result, node)
   result.instructions.add(instr_call_end())
 
+proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block =
+  result = new_block()
+  for node in body:
+    self.compile(result, node)
+  result.instructions.add(instr_call_end())
+
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
   node.normalize
 
@@ -201,6 +213,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_fn(blk, node)
     of "var":
       self.compile_var(blk, node)
+    of "ns":
+      self.compile_ns(blk, node)
     else:
       self.compile_call(blk, node)
   else:
@@ -283,6 +297,17 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
   var body_block = self.compile_fn_body(fn)
   fn.body_block = body_block
   blk.add(instr_function(fn))
+
+proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue) =
+  var name = node.gene_data[0].symbol
+  var body: seq[GeneValue] = @[]
+  for i in 1..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  var body_block = self.compile_body(body)
+  self.module.blocks[body_block.id] = body_block
+  blk.add(instr_ns(name))
+  # blk.add(instr_call(body_block.id))
 
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
   self.compile(blk, node.gene_op)

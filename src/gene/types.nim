@@ -98,14 +98,17 @@ type
     # Arguments(reg): create an arguments object and store in register <reg>
     CreateArguments
 
+    CreateNamespace # name
+
     # Call(target reg, args reg)
     Call
     CallEnd
 
+    ## Call a block by id
+    CallBlockById
+
   Instruction* = ref object
-    case kind*: InstrType
-    else:
-      discard
+    kind*: InstrType
     reg*: int       # Optional: Default register
     reg2*: int      # Optional: Second register
     val*: GeneValue # Optional: Default immediate value
@@ -173,6 +176,7 @@ type
     rest*: seq[string]
 
   GeneKind* = enum
+    GeneAny
     GeneNilKind
     GeneBool
     GeneChar
@@ -187,7 +191,6 @@ type
     GeneMap
     GeneVector
     GeneSet
-    GeneTaggedValue
     GeneCommentLine
     GeneRegex
     GeneInternal
@@ -212,8 +215,10 @@ type
 
   GeneValue* {.acyclic.} = ref object
     case kind*: GeneKind
+    of GeneAny:
+      val: pointer
     of GeneNilKind:
-      nil
+      discard
     of GeneBool:
       boolVal*: bool
     of GeneChar:
@@ -247,9 +252,6 @@ type
       vec*: seq[GeneValue]
     of GeneSet:
       set_elems*: HMap
-    of GeneTaggedValue:
-      tag*:  tuple[ns, name: string]
-      value*: GeneValue
     of GeneCommentLine:
       comment*: string
     of GeneRegex:
@@ -310,6 +312,8 @@ proc `==`*(this, that: GeneValue): bool =
     return false
   else:
     case this.kind
+    of GeneAny:
+      return this.val == that.val
     of GeneNilKind:
       return that.kind == GeneNilKind
     of GeneBool:
@@ -338,8 +342,6 @@ proc `==`*(this, that: GeneValue): bool =
       return this.vec == that.vec
     of GeneSet:
       return this.set_elems == that.set_elems
-    of GeneTaggedValue:
-      return this.tag == that.tag and this.value == that.value
     of GeneCommentLine:
       return this.comment == that.comment
     of GeneRegex:

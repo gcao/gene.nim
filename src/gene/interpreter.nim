@@ -416,4 +416,4 @@ proc eval_module*(self: var VM, name: string, buffer: string) =
     discard self.eval node
 
 proc eval_module*(self: var VM, name: string) =
-  self.eval_module(name, $readFile(name))
+  self.eval_module(name, readFile(name))
