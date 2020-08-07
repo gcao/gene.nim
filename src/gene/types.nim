@@ -101,6 +101,7 @@ type
     CreateNamespace # name
 
     CreateClass # name
+    CreateInstance # name
 
     # Call(target reg, args reg)
     Call

@@ -37,6 +37,7 @@ proc compile_fn_body*(self: var Compiler, fn: Function): Block
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
@@ -105,6 +106,9 @@ proc instr_ns*(name: string): Instruction =
 
 proc instr_class*(name: string): Instruction =
   return Instruction(kind: CreateClass, val: new_gene_string_move(name))
+
+proc instr_new*(): Instruction =
+  return Instruction(kind: CreateInstance)
 
 proc instr_call*(reg: int): Instruction =
   return Instruction(kind: Call, reg: reg)
@@ -221,6 +225,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_ns(blk, node)
     of "class":
       self.compile_class(blk, node)
+    of "new":
+      self.compile_new(blk, node)
     else:
       self.compile_call(blk, node)
   else:
@@ -325,6 +331,10 @@ proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue) =
   # var body_block = self.compile_body(body)
   # self.module.blocks[body_block.id] = body_block
   # blk.add(instr_call(body_block.id))
+
+proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue) =
+  self.compile(blk, node.gene_data[0])
+  blk.add(instr_new())
 
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
   self.compile(blk, node.gene_op)
