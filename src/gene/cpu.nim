@@ -68,6 +68,13 @@ proc run*(self: var VM, module: Module): GeneValue =
       var val = new_gene_internal(ns)
       self.cur_stack.cur_ns[name] = val
       self.cur_stack[0] = val
+    of CreateClass:
+      self.pos += 1
+      var name = instr.val.str
+      var class = new_class(name)
+      var val = new_gene_internal(class)
+      self.cur_stack.cur_ns[name] = val
+      self.cur_stack[0] = val
     of CreateArguments:
       self.pos += 1
       var args = instr.val

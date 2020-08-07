@@ -100,6 +100,8 @@ type
 
     CreateNamespace # name
 
+    CreateClass # name
+
     # Call(target reg, args reg)
     Call
     CallEnd

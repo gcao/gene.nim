@@ -44,3 +44,8 @@ test_compiler """
   n
 """, proc(r: GeneValue) =
   check r.internal.ns.name == "n"
+
+test_compiler """
+  (class A)
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "A"

@@ -36,6 +36,7 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn_body*(self: var Compiler, fn: Function): Block
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
@@ -101,6 +102,9 @@ proc instr_arguments*(reg: int): Instruction =
 
 proc instr_ns*(name: string): Instruction =
   return Instruction(kind: CreateNamespace, val: new_gene_string_move(name))
+
+proc instr_class*(name: string): Instruction =
+  return Instruction(kind: CreateClass, val: new_gene_string_move(name))
 
 proc instr_call*(reg: int): Instruction =
   return Instruction(kind: Call, reg: reg)
@@ -215,6 +219,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_var(blk, node)
     of "ns":
       self.compile_ns(blk, node)
+    of "class":
+      self.compile_class(blk, node)
     else:
       self.compile_call(blk, node)
   else:
@@ -304,9 +310,20 @@ proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue) =
   for i in 1..<node.gene_data.len:
     body.add node.gene_data[i]
 
-  var body_block = self.compile_body(body)
-  self.module.blocks[body_block.id] = body_block
   blk.add(instr_ns(name))
+  # var body_block = self.compile_body(body)
+  # self.module.blocks[body_block.id] = body_block
+  # blk.add(instr_call(body_block.id))
+
+proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue) =
+  var name = node.gene_data[0].symbol
+  var body: seq[GeneValue] = @[]
+  for i in 1..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  blk.add(instr_class(name))
+  # var body_block = self.compile_body(body)
+  # self.module.blocks[body_block.id] = body_block
   # blk.add(instr_call(body_block.id))
 
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
