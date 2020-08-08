@@ -365,6 +365,8 @@ proc `$`*(node: GeneValue): string =
     result = $(node.boolVal)
   of GeneInt:
     result = $(node.num)
+  of GeneString:
+    result = "\"" & node.str.replace("\"", "\\\"") & "\""
   of GeneKeyword:
     if node.is_namespaced:
       result = "::" & node.keyword.name
@@ -379,6 +381,10 @@ proc `$`*(node: GeneValue): string =
       result = "/" & node.csymbol.rest.join("/")
     else:
       result = node.csymbol.first & "/" & node.csymbol.rest.join("/")
+  of GeneVector:
+    result = "["
+    result &= node.vec.join(", ")
+    result &= "]"
   of GeneInternal:
     case node.internal.kind:
     of GeneFunction:

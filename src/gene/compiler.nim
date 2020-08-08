@@ -122,7 +122,7 @@ proc instr_call_end*(): Instruction =
 
 proc `$`*(instr: Instruction): string =
   case instr.kind
-  of Default, Jump, JumpIfFalse:
+  of Default, Jump, JumpIfFalse, Import:
     return "$# $#" % [$instr.kind, $instr.val]
   of GetMember:
     return "$# $#" % [$instr.kind, $instr.val.str]
