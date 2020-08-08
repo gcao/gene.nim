@@ -12,6 +12,7 @@ test_parser("10e10", new_gene_float(10e10))
 test_parser("+5.0E5", new_gene_float(+5.0E5))
 test_parser("true", GeneTrue)
 test_parser("false", GeneFalse)
+test_parser("\"test\"", new_gene_string_move("test"))
 
 test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))

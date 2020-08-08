@@ -83,7 +83,16 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       var second = node.gene_data[1]
       case first.kind:
       of GeneSymbol:
-        self.cur_stack.cur_scope[first.symbol] = self.eval(second)
+        var symbol = first.symbol
+        if symbol[0] == '@':
+          var cur_self = self.cur_stack.self
+          case cur_self.kind:
+          of GeneInstance:
+            cur_self.instance.value.gene_props[symbol.substr(1)] = self.eval(second)
+          else:
+            todo()
+        else:
+          self.cur_stack.cur_scope[first.symbol] = self.eval(second)
       else:
         todo($node)
     elif op.symbol == "+":
@@ -283,9 +292,13 @@ proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue =
   return self.call_method(instance, meth, new_args(args))
 
 proc eval_new*(self: var VM, node: GeneValue): GeneValue =
-  var class = self.eval(node.gene_data[0])
-  var instance = new_instance(class.internal.class)
-  return new_gene_instance(instance)
+  var class = self.eval(node.gene_data[0]).internal.class
+  var instance = new_instance(class)
+  result = new_gene_instance(instance)
+
+  if class.methods.hasKey("new"):
+    var new_method = class.methods["new"]
+    discard self.call_method(result, new_method, nil)
 
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
   if node.gene_data.len == 1:

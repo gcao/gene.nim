@@ -383,8 +383,16 @@ proc `$`*(node: GeneValue): string =
       result = node.csymbol.first & "/" & node.csymbol.rest.join("/")
   of GeneVector:
     result = "["
-    result &= node.vec.join(", ")
+    result &= node.vec.join(" ")
     result &= "]"
+  # of GeneGene:
+  #   result = "("
+  #   if node.gene_op.isNil:
+  #     result &= "nil "
+  #   else:
+  #     result &= $node.gene_op & " "
+  #   # result &= node.gene_data.join(" ")
+  #   result &= ")"
   of GeneInternal:
     case node.internal.kind:
     of GeneFunction:
@@ -397,8 +405,9 @@ proc `$`*(node: GeneValue): string =
 ## ============== NEW OBJ FACTORIES =================
 
 proc new_gene_string_move*(s: string): GeneValue =
-  result = GeneValue(kind: GeneString)
-  shallowCopy(result.str, s)
+  # result = GeneValue(kind: GeneString)
+  # shallowCopy(result.str, s)
+  return GeneValue(kind: GeneString, str: s)
 
 proc new_gene_int*(s: string): GeneValue =
   return GeneValue(kind: GeneInt, num: parseBiggestInt(s))

@@ -80,11 +80,13 @@ test_eval """
 
 test_eval """
   (class A
-    (method test [] 1)
+    (method new []
+      (@description = "Class A")
+    )
   )
-  (var a (new A))
-  (a .test)
-""", new_gene_int(1)
+  (new A)
+""", proc(r: GeneValue) =
+  check r.instance.value.gene_props["description"] == new_gene_string_move("Class A")
 
 test_eval """
   (import from "src/core.gene")
