@@ -89,6 +89,16 @@ test_eval """
   check r.instance.value.gene_props["description"] == new_gene_string_move("Class A")
 
 test_eval """
+  (class A
+    (method new description
+      (@description = description)
+    )
+  )
+  (new A "test")
+""", proc(r: GeneValue) =
+  check r.instance.value.gene_props["description"] == new_gene_string_move("test")
+
+test_eval """
   (import from "src/core.gene")
   ("test" .len)
 """, new_gene_int(4)
@@ -132,7 +142,7 @@ test_eval """
 # (import n from "./file1")
 # n/f     # is resolved to function f in file1.nim
 #
-test "Import":
+test "Interpreter / eval: import":
   var vm = new_vm()
   vm.eval_module "file1", """
     (ns n

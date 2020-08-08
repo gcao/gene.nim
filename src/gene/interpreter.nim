@@ -298,7 +298,10 @@ proc eval_new*(self: var VM, node: GeneValue): GeneValue =
 
   if class.methods.hasKey("new"):
     var new_method = class.methods["new"]
-    discard self.call_method(result, new_method, nil)
+    var args: seq[GeneValue] = @[]
+    for i in 1..<node.gene_data.len:
+      args.add(self.eval(node.gene_data[i]))
+    discard self.call_method(result, new_method, new_args(args))
 
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
   if node.gene_data.len == 1:
