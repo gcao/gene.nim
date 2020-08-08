@@ -1,6 +1,7 @@
-import strformat, logging
+import strformat, logging, tables
 
 import ./types
+import ./interpreter
 import ./vm
 import ./compiler
 
@@ -72,6 +73,19 @@ proc run*(self: var VM, module: Module): GeneValue =
       var val = new_gene_internal(ns)
       self.cur_stack.cur_ns[name] = val
       self.cur_stack[0] = val
+    of Import:
+      self.pos += 1
+      var module = self.cur_stack[0].str
+      var ns: Namespace
+      if not APP.namespaces.hasKey(module):
+        self.eval_module(module)
+      ns = APP.namespaces[module]
+      if ns == nil:
+        todo("Evaluate module")
+      var names = instr.val.vec
+      for name in names:
+        var s = name.symbol
+        self.cur_stack.cur_ns[s] = ns[s]
     of CreateClass:
       self.pos += 1
       var name = instr.val.str

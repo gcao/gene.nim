@@ -36,6 +36,7 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn_body*(self: var Compiler, fn: Function): Block
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_import*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
@@ -103,6 +104,9 @@ proc instr_arguments*(reg: int): Instruction =
 
 proc instr_ns*(name: string): Instruction =
   return Instruction(kind: CreateNamespace, val: new_gene_string_move(name))
+
+proc instr_import*(names: seq[GeneValue]): Instruction =
+  return Instruction(kind: Import, val: new_gene_vec(names))
 
 proc instr_class*(name: string): Instruction =
   return Instruction(kind: CreateClass, val: new_gene_string_move(name))
@@ -223,6 +227,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_var(blk, node)
     of "ns":
       self.compile_ns(blk, node)
+    of "import":
+      self.compile_import(blk, node)
     of "class":
       self.compile_class(blk, node)
     of "new":
@@ -320,6 +326,10 @@ proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue) =
   # var body_block = self.compile_body(body)
   # self.module.blocks[body_block.id] = body_block
   # blk.add(instr_call(body_block.id))
+
+proc compile_import*(self: var Compiler, blk: var Block, node: GeneValue) =
+  blk.add(instr_default(node.gene_props["module"]))
+  blk.add(instr_import(node.gene_props["names"].vec))
 
 proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue) =
   var name = node.gene_data[0].symbol

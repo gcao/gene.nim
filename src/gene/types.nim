@@ -99,6 +99,7 @@ type
     CreateArguments
 
     CreateNamespace # name
+    Import # names
 
     CreateClass # name
     CreateInstance # name
