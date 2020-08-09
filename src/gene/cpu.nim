@@ -1,6 +1,7 @@
-import strformat, logging
+import strformat, logging, tables
 
 import ./types
+import ./interpreter
 import ./vm
 import ./compiler
 
@@ -60,10 +61,43 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.pos += 1
       var fn = instr.val
       self.cur_stack.cur_ns[fn.internal.fn.name] = fn
+      self.cur_stack[0] = instr.val
     of CreateArguments:
       self.pos += 1
       var args = instr.val
       self.cur_stack[instr.reg] = args
+    of CreateNamespace:
+      self.pos += 1
+      var name = instr.val.str
+      var ns = new_namespace(name)
+      var val = new_gene_internal(ns)
+      self.cur_stack.cur_ns[name] = val
+      self.cur_stack[0] = val
+    of Import:
+      self.pos += 1
+      var module = self.cur_stack[0].str
+      var ns: Namespace
+      if not APP.namespaces.hasKey(module):
+        self.eval_module(module)
+      ns = APP.namespaces[module]
+      if ns == nil:
+        todo("Evaluate module")
+      var names = instr.val.vec
+      for name in names:
+        var s = name.symbol
+        self.cur_stack.cur_ns[s] = ns[s]
+    of CreateClass:
+      self.pos += 1
+      var name = instr.val.str
+      var class = new_class(name)
+      var val = new_gene_internal(class)
+      self.cur_stack.cur_ns[name] = val
+      self.cur_stack[0] = val
+    of CreateInstance:
+      self.pos += 1
+      var class = self.cur_stack[0].internal.class
+      var instance = new_instance(class)
+      self.cur_stack[0] = new_gene_instance(instance)
     of Call:
       self.pos += 1
       var fn = self.cur_stack[0].internal.fn
@@ -92,6 +126,10 @@ proc run*(self: var VM, module: Module): GeneValue =
         self.cur_stack = caller.stack
         self.cur_block = caller.blk
         self.pos = caller.pos
+
+    of CallBlockById:
+      todo()
+
     of SetItem:
       self.pos += 1
       var val = self.cur_stack[instr.reg]

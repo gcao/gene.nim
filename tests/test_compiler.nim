@@ -1,6 +1,12 @@
 # To run these tests, simply execute `nimble test` or `nim c -r tests/test_compiler.nim`
 
+import unittest
+
 import gene/types
+import gene/vm
+import gene/compiler
+import gene/interpreter
+import gene/cpu
 import ./helpers
 
 test_compiler "1", new_gene_int(1)
@@ -17,6 +23,8 @@ test_compiler "(if false 1 elif false 2 else 3)", new_gene_int(3)
 
 test_compiler "(var a 1) a", new_gene_int(1)
 
+test_compiler "(fn f [] 1)", proc(r: GeneValue) =
+  check r.internal.fn.name == "f"
 test_compiler "(fn f [] 1) (f)", new_gene_int(1)
 test_compiler "(fn f a (a + 1)) (f 1)", new_gene_int(2)
 test_compiler """
@@ -29,3 +37,44 @@ test_compiler """
   )
   (fib 6)
 """, new_gene_int(8)
+
+test_compiler """
+  (ns n)
+""", proc(r: GeneValue) =
+  check r.internal.ns.name == "n"
+
+test_compiler """
+  (ns n)
+  n
+""", proc(r: GeneValue) =
+  check r.internal.ns.name == "n"
+
+test "Compiler / VM: Import":
+  var c = new_compiler()
+  var vm = new_vm()
+  vm.eval_module "file1", """
+    (fn f a a)
+  """
+  var module = c.compile """
+    (import f from "file1")
+    f
+  """
+  var result = vm.run(module)
+  check result.internal.fn.name == "f"
+
+test_compiler """
+  (class A)
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "A"
+
+test_compiler """
+  (class A)
+  A
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "A"
+
+test_compiler """
+  (class A)
+  (new A)
+""", proc(r: GeneValue) =
+  check r.instance.class.name == "A"

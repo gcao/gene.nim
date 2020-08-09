@@ -41,3 +41,11 @@ proc test_compiler*(code: string, result: GeneValue) =
     var vm = new_vm()
     var module = c.compile(code)
     check vm.run(module) == result
+
+proc test_compiler*(code: string, callback: proc(result: GeneValue)) =
+  var code = cleanup(code)
+  test "Compiler / VM: " & code:
+    var c = new_compiler()
+    var vm = new_vm()
+    var module = c.compile(code)
+    callback vm.run(module)

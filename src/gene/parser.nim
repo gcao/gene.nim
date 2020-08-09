@@ -38,7 +38,8 @@ type
   MacroReader = proc(p: var Parser): GeneValue
   MacroArray = array[char, MacroReader]
 
-const non_constituents = ['@', '`', '~']
+# const non_constituents = ['@', '`', '~']
+const non_constituents = ['`', '~']
 
 converter to_int(c: char): int = result = ord(c)
 
@@ -195,8 +196,8 @@ proc read_quasiquoted*(p: var Parser): GeneValue =
 proc read_unquoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "unquote")
 
-proc read_deref*(p: var Parser): GeneValue =
-  return read_quoted_internal(p, "deref")
+# proc read_deref*(p: var Parser): GeneValue =
+#   return read_quoted_internal(p, "deref")
 
 # TODO: read comment as continuous blocks, not just lines
 proc read_comment(p: var Parser): GeneValue =
@@ -629,6 +630,8 @@ proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
   h = h !& hash(node.kind)
   case node.kind
+  of GeneAny:
+    todo()
   of GeneNilKind:
     h = h !& hash(0)
   of GeneBool:
@@ -664,9 +667,6 @@ proc hash*(node: GeneValue): Hash =
     for entry in node.set_elems:
       h = h !& hash(entry.key)
       h = h !& hash(entry.value)
-  of GeneTaggedValue:
-    h = h !& hash(node.tag)
-    h = h !& hash(node.value)
   of GeneCommentLine:
     h = h !& hash(node.comment)
   of GeneRegex:
@@ -706,7 +706,7 @@ proc init_macro_array() =
   macros['`'] = read_quasi_quoted
   macros[';'] = read_comment
   macros['~'] = read_unquoted
-  macros['@'] = read_deref
+  # macros['@'] = read_deref
   macros['#'] = read_dispatch
   macros['\\'] = read_character
   macros['('] = read_gene
