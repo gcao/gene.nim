@@ -1,4 +1,4 @@
-import lexbase, streams, strutils, unicode, nre, hashes, options, tables
+import lexbase, streams, strutils, unicode, hashes, options, tables
 
 import ./types
 

@@ -1,4 +1,6 @@
-import strutils, oids, sets, tables
+import strutils, sets, tables
+
+import ../wrappers/oids
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
