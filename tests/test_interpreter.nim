@@ -78,6 +78,22 @@ test_eval """
 """, proc(r: GeneValue) =
   check r.instance.class.name == "A"
 
+# @name            : get "name" property of current self
+# (.@name)         : get "name" property of current self
+# (.@ "name")      : get "name" property of current self
+# (self .@name)    : get "name" property of current self
+# (self .@ "name") : get "name" property of current self
+# (@ name)         : get <name> property of current self
+# (.@ name)        : get <name> property of current self
+# (@name = "A")    : set "name" property of current self to "A"
+# (.@name = "A")   : set "name" property of current self to "A"
+# (@name= "A")     : set "name" property of current self to "A"
+# (.@name= "A")    : set "name" property of current self to "A"
+# (@= name "A")    : set <name> property of current self to "A"
+# (a .@name)       : get "name" property of a
+# (a .@name= "A")  : set "name" property of a to "A"
+# (a .@= name "A") : set <name> property of a to "A"
+
 test_eval """
   (class A
     (method new []
