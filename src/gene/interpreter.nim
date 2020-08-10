@@ -306,13 +306,14 @@ proc eval_new*(self: var VM, node: GeneValue): GeneValue =
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
   if node.gene_data.len == 1:
     if node.gene_data[0] == new_gene_int(0):
-      return new_gene_string_move(getAppFilename())
+      todo()
+      # return new_gene_string_move(getAppFilename())
     else:
       var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
       return argv[node.gene_data[0].num - 1]
 
   var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
-  argv.insert(new_gene_string_move(getAppFilename()))
+  # argv.insert(new_gene_string_move(getAppFilename()))
   return new_gene_vec(argv)
 
 proc eval_import*(self: var VM, node: GeneValue): GeneValue =
