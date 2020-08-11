@@ -53,6 +53,15 @@ test_eval """
   )
 """, new_gene_int(2)
 
+test_eval """
+  (var i 0)
+  (loop
+    (i = (i + 1))
+    (break)
+  )
+  i
+""", new_gene_int(1)
+
 test_eval "(fn f a a)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
 

@@ -163,6 +163,7 @@ type
     GeneArguments
     GeneClass
     GeneNamespace
+    GeneBreak
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -174,6 +175,8 @@ type
       class*: Class
     of GeneNamespace:
       ns*: Namespace
+    else:
+      discard
 
   ComplexSymbol* = ref object
     first*: string

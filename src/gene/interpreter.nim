@@ -30,6 +30,8 @@ type
 proc eval*(self: var VM, node: GeneValue): GeneValue
 proc eval_gene*(self: var VM, node: GeneValue): GeneValue
 proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
+proc eval_loop*(self: var VM, node: GeneValue): GeneValue
+proc eval_break*(self: var VM, node: GeneValue): GeneValue
 proc eval_fn*(self: var VM, node: GeneValue): GeneValue
 proc eval_ns*(self: var VM, node: GeneValue): GeneValue
 proc eval_class*(self: var VM, node: GeneValue): GeneValue
@@ -63,6 +65,10 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
       return self.eval_at(node)
     elif op.symbol == "if":
       return self.eval_if(node.gene_data)
+    elif op.symbol == "loop":
+      return self.eval_loop(node)
+    elif op.symbol == "break":
+      return self.eval_break(node)
     elif op.symbol == "fn":
       return self.eval_fn(node)
     elif op.symbol == "ns":
@@ -185,6 +191,19 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
           state = IfState.ElseIf
         elif node.symbol == "else":
           state = IfState.Else
+
+proc eval_loop(self: var VM, node: GeneValue): GeneValue =
+  var i = 0
+  var len = node.gene_data.len
+  while true:
+    var child = node.gene_data[i]
+    var r = self.eval(child)
+    if not r.isNil and r.kind == GeneInternal and r.internal.kind == GeneBreak:
+      break
+    i = (i + 1) mod len
+
+proc eval_break(self: var VM, node: GeneValue): GeneValue =
+  return new_gene_internal(Internal(kind: GeneBreak))
 
 proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var name = node.gene_data[0].symbol
