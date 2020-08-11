@@ -582,7 +582,13 @@ proc normalize*(self: GeneValue) =
 
   var op = self.gene_op
   if op.kind == GeneSymbol:
-    if op.symbol == "import":
+    if op.symbol.startsWith(".@"):
+      if op.symbol.endsWith("="):
+        todo()
+      else:
+        self.gene_op = new_gene_symbol("@")
+        self.gene_data = @[new_gene_string_move(op.symbol.substr(2))]
+    elif op.symbol == "import":
       var names: seq[GeneValue] = @[]
       var module: GeneValue
       var expect_module = false
@@ -606,6 +612,13 @@ proc normalize*(self: GeneValue) =
       self.gene_data.delete 0
       self.gene_data.insert op, 0
       self.gene_op = first
+    elif first.symbol.startsWith(".@"):
+      if first.symbol.endsWith("="):
+        todo()
+      else:
+        self.gene_op = new_gene_symbol("@")
+        self.gene_data[0] = new_gene_string_move(first.symbol.substr(2))
+        self.gene_props["self"] = op
     elif first.symbol[0] == '.':
       self.gene_props["self"] = op
       self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))

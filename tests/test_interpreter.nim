@@ -106,6 +106,16 @@ test_eval """
 
 test_eval """
   (class A
+    (method new []
+      (@description = "Class A")
+    )
+  )
+  ((new A) .@description)
+""", proc(r: GeneValue) =
+  check r.str == "Class A"
+
+test_eval """
+  (class A
     (method new description
       (@description = description)
     )

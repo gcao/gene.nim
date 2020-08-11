@@ -36,6 +36,7 @@ proc eval_class*(self: var VM, node: GeneValue): GeneValue
 proc eval_method*(self: var VM, node: GeneValue): GeneValue
 proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
 proc eval_new*(self: var VM, node: GeneValue): GeneValue
+proc eval_at*(self: var VM, node: GeneValue): GeneValue
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue
 proc eval_import*(self: var VM, node: GeneValue): GeneValue
 proc eval_call_native*(self: var VM, node: GeneValue): GeneValue
@@ -58,6 +59,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
         else:
           GeneNil
       self.cur_stack.cur_scope[name] = value
+    elif op.symbol == "@":
+      return self.eval_at(node)
     elif op.symbol == "if":
       return self.eval_if(node.gene_data)
     elif op.symbol == "fn":
@@ -302,6 +305,21 @@ proc eval_new*(self: var VM, node: GeneValue): GeneValue =
     for i in 1..<node.gene_data.len:
       args.add(self.eval(node.gene_data[i]))
     discard self.call_method(result, new_method, new_args(args))
+
+proc eval_at*(self: var VM, node: GeneValue): GeneValue =
+  var target =
+    if node.gene_props["self"].isNil:
+      self.cur_stack.self
+    else:
+      self.eval(node.gene_props["self"])
+  var name = node.gene_data[0].str
+  case target.kind:
+  of GeneInstance:
+    return target.instance.value.gene_props[name]
+  of GeneGene:
+    return target.gene_props[name]
+  else:
+    not_allowed()
 
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
   if node.gene_data.len == 1:
