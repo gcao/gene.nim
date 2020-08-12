@@ -53,6 +53,8 @@ test_eval """
   )
 """, 2
 
+test_eval "(do 1 2)", 2
+
 test_eval """
   (var i 0)
   (loop
@@ -70,6 +72,22 @@ test_eval """
   )
 """, 1
 
+test_eval """
+  (var sum 0)
+  (for (var i 0) (i < 5) (i += 1)
+    (sum = (sum + i))
+  )
+  sum
+""", 10
+
+# test_eval """
+#   (var i 0)
+#   (while (i < 3)
+#     (i = (i + 1))
+#   )
+#   i
+# """, 3
+
 test_eval "(fn f a a)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
 
@@ -85,6 +103,14 @@ test_eval """
   )
   (fib 6)
 """, 8
+
+test_eval """
+  (fn f []
+    (return 1)
+    2
+  )
+  (f)
+""", 1
 
 test_eval "(class A)", proc(r: GeneValue) =
   check r.internal.class.name == "A"
