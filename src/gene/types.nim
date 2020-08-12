@@ -175,8 +175,8 @@ type
       class*: Class
     of GeneNamespace:
       ns*: Namespace
-    else:
-      discard
+    of GeneBreak:
+      break_val*: GeneValue
 
   ComplexSymbol* = ref object
     first*: string

@@ -199,11 +199,16 @@ proc eval_loop(self: var VM, node: GeneValue): GeneValue =
     var child = node.gene_data[i]
     var r = self.eval(child)
     if not r.isNil and r.kind == GeneInternal and r.internal.kind == GeneBreak:
+      result = r.internal.break_val
       break
     i = (i + 1) mod len
 
 proc eval_break(self: var VM, node: GeneValue): GeneValue =
-  return new_gene_internal(Internal(kind: GeneBreak))
+  if node.gene_data.len > 0:
+    var v = self.eval(node.gene_data[0])
+    return new_gene_internal(Internal(kind: GeneBreak, break_val: v))
+  else:
+    return new_gene_internal(Internal(kind: GeneBreak))
 
 proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var name = node.gene_data[0].symbol
