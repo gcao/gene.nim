@@ -407,10 +407,12 @@ proc `$`*(node: GeneValue): string =
 
 ## ============== NEW OBJ FACTORIES =================
 
-proc new_gene_string_move*(s: string): GeneValue =
-  # result = GeneValue(kind: GeneString)
-  # shallowCopy(result.str, s)
+proc new_gene_string*(s: string): GeneValue =
   return GeneValue(kind: GeneString, str: s)
+
+proc new_gene_string_move*(s: string): GeneValue =
+  result = GeneValue(kind: GeneString)
+  shallowCopy(result.str, s)
 
 proc new_gene_int*(s: string): GeneValue =
   return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
@@ -628,13 +630,24 @@ proc normalize*(self: GeneValue) =
       self.gene_data.delete 0
       self.gene_op = new_gene_symbol("$invoke_method")
 
-#################### Document ###################
+#################### Document ####################
 
 proc new_doc*(data: seq[GeneValue]): GeneDocument =
   return GeneDocument(data: data)
 
-#################### Application #######################
+#################### Application #################
 
 APP = Application(
   ns: new_namespace("global")
 )
+
+#################### Converters ##################
+
+converter to_gene*(v: int): GeneValue                      = new_gene_int(v)
+converter to_gene*(v: bool): GeneValue                     = new_gene_bool(v)
+converter to_gene*(v: float): GeneValue                    = new_gene_float(v)
+converter to_gene*(v: string): GeneValue                   = new_gene_string(v)
+converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
+
+# Below converter causes problem with the hash function
+# converter to_gene*(v: seq[GeneValue]): GeneValue           = new_gene_vec(v)
