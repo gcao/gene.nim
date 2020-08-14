@@ -7,19 +7,19 @@ import gene/parser
 import ./helpers
 
 test_parser("nil", GeneNil)
-test_parser("10", new_gene_int(10))
-test_parser("10e10", new_gene_float(10e10))
-test_parser("+5.0E5", new_gene_float(+5.0E5))
-test_parser("true", GeneTrue)
-test_parser("false", GeneFalse)
-test_parser("\"test\"", new_gene_string_move("test"))
+test_parser("10", 10)
+test_parser("10e10", 10e10)
+test_parser("+5.0E5", +5.0E5)
+test_parser("true", true)
+test_parser("false", false)
+test_parser("\"test\"", "test")
 
 test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
 test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
 
-test_parser("{}", new_gene_map(Table[string, GeneValue]()))
-test_parser("{:a 1}", new_gene_map({"a": new_gene_int(1)}.toTable))
+test_parser("{}", Table[string, GeneValue]())
+test_parser("{:a 1}", {"a": new_gene_int(1)}.toTable)
 
 test "Parser":
   var node: GeneValue

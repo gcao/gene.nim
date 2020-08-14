@@ -163,6 +163,8 @@ type
     GeneArguments
     GeneClass
     GeneNamespace
+    GeneReturn
+    GeneBreak
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -174,6 +176,10 @@ type
       class*: Class
     of GeneNamespace:
       ns*: Namespace
+    of GeneReturn:
+      return_val*: GeneValue
+    of GeneBreak:
+      break_val*: GeneValue
 
   ComplexSymbol* = ref object
     first*: string
@@ -404,10 +410,12 @@ proc `$`*(node: GeneValue): string =
 
 ## ============== NEW OBJ FACTORIES =================
 
-proc new_gene_string_move*(s: string): GeneValue =
-  # result = GeneValue(kind: GeneString)
-  # shallowCopy(result.str, s)
+proc new_gene_string*(s: string): GeneValue =
   return GeneValue(kind: GeneString, str: s)
+
+proc new_gene_string_move*(s: string): GeneValue =
+  result = GeneValue(kind: GeneString)
+  shallowCopy(result.str, s)
 
 proc new_gene_int*(s: string): GeneValue =
   return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
@@ -582,7 +590,13 @@ proc normalize*(self: GeneValue) =
 
   var op = self.gene_op
   if op.kind == GeneSymbol:
-    if op.symbol == "import":
+    if op.symbol.startsWith(".@"):
+      if op.symbol.endsWith("="):
+        todo()
+      else:
+        self.gene_op = new_gene_symbol("@")
+        self.gene_data = @[new_gene_string_move(op.symbol.substr(2))]
+    elif op.symbol == "import":
       var names: seq[GeneValue] = @[]
       var module: GeneValue
       var expect_module = false
@@ -596,29 +610,77 @@ proc normalize*(self: GeneValue) =
       self.gene_props["names"] = new_gene_vec(names)
       self.gene_props["module"] = module
       return
+    elif op.symbol.startsWith("for"):
+      self.gene_props["init"]   = self.gene_data[0]
+      self.gene_props["guard"]  = self.gene_data[1]
+      self.gene_props["update"] = self.gene_data[2]
+      var body: seq[GeneValue] = @[]
+      for i in 3..<self.gene_data.len:
+        body.add(self.gene_data[i])
+      self.gene_data = body
 
   if self.gene_data.len == 0:
     return
 
   var first = self.gene_data[0]
   if first.kind == GeneSymbol:
-    if first.symbol in BINARY_OPS:
+    if first.symbol == "+=":
+      self.gene_op = new_gene_symbol("=")
+      var second = self.gene_data[1]
+      self.gene_data[0] = op
+      self.gene_data[1] = new_gene_gene(new_gene_symbol("+"), op, second)
+    elif first.symbol in BINARY_OPS:
       self.gene_data.delete 0
       self.gene_data.insert op, 0
       self.gene_op = first
+    elif first.symbol.startsWith(".@"):
+      if first.symbol.endsWith("="):
+        todo()
+      else:
+        self.gene_op = new_gene_symbol("@")
+        self.gene_data[0] = new_gene_string_move(first.symbol.substr(2))
+        self.gene_props["self"] = op
     elif first.symbol[0] == '.':
       self.gene_props["self"] = op
       self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
       self.gene_data.delete 0
       self.gene_op = new_gene_symbol("$invoke_method")
 
-#################### Document ###################
+#################### Document ####################
 
 proc new_doc*(data: seq[GeneValue]): GeneDocument =
   return GeneDocument(data: data)
 
-#################### Application #######################
+#################### Application #################
 
 APP = Application(
   ns: new_namespace("global")
 )
+
+#################### Converters ##################
+
+converter to_gene*(v: int): GeneValue                      = new_gene_int(v)
+converter to_gene*(v: bool): GeneValue                     = new_gene_bool(v)
+converter to_gene*(v: float): GeneValue                    = new_gene_float(v)
+converter to_gene*(v: string): GeneValue                   = new_gene_string(v)
+converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
+
+# Below converter causes problem with the hash function
+# converter to_gene*(v: seq[GeneValue]): GeneValue           = new_gene_vec(v)
+
+converter from_gene*(v: GeneValue): bool =
+  if v.isNil:
+    return false
+  case v.kind:
+  of GeneBool:
+    return v.boolVal
+  of GeneInt:
+    return v.num != 0
+  of GeneFloat:
+    return v.fnum != 0
+  of GeneString:
+    return v.str.len != 0
+  of GeneVector:
+    return v.vec.len != 0
+  else:
+    true
