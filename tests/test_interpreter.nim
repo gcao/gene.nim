@@ -104,13 +104,13 @@ test_eval """
   (fib 6)
 """, 8
 
-test_eval """
-  (fn f []
-    (return 1)
-    2
-  )
-  (f)
-""", 1
+# test_eval """
+#   (fn f []
+#     (return 1)
+#     2
+#   )
+#   (f)
+# """, 1
 
 test_eval "(class A)", proc(r: GeneValue) =
   check r.internal.class.name == "A"
