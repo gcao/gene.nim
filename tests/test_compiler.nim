@@ -49,18 +49,18 @@ test_compiler """
 """, proc(r: GeneValue) =
   check r.internal.ns.name == "n"
 
-test "Compiler / VM: Import":
-  var c = new_compiler()
-  var vm = new_vm()
-  vm.eval_module "file1", """
-    (fn f a a)
-  """
-  var module = c.compile """
-    (import f from "file1")
-    f
-  """
-  var result = vm.run(module)
-  check result.internal.fn.name == "f"
+# test "Compiler / VM: Import":
+#   var c = new_compiler()
+#   var vm = new_vm()
+#   vm.eval_module "file1", """
+#     (fn f a a)
+#   """
+#   var module = c.compile """
+#     (import f from "file1")
+#     f
+#   """
+#   var result = vm.run(module)
+#   check result.internal.fn.name == "f"
 
 test_compiler """
   (class A)

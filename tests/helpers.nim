@@ -4,6 +4,7 @@ import gene/types
 import gene/parser
 import gene/interpreter
 import gene/compiler
+import gene/compiler2
 import gene/vm
 import gene/cpu
 
@@ -49,3 +50,11 @@ proc test_compiler*(code: string, callback: proc(result: GeneValue)) =
     var vm = new_vm()
     var module = c.compile(code)
     callback vm.run(module)
+
+proc test_compiler2*(code: string, result: GeneValue) =
+  var code = cleanup(code)
+  test "Compiler / VM: " & code:
+    var c = new_compiler2()
+    var vm = new_vm()
+    var module = c.compile(code)
+    check vm.run(module) == result
