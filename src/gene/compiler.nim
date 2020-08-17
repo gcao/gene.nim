@@ -1,5 +1,3 @@
-import sets, tables, oids, strutils
-
 import ./types
 import ./parser
 
@@ -42,132 +40,6 @@ proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
-
-
-#################### Instruction #################
-
-proc `==`*(this, that: Instruction): bool =
-  if this.is_nil:
-    if that.is_nil: return true
-    return false
-  elif that.is_nil:
-    return false
-  elif this.kind != that.kind:
-    return false
-  else:
-    case this.kind
-    of Init:
-      return true
-    else:
-      return false
-
-proc instr_init*(): Instruction = Instruction(kind: Init)
-
-proc instr_default*(val: GeneValue): Instruction =
-  return Instruction(kind: Default, val: val)
-
-proc instr_save*(reg: int, val: GeneValue): Instruction =
-  return Instruction(kind: Save, reg: reg, val: val)
-
-proc instr_copy*(reg, reg2: int): Instruction =
-  return Instruction(kind: Copy, reg: reg, reg2: reg2)
-
-proc instr_def_member*(name: string): Instruction =
-  return Instruction(kind: DefMember, val: new_gene_string_move(name))
-
-proc instr_get_member*(name: string): Instruction =
-  return Instruction(kind: GetMember, val: new_gene_string_move(name))
-
-proc instr_set_item*(reg: int, index: int): Instruction =
-  return Instruction(kind: SetItem, reg: reg, val: new_gene_int(index))
-
-proc instr_add*(reg, reg2: int): Instruction =
-  return Instruction(kind: Add, reg: reg, reg2: reg2)
-
-proc instr_sub*(reg, reg2: int): Instruction =
-  return Instruction(kind: Sub, reg: reg, reg2: reg2)
-
-proc instr_lt*(reg, reg2: int): Instruction =
-  return Instruction(kind: Lt, reg: reg, reg2: reg2)
-
-proc instr_jump*(pos: int): Instruction =
-  return Instruction(kind: Jump, val: new_gene_int(pos))
-
-proc instr_jump_if_false*(pos: int): Instruction =
-  return Instruction(kind: JumpIfFalse, val: new_gene_int(pos))
-
-proc instr_function*(fn: Function): Instruction =
-  return Instruction(kind: CreateFunction, val: new_gene_internal(fn))
-
-proc instr_arguments*(reg: int): Instruction =
-  return Instruction(kind: CreateArguments, reg: reg, val: new_gene_arguments())
-
-proc instr_ns*(name: string): Instruction =
-  return Instruction(kind: CreateNamespace, val: new_gene_string_move(name))
-
-proc instr_import*(names: seq[GeneValue]): Instruction =
-  return Instruction(kind: Import, val: new_gene_vec(names))
-
-proc instr_class*(name: string): Instruction =
-  return Instruction(kind: CreateClass, val: new_gene_string_move(name))
-
-proc instr_new*(): Instruction =
-  return Instruction(kind: CreateInstance)
-
-proc instr_call*(reg: int): Instruction =
-  return Instruction(kind: Call, reg: reg)
-
-proc instr_call_end*(): Instruction =
-  return Instruction(kind: CallEnd)
-
-proc `$`*(instr: Instruction): string =
-  case instr.kind
-  of Default, Jump, JumpIfFalse, Import:
-    return "$# $#" % [$instr.kind, $instr.val]
-  of GetMember:
-    return "$# $#" % [$instr.kind, $instr.val.str]
-  of Call:
-    return "$# $#" % [$instr.kind, "R" & $instr.reg]
-  of Save, SetItem:
-    return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.val]
-  of Copy, Add, Lt:
-    return "$# $# $#" % [$instr.kind, "R" & $instr.reg, "R" & $instr.reg2]
-  of CreateFunction:
-    return "$# $#" % [$instr.kind, $instr.val.internal.fn.name]
-  else:
-    return $instr.kind
-
-#################### RegManager ###############
-
-proc get(self: var RegManager): int =
-  if self.freed.len > 0:
-    return self.freed.pop
-  else:
-    result = self.next
-    self.next += 1
-
-proc free(self: var RegManager, reg: int) =
-  self.freed.incl(reg)
-
-#################### Block ####################
-
-proc new_block*(): Block =
-  result = Block(
-    id: genOid(),
-    reg_mgr: RegManager(next: 1),
-  )
-
-proc add(self: var Block, instr: Instruction) =
-  self.instructions.add(instr)
-
-#################### Module ####################
-
-proc new_module*(): Module =
-  result = Module()
-
-proc set_default*(self: var Module, blk: Block) =
-  self.default = blk
-  self.blocks[blk.id] = blk
 
 #################### Compiler ####################
 
@@ -328,8 +200,9 @@ proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue) =
   # blk.add(instr_call(body_block.id))
 
 proc compile_import*(self: var Compiler, blk: var Block, node: GeneValue) =
-  blk.add(instr_default(node.gene_props["module"]))
-  blk.add(instr_import(node.gene_props["names"].vec))
+  todo()
+  # blk.add(instr_default(node.gene_props["module"]))
+  # blk.add(instr_import(node.gene_props["names"].vec))
 
 proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue) =
   var name = node.gene_data[0].symbol
