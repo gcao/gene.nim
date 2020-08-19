@@ -102,11 +102,35 @@ type
     Import # names
 
     CreateClass # name
+    # self: class
+    # reg: function object
+    CreateMethod
     CreateInstance # name
+
+    # reg: self
+    # val: name
+    # reg2: args
+    InvokeMethod
+
+    # (@ "name")
+    # val: "name"
+    PropGet
+    # (@= "name" value)
+    # val: "name"
+    # reg: value
+    PropSet
 
     # Call(target reg, args reg)
     Call
     CallEnd
+
+    # name: native proc name
+    # reg: args
+    CallNative
+
+    # reg: target block
+    # reg2: optional self
+    CallBlock
 
     ## Call a block by id
     CallBlockById
@@ -121,6 +145,8 @@ type
     id*: Oid
     name*: string
     instructions*: seq[Instruction]
+    ## No need to return value to caller, applicable to class/namespace block etc
+    no_return*: bool
     ## This is not needed after compilation
     reg_mgr*: RegManager
 
@@ -154,6 +180,8 @@ type
     args*: seq[string]
     body*: seq[GeneValue]
     body_block*: Block
+    ## No need to return value to caller, applicable to class constructor etc
+    no_return*: bool
 
   Arguments* = ref object
     positional*: seq[GeneValue]
@@ -161,6 +189,7 @@ type
   GeneInternalKind* = enum
     GeneFunction
     GeneArguments
+    GeneBlock
     GeneClass
     GeneNamespace
     GeneReturn
@@ -172,6 +201,8 @@ type
       fn*: Function
     of GeneArguments:
       args*: Arguments
+    of GeneBlock:
+      blk*: Block
     of GeneClass:
       class*: Class
     of GeneNamespace:
@@ -592,7 +623,9 @@ proc normalize*(self: GeneValue) =
   if op.kind == GeneSymbol:
     if op.symbol.startsWith(".@"):
       if op.symbol.endsWith("="):
-        todo()
+        var name = op.symbol.substr(2, op.symbol.len-2)
+        self.gene_op = new_gene_symbol("@=")
+        self.gene_data.insert(new_gene_string_move(name), 0)
       else:
         self.gene_op = new_gene_symbol("@")
         self.gene_data = @[new_gene_string_move(op.symbol.substr(2))]

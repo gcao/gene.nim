@@ -1,12 +1,13 @@
 # To run these tests, simply execute `nimble test` or `nim c -r tests/test_compiler.nim`
 
-import unittest
+import unittest, tables
 
 import gene/types
 import gene/vm
 import gene/compiler
 import gene/interpreter
 import gene/cpu
+
 import ./helpers
 
 test_compiler "1", 1
@@ -78,3 +79,34 @@ test_compiler """
   (new A)
 """, proc(r: GeneValue) =
   check r.instance.class.name == "A"
+
+test_compiler """
+  (class A
+    (method new []
+      (.@description= "Class A")
+    )
+  )
+  (new A)
+""", proc(r: GeneValue) =
+  check r.instance.value.gene_props["description"] == "Class A"
+
+test_compiler """
+  (class A
+    (method new []
+      (.@description= "Class A")
+    )
+    (method test []
+      @description
+    )
+  )
+  ((new A) .test)
+""", "Class A"
+
+test_compiler """
+  (class A
+    (method new description
+      (.@description= description)
+    )
+  )
+  ((new A "test") .@description)
+""", "test"
