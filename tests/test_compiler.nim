@@ -89,3 +89,15 @@ test_compiler """
   (new A)
 """, proc(r: GeneValue) =
   check r.instance.value.gene_props["description"] == "Class A"
+
+test_compiler """
+  (class A
+    (method new []
+      (.@description= "Class A")
+    )
+    (method test []
+      @description
+    )
+  )
+  ((new A) .test)
+""", "Class A"

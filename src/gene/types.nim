@@ -107,6 +107,11 @@ type
     CreateMethod
     CreateInstance # name
 
+    # reg: self
+    # val: name
+    # reg2: args
+    InvokeMethod
+
     # (@ "name")
     # val: "name"
     PropGet

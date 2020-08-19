@@ -114,12 +114,35 @@ proc run*(self: var VM, module: Module): GeneValue =
         self.pos = 0
     of PropGet:
       self.pos += 1
-      todo()
+      var name = instr.val.str
+      var val = self.cur_stack.self.instance.value.gene_props[name]
+      self.cur_stack[0] = val
     of PropSet:
       self.pos += 1
       var name = instr.val.str
       var val = self.cur_stack[instr.reg]
       self.cur_stack.self.instance.value.gene_props[name] = val
+    of InvokeMethod:
+      self.pos += 1
+      var this = self.cur_stack[instr.reg]
+      var name = instr.val.str
+      var fn = this.instance.class.methods[name]
+      var args = self.cur_stack[instr.reg2].internal.args
+      # Interpret the function body
+      # self.cur_stack[0] = self.call(fn, args)
+      # Or
+      # Run the compiled function body
+      var stack = self.cur_stack
+      self.cur_stack = stack.grow()
+      self.cur_stack.self = this
+      for i in 0..<fn.args.len:
+        var arg = fn.args[i]
+        var val = args[i]
+        self.cur_stack.cur_scope[arg] = val
+
+      self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
+      self.cur_block = fn.body_block
+      self.pos = 0
     of Call:
       self.pos += 1
       var fn = self.cur_stack[0].internal.fn
