@@ -101,3 +101,12 @@ test_compiler """
   )
   ((new A) .test)
 """, "Class A"
+
+test_compiler """
+  (class A
+    (method new description
+      (.@description= description)
+    )
+  )
+  ((new A "test") .@description)
+""", "test"

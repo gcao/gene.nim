@@ -124,6 +124,10 @@ type
     Call
     CallEnd
 
+    # name: native proc name
+    # reg: args
+    CallNative
+
     # reg: target block
     # reg2: optional self
     CallBlock

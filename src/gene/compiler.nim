@@ -43,9 +43,9 @@ proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
 proc compile_invoke*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_call_native*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
 proc compile_prop_get*(self: var Compiler, blk: var Block, node: GeneValue)
-# proc compile_prop_get*(self: var Compiler, blk: var Block, name: string)
 proc compile_prop_set*(self: var Compiler, blk: var Block, name: string, val: GeneValue)
 
 #################### Instruction #################
@@ -132,6 +132,9 @@ proc instr_invoke*(reg, reg2: int, val: GeneValue): Instruction =
 
 proc instr_call*(reg: int): Instruction =
   return Instruction(kind: Call, reg: reg)
+
+proc instr_call_native*(name: string, reg: int): Instruction =
+  return Instruction(kind: CallNative, reg: reg, val: new_gene_string_move(name))
 
 proc instr_call_block*(reg, reg2: int): Instruction =
   return Instruction(kind: CallBlock, reg: reg, reg2: reg2)
@@ -265,6 +268,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_new(blk, node)
     of "$invoke_method":
       self.compile_invoke(blk, node)
+    of "$call_native":
+      self.compile_call_native(blk, node)
     else:
       self.compile_call(blk, node)
   else:
@@ -448,6 +453,17 @@ proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue) =
   blk.reg_mgr.free(target_reg)
   blk.reg_mgr.free(args_reg)
 
+proc compile_call_native*(self: var Compiler, blk: var Block, node: GeneValue) =
+  var name = node.gene_data[0]
+  var args_reg = blk.reg_mgr.get
+  blk.add(instr_arguments(args_reg))
+  for i in 1..<node.gene_data.len:
+    var child = node.gene_data[i]
+    self.compile(blk, child)
+    blk.add(instr_set_item(args_reg, i - 1))
+  blk.add(instr_call_native(name.str, args_reg))
+  blk.reg_mgr.free(args_reg)
+
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue) =
   # if first.kind == GeneInt and second.kind == GeneInt:
   #   blk.add(instr_default(new_gene_int(first.num + second.num)))
@@ -481,9 +497,6 @@ proc compile_prop_get*(self: var Compiler, blk: var Block, node: GeneValue) =
   self.compile(blk, node.gene_props["self"])
   var name = node.gene_data[0].str
   blk.add(instr_prop_get(0, name))
-
-# proc compile_prop_get*(self: var Compiler, blk: var Block, name: string) =
-#   blk.add(instr_prop_get(name))
 
 proc compile_prop_set*(self: var Compiler, blk: var Block, name: string, val: GeneValue) =
   self.compile(blk, val)

@@ -168,6 +168,17 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.cur_block = fn.body_block
       self.pos = 0
 
+    of CallNative:
+      self.pos += 1
+      var name = instr.val.str
+      case name:
+      of "str_len":
+        var args = self.cur_stack[instr.reg].internal.args
+        var str = args[0].str
+        self.cur_stack[0] = new_gene_int(str.len)
+      else:
+        todo(name)
+
     of CallBlock:
       self.pos += 1
       var blk = self.cur_stack[instr.reg].internal.blk
