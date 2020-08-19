@@ -93,11 +93,33 @@ proc run*(self: var VM, module: Module): GeneValue =
       var val = new_gene_internal(class)
       self.cur_stack.cur_ns[name] = val
       self.cur_stack[0] = val
+    of CreateMethod:
+      self.pos += 1
+      var fn = self.cur_stack[0].internal.fn
+      var class = self.cur_stack.self.internal.class
+      class.methods[fn.name] = fn
     of CreateInstance:
       self.pos += 1
       var class = self.cur_stack[0].internal.class
-      var instance = new_instance(class)
-      self.cur_stack[0] = new_gene_instance(instance)
+      var instance = new_gene_instance(new_instance(class))
+      self.cur_stack[0] = instance
+      if class.methods.hasKey("new"):
+        var fn = class.methods["new"]
+        var stack = self.cur_stack
+        var caller = new_caller(stack, self.cur_block, self.pos)
+        self.cur_stack = stack.grow()
+        self.cur_stack.self = instance
+        self.cur_stack.caller = caller
+        self.cur_block = fn.body_block
+        self.pos = 0
+    of PropGet:
+      self.pos += 1
+      todo()
+    of PropSet:
+      self.pos += 1
+      var name = instr.val.str
+      var val = self.cur_stack[instr.reg]
+      self.cur_stack.self.instance.value.gene_props[name] = val
     of Call:
       self.pos += 1
       var fn = self.cur_stack[0].internal.fn
@@ -117,12 +139,24 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.cur_block = fn.body_block
       self.pos = 0
 
+    of CallBlock:
+      self.pos += 1
+      var blk = self.cur_stack[instr.reg].internal.blk
+      var stack = self.cur_stack
+      self.cur_stack = stack.grow()
+      self.cur_stack.self = stack[instr.reg2]
+
+      self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
+      self.cur_block = blk
+      self.pos = 0
+
     of CallEnd:
       var caller = self.cur_stack.caller
       if caller.isNil:
         not_allowed()
       else:
-        caller.stack[0] = self.cur_stack[0]
+        if not self.cur_block.no_return:
+          caller.stack[0] = self.cur_stack[0]
         self.cur_stack = caller.stack
         self.cur_block = caller.blk
         self.pos = caller.pos

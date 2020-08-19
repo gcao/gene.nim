@@ -38,11 +38,13 @@ proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_import*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_method*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
-
+proc compile_prop_get*(self: var Compiler, blk: var Block, name: string)
+proc compile_prop_set*(self: var Compiler, blk: var Block, name: string, val: GeneValue)
 
 #################### Instruction #################
 
@@ -81,6 +83,12 @@ proc instr_get_member*(name: string): Instruction =
 proc instr_set_item*(reg: int, index: int): Instruction =
   return Instruction(kind: SetItem, reg: reg, val: new_gene_int(index))
 
+proc instr_prop_get*(name: string): Instruction =
+  return Instruction(kind: PropGet, val: new_gene_string_move(name))
+
+proc instr_prop_set*(name: string, reg: int): Instruction =
+  return Instruction(kind: PropSet, reg: reg, val: new_gene_string_move(name))
+
 proc instr_add*(reg, reg2: int): Instruction =
   return Instruction(kind: Add, reg: reg, reg2: reg2)
 
@@ -111,11 +119,17 @@ proc instr_import*(names: seq[GeneValue]): Instruction =
 proc instr_class*(name: string): Instruction =
   return Instruction(kind: CreateClass, val: new_gene_string_move(name))
 
+proc instr_method*(reg: int): Instruction =
+  return Instruction(kind: CreateMethod, reg: reg)
+
 proc instr_new*(): Instruction =
   return Instruction(kind: CreateInstance)
 
 proc instr_call*(reg: int): Instruction =
   return Instruction(kind: Call, reg: reg)
+
+proc instr_call_block*(reg, reg2: int): Instruction =
+  return Instruction(kind: CallBlock, reg: reg, reg2: reg2)
 
 proc instr_call_end*(): Instruction =
   return Instruction(kind: CallEnd)
@@ -219,6 +233,9 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       var first = node.gene_data[0]
       var second = node.gene_data[1]
       self.compile_binary(blk, first, node.gene_op.symbol, second)
+    of "@=":
+      var name = node.gene_data[0].str
+      self.compile_prop_set(blk, name, node.gene_data[1])
     of "if":
       self.compile_if(blk, node)
     of "fn":
@@ -231,6 +248,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_import(blk, node)
     of "class":
       self.compile_class(blk, node)
+    of "method":
+      self.compile_method(blk, node)
     of "new":
       self.compile_new(blk, node)
     else:
@@ -338,9 +357,37 @@ proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue) =
     body.add node.gene_data[i]
 
   blk.add(instr_class(name))
-  # var body_block = self.compile_body(body)
-  # self.module.blocks[body_block.id] = body_block
-  # blk.add(instr_call(body_block.id))
+  var reg = blk.reg_mgr.get
+  blk.add(instr_copy(0, reg))
+  var body_block = self.compile_body(body)
+  self.module.blocks[body_block.id] = body_block
+  blk.add(instr_default(new_gene_internal(Internal(kind: GeneBlock, blk: body_block))))
+  blk.add(instr_call_block(0, reg))
+  blk.add(instr_copy(reg, 0))
+
+proc compile_method*(self: var Compiler, blk: var Block, node: GeneValue) =
+  var name = node.gene_data[0].symbol
+  var args: seq[string] = @[]
+  var a = node.gene_data[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  var fn = new_fn(name, args, body)
+  var body_block = self.compile_fn_body(fn)
+  if name == "new":
+    body_block.no_return = true
+  fn.body_block = body_block
+  blk.add(instr_function(fn))
+  blk.add(instr_method(0))
 
 proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue) =
   self.compile(blk, node.gene_data[0])
@@ -389,3 +436,10 @@ proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: s
   else:
     todo($op)
   blk.reg_mgr.free(reg)
+
+proc compile_prop_get*(self: var Compiler, blk: var Block, name: string) =
+  blk.add(instr_prop_get(name))
+
+proc compile_prop_set*(self: var Compiler, blk: var Block, name: string, val: GeneValue) =
+  self.compile(blk, val)
+  blk.add(instr_prop_set(name, 0))
