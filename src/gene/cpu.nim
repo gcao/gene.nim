@@ -107,15 +107,21 @@ proc run*(self: var VM, module: Module): GeneValue =
         var fn = class.methods["new"]
         var stack = self.cur_stack
         var caller = new_caller(stack, self.cur_block, self.pos)
+        var args = self.cur_stack[instr.reg].internal.args
         self.cur_stack = stack.grow()
         self.cur_stack.self = instance
         self.cur_stack.caller = caller
+        for i in 0..<fn.args.len:
+          var arg = fn.args[i]
+          var val = args[i]
+          self.cur_stack.cur_scope[arg] = val
         self.cur_block = fn.body_block
         self.pos = 0
     of PropGet:
       self.pos += 1
       var name = instr.val.str
-      var val = self.cur_stack.self.instance.value.gene_props[name]
+      var this = self.cur_stack[0]
+      var val = this.instance.value.gene_props[name]
       self.cur_stack[0] = val
     of PropSet:
       self.pos += 1
