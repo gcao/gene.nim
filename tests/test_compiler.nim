@@ -93,6 +93,18 @@ test_compiler """
 test_compiler """
   (class A
     (method new []
+    )
+    (method test []
+      self
+    )
+  )
+  ((new A) .test)
+""", proc(r: GeneValue) =
+  check r.instance.class.name == "A"
+
+test_compiler """
+  (class A
+    (method new []
       (.@description= "Class A")
     )
     (method test []

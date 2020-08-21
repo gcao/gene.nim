@@ -93,6 +93,8 @@ type
     # BitOr
     # BitXor
 
+    Self
+
     # Function(fn)
     CreateFunction
     # Arguments(reg): create an arguments object and store in register <reg>
