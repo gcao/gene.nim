@@ -45,6 +45,7 @@ proc compile_invoke*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_call_native*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
+proc compile_prop_get*(self: var Compiler, blk: var Block, name: string)
 proc compile_prop_get*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_prop_set*(self: var Compiler, blk: var Block, name: string, val: GeneValue)
 
@@ -75,6 +76,9 @@ proc instr_save*(reg: int, val: GeneValue): Instruction =
 
 proc instr_copy*(reg, reg2: int): Instruction =
   return Instruction(kind: Copy, reg: reg, reg2: reg2)
+
+proc instr_self*(): Instruction =
+  return Instruction(kind: Self)
 
 proc instr_def_member*(name: string): Instruction =
   return Instruction(kind: DefMember, val: new_gene_string_move(name))
@@ -204,6 +208,8 @@ proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
     if node.symbol.startsWith("@"):
       var name = node.symbol.substr(1)
       self.compile_prop_get(blk, name)
+    elif node.symbol == "self":
+      blk.add(instr_self())
     else:
       blk.add(instr_get_member(node.symbol))
   of GeneGene:
@@ -492,6 +498,10 @@ proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: s
   else:
     todo($op)
   blk.reg_mgr.free(reg)
+
+proc compile_prop_get*(self: var Compiler, blk: var Block, name: string) =
+  self.compile(blk, new_gene_symbol("self"))
+  blk.add(instr_prop_get(0, name))
 
 proc compile_prop_get*(self: var Compiler, blk: var Block, node: GeneValue) =
   self.compile(blk, node.gene_props["self"])

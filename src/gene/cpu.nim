@@ -27,6 +27,9 @@ proc run*(self: var VM, module: Module): GeneValue =
     of Copy:
       self.pos += 1
       self.cur_stack[instr.reg2] = self.cur_stack[instr.reg]
+    of Self:
+      self.pos += 1
+      self.cur_stack[0] = self.cur_stack.self
     of DefMember:
       self.pos += 1
       var name = instr.val.str
