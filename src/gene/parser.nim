@@ -693,6 +693,9 @@ proc read_dispatch(p: var Parser): GeneValue =
   let ch = p.buf[pos]
   if ch == EndOfFile:
     raise new_exception(ParseError, "EOF while reading dispatch macro")
+  if ch in 'a'..'z':
+    # self.read
+    todo()
   let m = dispatch_macros[ch]
   if m == nil:
     raise  new_exception(ParseError, "No dispatch macro for: " & ch)

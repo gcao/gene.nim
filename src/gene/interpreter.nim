@@ -52,7 +52,7 @@ proc eval_module*(self: var VM, name: string)
 #################### Implementations #############
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
-  node.normalize
+  # node.normalize
   var op = node.gene_op
   case op.kind:
   of GeneSymbol:
@@ -113,7 +113,7 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
           self.cur_stack.cur_scope[first.symbol] = self.eval(second)
       else:
         todo($node)
-    elif op.symbol == "+":
+    elif op.symbol == "#add":
       var first = self.eval(node.gene_data[0])
       var second = self.eval(node.gene_data[1])
       var firstKind = first.kind
