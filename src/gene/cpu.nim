@@ -111,7 +111,9 @@ proc run*(self: var VM, module: Module): GeneValue =
         var stack = self.cur_stack
         var caller = new_caller(stack, self.cur_block, self.pos)
         var args = self.cur_stack[instr.reg].internal.args
-        self.cur_stack = stack.grow()
+        self.cur_stack = StackMgr.get
+        self.cur_stack.cur_ns = stack.cur_ns
+        self.cur_stack.cur_scope = new_scope()
         self.cur_stack.self = instance
         self.cur_stack.caller = caller
         for i in 0..<fn.args.len:
@@ -142,7 +144,9 @@ proc run*(self: var VM, module: Module): GeneValue =
       # Or
       # Run the compiled function body
       var stack = self.cur_stack
-      self.cur_stack = stack.grow()
+      self.cur_stack = StackMgr.get
+      self.cur_stack.cur_ns = stack.cur_ns
+      self.cur_stack.cur_scope = new_scope()
       self.cur_stack.self = this
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
@@ -161,7 +165,9 @@ proc run*(self: var VM, module: Module): GeneValue =
       # Or
       # Run the compiled function body
       var stack = self.cur_stack
-      self.cur_stack = stack.grow()
+      self.cur_stack = StackMgr.get
+      self.cur_stack.cur_ns = stack.cur_ns
+      self.cur_stack.cur_scope = new_scope()
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
         var val = args[i]
@@ -186,7 +192,9 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.pos += 1
       var blk = self.cur_stack[instr.reg].internal.blk
       var stack = self.cur_stack
-      self.cur_stack = stack.grow()
+      self.cur_stack = StackMgr.get
+      self.cur_stack.cur_ns = stack.cur_ns
+      self.cur_stack.cur_scope = new_scope()
       self.cur_stack.self = stack[instr.reg2]
 
       self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
@@ -200,12 +208,10 @@ proc run*(self: var VM, module: Module): GeneValue =
       else:
         if not self.cur_block.no_return:
           caller.stack[0] = self.cur_stack[0]
+        StackMgr.free(self.cur_stack)
         self.cur_stack = caller.stack
         self.cur_block = caller.blk
         self.pos = caller.pos
-
-    of CallBlockById:
-      todo()
 
     of SetItem:
       self.pos += 1

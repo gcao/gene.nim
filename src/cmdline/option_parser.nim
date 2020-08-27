@@ -18,7 +18,10 @@ type
 # <PROGRAM> --debug --mode compiled -- 1 2 3
 # 1, 2, 3 are passed as argument to REPL
 proc parseOptions*(): Options =
-  result = Options(repl: true)
+  result = Options(
+    running_mode: Compiled,
+    repl: true,
+  )
   var expect_args = false
   for kind, key, value in getOpt():
     case kind

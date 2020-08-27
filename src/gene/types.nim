@@ -134,9 +134,6 @@ type
     # reg2: optional self
     CallBlock
 
-    ## Call a block by id
-    CallBlockById
-
   Instruction* = ref object
     kind*: InstrType
     reg*: int       # Optional: Default register

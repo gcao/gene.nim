@@ -1,4 +1,4 @@
-import tables
+import tables, sequtils
 
 import ./types
 
@@ -16,7 +16,6 @@ type
     pos*: int
 
   Stack* {.acyclic.} = ref object
-    parent*: Stack
     self*: GeneValue
     cur_ns*: Namespace
     cur_scope*: Scope
@@ -27,6 +26,11 @@ type
   Scope* = ref object
     parent*: Scope
     members*: Table[string, GeneValue]
+
+  StackManager* = ref object
+    cache*: seq[Stack]
+
+var StackMgr* = StackManager(cache: @[])
 
 #################### Interfaces ##################
 
@@ -50,6 +54,11 @@ proc `[]=`*(self: var Scope, key: string, val: GeneValue) =
 
 #################### Stack #######################
 
+proc new_stack*(): Stack =
+  return Stack(
+    more_regs: @[],
+  )
+
 proc new_stack*(ns: Namespace): Stack =
   return Stack(
     cur_ns: ns,
@@ -59,11 +68,19 @@ proc new_stack*(ns: Namespace): Stack =
 
 proc grow*(self: var Stack): Stack =
   return Stack(
-    parent: self,
     cur_ns: self.cur_ns,
     cur_scope: new_scope(),
     more_regs: @[],
   )
+
+proc reset*(self: var Stack) =
+  self.cur_ns = nil
+  self.cur_scope = nil
+  self.self = nil
+  for i in 0..<CORE_REGISTERS:
+    self.registers[i] = nil
+  self.more_regs.delete(0, self.more_regs.len)
+  self.caller = nil
 
 proc default*(self: var Stack): GeneValue = self.registers[0]
 
@@ -88,12 +105,26 @@ proc `[]=`*(self: var Stack, i: int, val: GeneValue) =
   else:
     self.more_regs[i] = val
 
+#################### StackManager ################
+
+proc get*(self: var StackManager): Stack =
+  if self.cache.len > 0:
+    return self.cache.pop()
+  else:
+    return new_stack()
+
+proc free*(self: var StackManager, stack: var Stack) =
+  stack.reset()
+  self.cache.add(stack)
+
 #################### VM ##########################
 
 proc new_vm*(): VM =
-  var ns = new_namespace()
+  var stack = StackMgr.get()
+  stack.cur_ns = new_namespace()
+  stack.cur_scope = new_scope()
   return VM(
-    cur_stack: new_stack(ns),
+    cur_stack: stack,
     pos: -1,
   )
 
