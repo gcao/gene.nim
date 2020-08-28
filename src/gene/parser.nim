@@ -372,11 +372,12 @@ proc interpret_token(token: string): GeneValue =
 
 
 proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement: CommentPlacement): void =
-  var co = new(Comment)
-  co.placement = placement
-  co.comment_lines = comment_lines
-  if node.comments.len == 0: node.comments = @[co]
-  else: node.comments.add(co)
+  todo()
+  # var co = new(Comment)
+  # co.placement = placement
+  # co.comment_lines = comment_lines
+  # if node.comments.len == 0: node.comments = @[co]
+  # else: node.comments.add(co)
 
 type DelimitedListResult = object
   list: seq[GeneValue]
@@ -517,17 +518,19 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
   result.list = list
 
 proc add_line_col(p: var Parser, node: var GeneValue): void =
-  node.line = p.line_number
-  node.column = getColNumber(p, p.bufpos)
+  discard
+  # node.line = p.line_number
+  # node.column = getColNumber(p, p.bufpos)
 
 proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): GeneValue =
-  if list_result.comment_lines.len > 0:
-    var co = new(Comment)
-    co.placement = Inside
-    co.comment_lines = list_result.comment_lines
-    if node.comments.len == 0: node.comments = @[co]
-    else: node.comments.add(co)
-    return node
+  discard
+  # if list_result.comment_lines.len > 0:
+  #   var co = new(Comment)
+  #   co.placement = Inside
+  #   co.comment_lines = list_result.comment_lines
+  #   if node.comments.len == 0: node.comments = @[co]
+  #   else: node.comments.add(co)
+  #   return node
 
 type
   PropState = enum

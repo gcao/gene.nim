@@ -300,9 +300,9 @@ type
       internal*: Internal
     of GeneInstance:
       instance*: Instance
-    line*: int
-    column*: int
-    comments*: seq[Comment]
+    # line*: int
+    # column*: int
+    # comments*: seq[Comment]
 
   GeneDocument* = ref object
     name*: string

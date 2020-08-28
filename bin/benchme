@@ -2,4 +2,4 @@
 
 date "+%Y-%m-%d %H:%M:%S %A"
 git rev-parse HEAD
-nimble build -d:release && gene examples/fib24.gene
+nimble build -d:release && ./gene examples/fib24.gene

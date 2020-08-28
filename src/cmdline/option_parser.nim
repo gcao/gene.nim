@@ -39,7 +39,7 @@ proc parseOptions*(): Options =
         result.args.add(value)
       case key
       of "mode", "m":
-        if value.cmpIgnoreCase("compiled") == 0:
+        if value.cmpIgnoreCase("interpreted") == 0:
           result.running_mode = RunningMode.Compiled
       of "debug", "d":
         result.debugging = true

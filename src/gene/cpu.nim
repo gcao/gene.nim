@@ -1,4 +1,5 @@
-import strformat, logging, tables
+# import strformat, logging
+import tables
 
 import ./types
 import ./interpreter
@@ -16,7 +17,7 @@ proc run*(self: var VM, module: Module): GeneValue =
   self.pos = 0
   while self.pos < self.cur_block.instructions.len:
     instr = self.cur_block.instructions[self.pos]
-    debug(&"{self.pos:>4} {instr}")
+    # debug(&"{self.pos:>4} {instr}")
     case instr.kind:
     of Default:
       self.pos += 1
