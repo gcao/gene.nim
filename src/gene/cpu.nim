@@ -1,5 +1,5 @@
 # import strformat, logging
-import tables
+import tables, hashes
 
 import ./types
 import ./interpreter
@@ -33,12 +33,12 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.cur_stack[0] = self.cur_stack.self
     of DefMember:
       self.pos += 1
-      var name = instr.val.str
-      self.cur_stack.cur_scope[name] = self.cur_stack[0]
+      let key = instr.reg
+      self.cur_stack.cur_scope[key] = self.cur_stack[0]
     of GetMember:
       self.pos += 1
-      var name = instr.val.str
-      self.cur_stack[0] = self.cur_stack[name]
+      var key = instr.reg
+      self.cur_stack[0] = self.cur_stack.get(key)
     of Add:
       self.pos += 1
       let first = self.cur_stack[instr.reg].num
@@ -64,7 +64,8 @@ proc run*(self: var VM, module: Module): GeneValue =
     of CreateFunction:
       self.pos += 1
       var fn = instr.val
-      self.cur_stack.cur_ns[fn.internal.fn.name] = fn
+      let key = cast[Hash](fn.internal.fn.name.hash)
+      self.cur_stack.cur_ns[key] = fn
       self.cur_stack[0] = instr.val
     of CreateArguments:
       self.pos += 1
@@ -75,7 +76,8 @@ proc run*(self: var VM, module: Module): GeneValue =
       var name = instr.val.str
       var ns = new_namespace(name)
       var val = new_gene_internal(ns)
-      self.cur_stack.cur_ns[name] = val
+      let key = cast[Hash](name.hash)
+      self.cur_stack.cur_ns[key] = val
       self.cur_stack[0] = val
     of Import:
       self.pos += 1
@@ -89,13 +91,15 @@ proc run*(self: var VM, module: Module): GeneValue =
       var names = instr.val.vec
       for name in names:
         var s = name.symbol
-        self.cur_stack.cur_ns[s] = ns[s]
+        let key = cast[Hash](s.hash)
+        self.cur_stack.cur_ns[key] = ns[key]
     of CreateClass:
       self.pos += 1
       var name = instr.val.str
       var class = new_class(name)
       var val = new_gene_internal(class)
-      self.cur_stack.cur_ns[name] = val
+      let key = cast[Hash](name.hash)
+      self.cur_stack.cur_ns[key] = val
       self.cur_stack[0] = val
     of CreateMethod:
       self.pos += 1
@@ -120,7 +124,8 @@ proc run*(self: var VM, module: Module): GeneValue =
         for i in 0..<fn.args.len:
           var arg = fn.args[i]
           var val = args[i]
-          self.cur_stack.cur_scope[arg] = val
+          let key = cast[Hash](arg.hash)
+          self.cur_stack.cur_scope[key] = val
         self.cur_block = fn.body_block
         self.pos = 0
     of PropGet:
@@ -152,7 +157,8 @@ proc run*(self: var VM, module: Module): GeneValue =
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
         var val = args[i]
-        self.cur_stack.cur_scope[arg] = val
+        let key = cast[Hash](arg.hash)
+        self.cur_stack.cur_scope[key] = val
 
       self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
       self.cur_block = fn.body_block
@@ -172,7 +178,8 @@ proc run*(self: var VM, module: Module): GeneValue =
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
         var val = args[i]
-        self.cur_stack.cur_scope[arg] = val
+        let key = cast[Hash](arg.hash)
+        self.cur_stack.cur_scope[key] = val
 
       self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
       self.cur_block = fn.body_block

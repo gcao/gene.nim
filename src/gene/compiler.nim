@@ -1,4 +1,4 @@
-import sets, tables, oids, strutils
+import sets, tables, oids, strutils, hashes
 
 import ./types
 import ./parser
@@ -30,6 +30,7 @@ type
 
 #################### Interfaces ##################
 
+proc compile_symbol*(self: var Compiler, blk: var Block, name: string)
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
@@ -83,8 +84,14 @@ proc instr_self*(): Instruction =
 proc instr_def_member*(name: string): Instruction =
   return Instruction(kind: DefMember, val: new_gene_string_move(name))
 
+proc instr_def_member*(v: int): Instruction =
+  return Instruction(kind: DefMember, reg: v)
+
 proc instr_get_member*(name: string): Instruction =
   return Instruction(kind: GetMember, val: new_gene_string_move(name))
+
+proc instr_get_member*(v: int): Instruction =
+  return Instruction(kind: GetMember, reg: v)
 
 proc instr_set_item*(reg: int, index: int): Instruction =
   return Instruction(kind: SetItem, reg: reg, val: new_gene_int(index))
@@ -163,7 +170,7 @@ proc `$`*(instr: Instruction): string =
   else:
     return $instr.kind
 
-#################### RegManager ###############
+#################### RegManager ##################
 
 proc get(self: var RegManager): int =
   if self.freed.len > 0:
@@ -175,12 +182,54 @@ proc get(self: var RegManager): int =
 proc free(self: var RegManager, reg: int) =
   self.freed.incl(reg)
 
-#################### Block ####################
+#################### ScopeManager ################
+
+proc new_scope_manager*(): ScopeManager =
+  result = ScopeManager(
+    members: Table[string, Member](),
+  )
+
+proc get_available_name(self: ScopeManager, name: string): string =
+  if self.members.hasKey(name):
+    var i = 1
+    while true:
+      var s = name & "%" & $i
+      if not self.members.hasKey(s):
+        return s
+      i += 1
+  else:
+    return name
+
+proc `[]`*(self: ScopeManager, name: string): Member =
+  if self.reused_members.hasKey(name):
+    var names = self.reused_members[name]
+    var name = names[^1]
+    return self.members[name]
+  elif not self.parent.isNil:
+    return self.parent[name]
+
+proc def_member*(self: var ScopeManager, member: Member) =
+  if not self.reused_members.hasKey(member.name):
+    self.reused_members[member.name] = @[]
+  var names = self.reused_members[member.name]
+  var name = self.get_available_name(member.name)
+  names.add(name)
+  self.members[name] = member
+
+# When a member goes out of scope
+proc undef_member*(self: var ScopeManager, name: string) =
+  var reused = self.reused_members[name]
+  discard reused.pop()
+  if reused.len == 0:
+    self.reused_members.del(name)
+
+#################### Block #######################
 
 proc new_block*(): Block =
   result = Block(
     id: genOid(),
     reg_mgr: RegManager(next: 1),
+    scope_mgr: new_scope_manager(),
   )
 
 proc add(self: var Block, instr: Instruction) =
@@ -205,13 +254,7 @@ proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
   of GeneNilKind, GeneInt, GeneFloat, GeneRatio, GeneBool, GeneChar, GeneString:
     blk.add(instr_default(node))
   of GeneSymbol:
-    if node.symbol.startsWith("@"):
-      var name = node.symbol.substr(1)
-      self.compile_prop_get(blk, name)
-    elif node.symbol == "self":
-      blk.add(instr_self())
-    else:
-      blk.add(instr_get_member(node.symbol))
+    self.compile_symbol(blk, node.symbol)
   of GeneGene:
     self.compile_gene(blk, node)
   else:
@@ -228,6 +271,15 @@ proc compile*(self: var Compiler, buffer: string): Module =
   var blk = self.compile(doc)
   self.module.set_default(blk)
   return self.module
+
+proc compile_symbol*(self: var Compiler, blk: var Block, name: string) =
+  if name.startsWith("@"):
+    var name = name.substr(1)
+    self.compile_prop_get(blk, name)
+  elif name == "self":
+    blk.add(instr_self())
+  else:
+    blk.add(instr_get_member(cast[int](name.hash)))
 
 proc compile_fn_body*(self: var Compiler, fn: Function): Block =
   result = new_block()
@@ -336,7 +388,11 @@ proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue) =
     self.compile(blk, node.gene_data[1])
   else:
     blk.add(instr_default(GeneNil))
-  blk.add(instr_def_member(node.gene_data[0].symbol))
+  var name = node.gene_data[0].symbol
+  # var member = Member(kind: ScopeMember, name: name)
+  # blk.scope_mgr.def_member(member)
+  # blk.add(instr_def_member(name))
+  blk.add(instr_def_member(name.hash))
 
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
   var name = node.gene_data[0].symbol

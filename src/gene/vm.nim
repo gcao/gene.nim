@@ -25,7 +25,12 @@ type
 
   Scope* = ref object
     parent*: Scope
-    members*: Table[string, GeneValue]
+    members*: Table[int, GeneValue]
+
+  FunctionScope* = ref object
+    parent*: Scope
+    cache*: seq[GeneValue]
+    mappings*: Table[string, int]
 
   StackManager* = ref object
     cache*: seq[Stack]
@@ -36,20 +41,20 @@ var StackMgr* = StackManager(cache: @[])
 
 #################### Namespace ###################
 
-proc `[]`*(self: Namespace, key: string): GeneValue = self.members[key]
+proc `[]`*(self: Namespace, key: int): GeneValue = self.members[key]
 
-proc `[]=`*(self: var Namespace, key: string, val: GeneValue) =
+proc `[]=`*(self: var Namespace, key: int, val: GeneValue) =
   self.members[key] = val
 
 #################### Scope #######################
 
-proc new_scope*(): Scope = Scope(members: Table[string, GeneValue]())
+proc new_scope*(): Scope = Scope(members: Table[int, GeneValue]())
 
-proc hasKey*(self: Scope, key: string): bool = self.members.hasKey(key)
+proc hasKey*(self: Scope, key: int): bool = self.members.hasKey(key)
 
-proc `[]`*(self: Scope, key: string): GeneValue = self.members[key]
+proc `[]`*(self: Scope, key: int): GeneValue = self.members[key]
 
-proc `[]=`*(self: var Scope, key: string, val: GeneValue) =
+proc `[]=`*(self: var Scope, key: int, val: GeneValue) =
   self.members[key] = val
 
 #################### Stack #######################
@@ -93,11 +98,11 @@ proc `[]`*(self: var Stack, i: int): GeneValue =
   else:
     return self.more_regs[i]
 
-proc `[]`*(self: var Stack, name: string): GeneValue =
-  if self.cur_scope.hasKey(name):
-    return self.cur_scope[name]
+proc get*(self: var Stack, key: int): GeneValue =
+  if self.cur_scope.hasKey(key):
+    return self.cur_scope[key]
   else:
-    return self.cur_ns[name]
+    return self.cur_ns[key]
 
 proc `[]=`*(self: var Stack, i: int, val: GeneValue) =
   if i < CORE_REGISTERS:
@@ -128,7 +133,7 @@ proc new_vm*(): VM =
     pos: -1,
   )
 
-proc `[]`*(self: VM, key: string): GeneValue =
+proc `[]`*(self: VM, key: int): GeneValue =
   if self.cur_stack.cur_scope.hasKey(key):
     return self.cur_stack.cur_scope[key]
   else:

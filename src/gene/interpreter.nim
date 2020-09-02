@@ -1,4 +1,4 @@
-import os, sequtils, tables
+import os, sequtils, tables, hashes
 
 import ./types
 import ./parser
@@ -63,7 +63,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
           self.eval(node.gene_data[1])
         else:
           GeneNil
-      self.cur_stack.cur_scope[name] = value
+      let key = cast[Hash](name.hash)
+      self.cur_stack.cur_scope[key] = value
     elif op.symbol == "@":
       return self.eval_at(node)
     elif op.symbol == "if":
@@ -110,7 +111,8 @@ proc eval_gene(self: var VM, node: GeneValue): GeneValue =
           else:
             todo()
         else:
-          self.cur_stack.cur_scope[first.symbol] = self.eval(second)
+          let key = cast[Hash](first.symbol.hash) 
+          self.cur_stack.cur_scope[key] = self.eval(second)
       else:
         todo($node)
     elif op.symbol == "+":
@@ -251,7 +253,8 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)
   result = new_gene_internal(internal)
-  self.cur_stack.cur_ns[name] = result
+  let key = cast[Hash](name.hash)
+  self.cur_stack.cur_ns[key] = result
 
 proc eval_return(self: var VM, node: GeneValue): GeneValue =
   var val = self.eval(node.gene_data[0])
@@ -261,7 +264,8 @@ proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
   var name = node.gene_data[0].symbol
   var ns = new_namespace(name)
   result = new_gene_internal(ns)
-  self.cur_stack.cur_ns[name] = result
+  let key = cast[Hash](name.hash)
+  self.cur_stack.cur_ns[key] = result
 
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
@@ -288,16 +292,19 @@ proc eval_class*(self: var VM, node: GeneValue): GeneValue =
     if nsName == "global":
       ns = APP.ns
     else:
-      ns = self.cur_stack.cur_ns[nsName].internal.ns
+      let key = cast[Hash](nsName.hash)
+      ns = self.cur_stack.cur_ns[key].internal.ns
     for i in 0..<rest.len - 1:
-      ns = ns[rest[i]].internal.ns
+      let key = cast[Hash](rest[i].hash)
+      ns = ns[key].internal.ns
   else:
     not_allowed()
 
   var class = Class(name: name)
   var internal = Internal(kind: GeneClass, class: class)
   result = new_gene_internal(internal)
-  ns[name] = result
+  let key = cast[Hash](name.hash)
+  ns[key] = result
 
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
@@ -336,7 +343,8 @@ proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue =
   of GeneInstance:
     class = instance.instance.class
   of GeneString:
-    class = APP.ns["String"].internal.class
+    let key = cast[Hash]("String".hash)
+    class = APP.ns[key].internal.class
   else:
     todo()
   var meth = class.methods[node.gene_props["method"].str]
@@ -393,7 +401,8 @@ proc eval_import*(self: var VM, node: GeneValue): GeneValue =
     todo("Evaluate module")
   for name in node.gene_props["names"].vec:
     var s = name.symbol
-    self.cur_stack.cur_ns[s] = ns[s]
+    let key = cast[Hash](s.hash)
+    self.cur_stack.cur_ns[key] = ns[key]
   return GeneNil
 
 proc eval_call_native*(self: var VM, node: GeneValue): GeneValue =
@@ -411,7 +420,8 @@ proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
   for i in 0..<fn.args.len:
     var arg = fn.args[i]
     var val = args[i]
-    self.cur_stack.cur_scope[arg] = val
+    let key = cast[Hash](arg.hash)
+    self.cur_stack.cur_scope[key] = val
 
   try:
     for node in fn.body:
@@ -427,7 +437,8 @@ proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Argumen
   for i in 0..<fn.args.len:
     var arg = fn.args[i]
     var val = args[i]
-    self.cur_stack.cur_scope[arg] = val
+    let key = cast[Hash](arg.hash)
+    self.cur_stack.cur_scope[key] = val
 
   try:
     for node in fn.body:
@@ -454,7 +465,8 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     of "self":
       return self.cur_stack.self
     else:
-      return self[name]
+      let key = cast[Hash](name.hash)
+      return self[key]
   of GeneComplexSymbol:
     var sym = node.csymbol
     if sym.first == "":
@@ -462,9 +474,11 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     elif sym.first == "global":
       result = new_gene_internal(APP.ns)
     else:
-      result = self[sym.first]
+      let key = cast[Hash](sym.first.hash)
+      result = self[key]
     for name in sym.rest:
-      result = result.internal.ns[name]
+      let key = cast[Hash](name.hash)
+      result = result.internal.ns[key]
     return result
   of GeneGene:
     node.normalize

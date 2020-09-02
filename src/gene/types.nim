@@ -148,15 +148,37 @@ type
     no_return*: bool
     ## This is not needed after compilation
     reg_mgr*: RegManager
+    scope_mgr*: ScopeManager
 
   RegManager* = ref object
     next*: int
     freed*: HashSet[int]
 
+  MemberKind* = enum
+    ScopeMember
+    NamespaceMember
+    ArgumentMember # similar to scope member
+
+  Member* = ref object
+    kind*: MemberKind
+    name*: string
+    usage*: int
+    inherited*: bool # Inherited in a function or code evaluated during execution
+
+  ScopeManager* = ref object
+    parent*: ScopeManager
+    inherit_scope*: bool
+    # key: internal name = name, name%1, ...
+    # val: member object
+    members*: Table[string, Member]
+    # key: name
+    # val: stack of internal names used as key in self.members
+    reused_members*: Table[string, seq[string]]
+
   Namespace* = ref object
     parent*: Namespace
     name*: string
-    members*: Table[string, GeneValue]
+    members*: Table[int, GeneValue]
     # cache*: Table[string, GeneValue]
 
   Module* = ref object
@@ -555,20 +577,20 @@ proc new_instance*(class: Class): Instance =
 proc new_namespace*(): Namespace =
   return Namespace(
     name: "<root>",
-    members: Table[string, GeneValue](),
+    members: Table[int, GeneValue](),
   )
 
 proc new_namespace*(name: string): Namespace =
   return Namespace(
     name: name,
-    members: Table[string, GeneValue](),
+    members: Table[int, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace, name: string): Namespace =
   return Namespace(
     parent: parent,
     name: name,
-    members: Table[string, GeneValue](),
+    members: Table[int, GeneValue](),
   )
 
 proc new_gene_internal*(class: Class): GeneValue =
