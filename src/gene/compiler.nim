@@ -105,11 +105,20 @@ proc instr_prop_set*(name: string, reg: int): Instruction =
 proc instr_add*(reg, reg2: int): Instruction =
   return Instruction(kind: Add, reg: reg, reg2: reg2)
 
+proc instr_addi*(reg: int, val: GeneValue): Instruction =
+  return Instruction(kind: AddI, reg: reg, val: val)
+
 proc instr_sub*(reg, reg2: int): Instruction =
   return Instruction(kind: Sub, reg: reg, reg2: reg2)
 
+proc instr_subi*(reg: int, val: GeneValue): Instruction =
+  return Instruction(kind: SubI, reg: reg, val: val)
+
 proc instr_lt*(reg, reg2: int): Instruction =
   return Instruction(kind: Lt, reg: reg, reg2: reg2)
+
+proc instr_lti*(reg: int, val: GeneValue): Instruction =
+  return Instruction(kind: LtI, reg: reg, val: val)
 
 proc instr_jump*(pos: int): Instruction =
   return Instruction(kind: Jump, val: new_gene_int(pos))
@@ -543,17 +552,57 @@ proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: s
   #   blk.add(instr_add(0, reg))
   #   blk.reg_mgr.free(reg)
 
-  self.compile(blk, first)
-  var reg = blk.reg_mgr.get
-  blk.add(instr_copy(0, reg))
-  self.compile(blk, second)
+  let fst_literal = first.is_literal
+  let snd_literal = second.is_literal
   case op:
-  of "+": blk.add(instr_add(reg, 0))
-  of "-": blk.add(instr_sub(reg, 0))
-  of "<": blk.add(instr_lt(reg, 0))
+  of "+":
+    if fst_literal and snd_literal:
+      blk.add(instr_default(new_gene_int(first.num + second.num)))
+    elif fst_literal:
+      self.compile(blk, second)
+      blk.add(instr_addi(0, first))
+    elif snd_literal:
+      self.compile(blk, first)
+      blk.add(instr_addi(0, second))
+    else:
+      self.compile(blk, first)
+      var reg = blk.reg_mgr.get
+      blk.add(instr_copy(0, reg))
+      self.compile(blk, second)
+      blk.add(instr_add(reg, 0))
+      blk.reg_mgr.free(reg)
+  of "-":
+    if fst_literal and snd_literal:
+      blk.add(instr_default(new_gene_int(first.num - second.num)))
+    elif fst_literal:
+      todo()
+    elif snd_literal:
+      self.compile(blk, first)
+      blk.add(instr_subi(0, second))
+    else:
+      self.compile(blk, first)
+      var reg = blk.reg_mgr.get
+      blk.add(instr_copy(0, reg))
+      self.compile(blk, second)
+      blk.add(instr_sub(reg, 0))
+      blk.reg_mgr.free(reg)
+  of "<":
+    if fst_literal and snd_literal:
+      blk.add(instr_default(new_gene_bool(first.num < second.num)))
+    elif fst_literal:
+      todo()
+    elif snd_literal:
+      self.compile(blk, first)
+      blk.add(instr_lti(0, second))
+    else:
+      self.compile(blk, first)
+      var reg = blk.reg_mgr.get
+      blk.add(instr_copy(0, reg))
+      self.compile(blk, second)
+      blk.add(instr_lt(reg, 0))
+      blk.reg_mgr.free(reg)
   else:
     todo($op)
-  blk.reg_mgr.free(reg)
 
 proc compile_prop_get*(self: var Compiler, blk: var Block, name: string) =
   self.compile(blk, new_gene_symbol("self"))

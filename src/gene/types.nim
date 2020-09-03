@@ -74,15 +74,19 @@ type
 
     # reg + default
     Add
+    AddI
     # reg - default
     Sub
+    SubI
     Mul
     Div
     Pow
     Mod
     Eq
+    EqI
     Neq
     Lt
+    LtI
     Le
     Gt
     Ge
@@ -416,6 +420,13 @@ proc `==`*(this, that: GeneValue): bool =
       return this.internal == that.internal
     of GeneInstance:
       return this.instance == that.instance
+
+proc is_literal*(self: GeneValue): bool =
+  case self.kind:
+  of GeneBool, GeneNilKind, GeneInt, GeneFloat, GeneRatio:
+    return true
+  else:
+    return false
 
 proc `$`*(node: GeneValue): string =
   if node.isNil:
