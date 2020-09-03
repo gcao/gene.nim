@@ -129,13 +129,14 @@ proc run*(self: var VM, module: Module): GeneValue =
       if class.methods.hasKey("new"):
         var fn = class.methods["new"]
         var stack = self.cur_stack
-        var caller = new_caller(stack, self.cur_block, self.pos)
         var args = self.cur_stack[instr.reg].internal.args
         self.cur_stack = StackMgr.get
         self.cur_stack.cur_ns = stack.cur_ns
         self.cur_stack.cur_scope = new_scope()
         self.cur_stack.self = instance
-        self.cur_stack.caller = caller
+        self.cur_stack.caller_stack = stack
+        self.cur_stack.caller_blk = self.cur_block
+        self.cur_stack.caller_pos = self.pos
         for i in 0..<fn.args.len:
           var arg = fn.args[i]
           var val = args[i]
@@ -175,7 +176,9 @@ proc run*(self: var VM, module: Module): GeneValue =
         let key = cast[Hash](arg.hash)
         self.cur_stack.cur_scope[key] = val
 
-      self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
+      self.cur_stack.caller_stack = stack
+      self.cur_stack.caller_blk = self.cur_block
+      self.cur_stack.caller_pos = self.pos
       self.cur_block = fn.body_block
       self.pos = 0
     of Call:
@@ -196,7 +199,9 @@ proc run*(self: var VM, module: Module): GeneValue =
         let key = cast[Hash](arg.hash)
         self.cur_stack.cur_scope[key] = val
 
-      self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
+      self.cur_stack.caller_stack = stack
+      self.cur_stack.caller_blk = self.cur_block
+      self.cur_stack.caller_pos = self.pos
       self.cur_block = fn.body_block
       self.pos = 0
 
@@ -220,21 +225,20 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.cur_stack.cur_scope = new_scope()
       self.cur_stack.self = stack[instr.reg2]
 
-      self.cur_stack.caller = new_caller(stack, self.cur_block, self.pos)
+      self.cur_stack.caller_stack = stack
+      self.cur_stack.caller_blk = self.cur_block
+      self.cur_stack.caller_pos = self.pos
       self.cur_block = blk
       self.pos = 0
 
     of CallEnd:
-      var caller = self.cur_stack.caller
-      if caller.isNil:
-        not_allowed()
-      else:
-        if not self.cur_block.no_return:
-          caller.stack[0] = self.cur_stack[0]
-        StackMgr.free(self.cur_stack)
-        self.cur_stack = caller.stack
-        self.cur_block = caller.blk
-        self.pos = caller.pos
+      var cur_stack = self.cur_stack
+      if not self.cur_block.no_return:
+        cur_stack.caller_stack[0] = self.cur_stack[0]
+      self.cur_stack = cur_stack.caller_stack
+      self.cur_block = cur_stack.caller_blk
+      self.pos = cur_stack.caller_pos
+      StackMgr.free(cur_stack)
 
     of SetItem:
       self.pos += 1
@@ -245,7 +249,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       else:
         todo($instr)
     else:
-      self.pos += 1
+      # self.pos += 1
       todo($instr)
 
   result = self.cur_stack.default

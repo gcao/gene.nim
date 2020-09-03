@@ -10,18 +10,15 @@ type
     cur_block*: Block
     pos*: int
 
-  Caller* = ref object
-    stack*: Stack
-    blk*: Block
-    pos*: int
-
   Stack* {.acyclic.} = ref object
     self*: GeneValue
     cur_ns*: Namespace
     cur_scope*: Scope
     registers: array[CORE_REGISTERS, GeneValue]
     more_regs: seq[GeneValue]
-    caller*: Caller
+    caller_stack*: Stack
+    caller_blk*: Block
+    caller_pos*: int
 
   Scope* = ref object
     parent*: Scope
@@ -79,13 +76,15 @@ proc grow*(self: var Stack): Stack =
   )
 
 proc reset*(self: var Stack) =
+  self.self = nil
   self.cur_ns = nil
   self.cur_scope = nil
-  self.self = nil
   for i in 0..<CORE_REGISTERS:
     self.registers[i] = nil
   self.more_regs.delete(0, self.more_regs.len)
-  self.caller = nil
+  self.caller_stack = nil
+  self.caller_blk = nil
+  self.caller_pos = 0
 
 proc default*(self: var Stack): GeneValue {.inline.} = self.registers[0]
 
@@ -138,8 +137,3 @@ proc `[]`*(self: VM, key: int): GeneValue =
     return self.cur_stack.cur_scope[key]
   else:
     return self.cur_stack.cur_ns[key]
-
-#################### Caller ######################
-
-proc new_caller*(stack: Stack, blk: Block, pos: int): Caller {.inline.} =
-  return Caller(stack: stack, blk: blk, pos: pos)
