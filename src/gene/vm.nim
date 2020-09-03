@@ -41,20 +41,20 @@ var StackMgr* = StackManager(cache: @[])
 
 #################### Namespace ###################
 
-proc `[]`*(self: Namespace, key: int): GeneValue = self.members[key]
+proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
 
-proc `[]=`*(self: var Namespace, key: int, val: GeneValue) =
+proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
   self.members[key] = val
 
 #################### Scope #######################
 
 proc new_scope*(): Scope = Scope(members: Table[int, GeneValue]())
 
-proc hasKey*(self: Scope, key: int): bool = self.members.hasKey(key)
+proc hasKey*(self: Scope, key: int): bool {.inline.} = self.members.hasKey(key)
 
-proc `[]`*(self: Scope, key: int): GeneValue = self.members[key]
+proc `[]`*(self: Scope, key: int): GeneValue {.inline.} = self.members[key]
 
-proc `[]=`*(self: var Scope, key: int, val: GeneValue) =
+proc `[]=`*(self: var Scope, key: int, val: GeneValue) {.inline.} =
   self.members[key] = val
 
 #################### Stack #######################
@@ -87,24 +87,24 @@ proc reset*(self: var Stack) =
   self.more_regs.delete(0, self.more_regs.len)
   self.caller = nil
 
-proc default*(self: var Stack): GeneValue = self.registers[0]
+proc default*(self: var Stack): GeneValue {.inline.} = self.registers[0]
 
-proc `default=`*(self: var Stack, val: GeneValue): GeneValue =
+proc `default=`*(self: var Stack, val: GeneValue): GeneValue {.inline.} =
   self.registers[0] = val
 
-proc `[]`*(self: var Stack, i: int): GeneValue =
+proc `[]`*(self: var Stack, i: int): GeneValue {.inline.} =
   if i < CORE_REGISTERS:
     return self.registers[i]
   else:
     return self.more_regs[i]
 
-proc get*(self: var Stack, key: int): GeneValue =
+proc get*(self: var Stack, key: int): GeneValue {.inline.} =
   if self.cur_scope.hasKey(key):
     return self.cur_scope[key]
   else:
     return self.cur_ns[key]
 
-proc `[]=`*(self: var Stack, i: int, val: GeneValue) =
+proc `[]=`*(self: var Stack, i: int, val: GeneValue) {.inline.} =
   if i < CORE_REGISTERS:
     self.registers[i] = val
   else:
@@ -112,13 +112,13 @@ proc `[]=`*(self: var Stack, i: int, val: GeneValue) =
 
 #################### StackManager ################
 
-proc get*(self: var StackManager): Stack =
+proc get*(self: var StackManager): Stack {.inline.} =
   if self.cache.len > 0:
     return self.cache.pop()
   else:
     return new_stack()
 
-proc free*(self: var StackManager, stack: var Stack) =
+proc free*(self: var StackManager, stack: var Stack) {.inline.} =
   stack.reset()
   self.cache.add(stack)
 
@@ -141,5 +141,5 @@ proc `[]`*(self: VM, key: int): GeneValue =
 
 #################### Caller ######################
 
-proc new_caller*(stack: Stack, blk: Block, pos: int): Caller =
+proc new_caller*(stack: Stack, blk: Block, pos: int): Caller {.inline.} =
   return Caller(stack: stack, blk: blk, pos: pos)
