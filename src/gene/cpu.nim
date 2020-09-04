@@ -155,53 +155,47 @@ proc run*(self: var VM, module: Module): GeneValue =
       var name = instr.val.str
       var val = self.cur_stack[instr.reg]
       self.cur_stack.self.instance.value.gene_props[name] = val
+
     of InvokeMethod:
       self.pos += 1
       var this = self.cur_stack[instr.reg]
       var name = instr.val.str
       var fn = this.instance.class.methods[name]
       var args = self.cur_stack[instr.reg2].internal.args
-      # Interpret the function body
-      # self.cur_stack[0] = self.call(fn, args)
-      # Or
-      # Run the compiled function body
       var stack = self.cur_stack
-      self.cur_stack = StackMgr.get
-      self.cur_stack.cur_ns = stack.cur_ns
-      self.cur_stack.cur_scope = ScopeMgr.get()
-      self.cur_stack.self = this
+      var cur_stack = StackMgr.get
+      cur_stack.self = this
+      cur_stack.cur_ns = stack.cur_ns
+      cur_stack.cur_scope = ScopeMgr.get()
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
         var val = args[i]
         let key = cast[Hash](arg.hash)
-        self.cur_stack.cur_scope[key] = val
-
-      self.cur_stack.caller_stack = stack
-      self.cur_stack.caller_blk = self.cur_block
-      self.cur_stack.caller_pos = self.pos
+        cur_stack.cur_scope[key] = val
+      cur_stack.caller_stack = stack
+      cur_stack.caller_blk = self.cur_block
+      cur_stack.caller_pos = self.pos
+      self.cur_stack = cur_stack
       self.cur_block = fn.body_block
       self.pos = 0
+
     of Call:
       self.pos += 1
-      var fn = self.cur_stack[0].internal.fn
-      var args = self.cur_stack[instr.reg].internal.args
-      # Interpret the function body
-      # self.cur_stack[0] = self.call(fn, args)
-      # Or
-      # Run the compiled function body
       var stack = self.cur_stack
-      self.cur_stack = StackMgr.get
-      self.cur_stack.cur_ns = stack.cur_ns
-      self.cur_stack.cur_scope = ScopeMgr.get()
+      var fn = stack[0].internal.fn
+      var args = stack[instr.reg].internal.args
+      var cur_stack = StackMgr.get()
+      cur_stack.cur_ns = stack.cur_ns
+      cur_stack.cur_scope = ScopeMgr.get()
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
         var val = args[i]
         let key = cast[Hash](arg.hash)
-        self.cur_stack.cur_scope[key] = val
-
-      self.cur_stack.caller_stack = stack
-      self.cur_stack.caller_blk = self.cur_block
-      self.cur_stack.caller_pos = self.pos
+        cur_stack.cur_scope[key] = val
+      cur_stack.caller_stack = stack
+      cur_stack.caller_blk = self.cur_block
+      cur_stack.caller_pos = self.pos
+      self.cur_stack = cur_stack
       self.cur_block = fn.body_block
       self.pos = 0
 
@@ -218,28 +212,27 @@ proc run*(self: var VM, module: Module): GeneValue =
 
     of CallBlock:
       self.pos += 1
-      var blk = self.cur_stack[instr.reg].internal.blk
       var stack = self.cur_stack
-      self.cur_stack = StackMgr.get
-      self.cur_stack.cur_ns = stack.cur_ns
-      self.cur_stack.cur_scope = ScopeMgr.get()
-      self.cur_stack.self = stack[instr.reg2]
-
-      self.cur_stack.caller_stack = stack
-      self.cur_stack.caller_blk = self.cur_block
-      self.cur_stack.caller_pos = self.pos
-      self.cur_block = blk
+      var cur_stack = StackMgr.get
+      cur_stack.cur_ns = stack.cur_ns
+      cur_stack.cur_scope = ScopeMgr.get()
+      cur_stack.self = stack[instr.reg2]
+      cur_stack.caller_stack = stack
+      cur_stack.caller_blk = self.cur_block
+      cur_stack.caller_pos = self.pos
+      self.cur_stack = cur_stack
+      self.cur_block = stack[instr.reg].internal.blk
       self.pos = 0
 
     of CallEnd:
-      var cur_stack = self.cur_stack
-      self.cur_stack = cur_stack.caller_stack
+      var stack = self.cur_stack
+      self.cur_stack = stack.caller_stack
       if not self.cur_block.no_return:
-        self.cur_stack[0] = cur_stack[0]
-      self.cur_block = cur_stack.caller_blk
-      self.pos = cur_stack.caller_pos
-      ScopeMgr.free(cur_stack.cur_scope)
-      StackMgr.free(cur_stack)
+        self.cur_stack[0] = stack[0]
+      self.cur_block = stack.caller_blk
+      self.pos = stack.caller_pos
+      ScopeMgr.free(stack.cur_scope)
+      StackMgr.free(stack)
 
     of SetItem:
       self.pos += 1
