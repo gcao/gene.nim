@@ -33,8 +33,7 @@ type
     Copy
 
     DefMember
-    # DefMemberInScope(String)
-    # DefMemberInNS(String)
+    DefNsMember
     GetMember
     # GetMemberInScope(String)
     # GetMemberInNS(String)
@@ -97,6 +96,7 @@ type
     # BitOr
     # BitXor
 
+    Global
     Self
 
     # Function(fn)

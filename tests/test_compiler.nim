@@ -50,6 +50,12 @@ test_compiler """
 """, proc(r: GeneValue) =
   check r.internal.ns.name == "n"
 
+test_compiler "global", proc(r: GeneValue) =
+  check r.internal.ns.name == "global"
+
+test_compiler "(fn global/f [] 1)", proc(r: GeneValue) =
+  check r.internal.fn.name == "f"
+
 test "Compiler / VM: Import":
   var c = new_compiler()
   var vm = new_vm()

@@ -28,6 +28,9 @@ proc run*(self: var VM, module: Module): GeneValue =
     of Copy:
       self.pos += 1
       self.cur_stack[instr.reg2] = self.cur_stack[instr.reg]
+    of Global:
+      self.pos += 1
+      self.cur_stack[0] = new_gene_internal(APP.ns)
     of Self:
       self.pos += 1
       self.cur_stack[0] = self.cur_stack.self
@@ -35,6 +38,30 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.pos += 1
       let key = instr.reg
       self.cur_stack.cur_scope[key] = self.cur_stack[0]
+    of DefNsMember:
+      self.pos += 1
+      let name = instr.val
+      case name.kind:
+      of GeneSymbol:
+        var key = name.symbol.hash
+        self.cur_stack.cur_ns[key] = self.cur_stack[0]
+      of GeneComplexSymbol:
+        var csymbol = name.csymbol
+        var ns: Namespace
+        case csymbol.first:
+        of "global":
+          ns = APP.ns
+        else:
+          ns = self.cur_stack.cur_ns
+          var key = csymbol.first.hash
+          ns = ns[key].internal.ns
+        for i in 0..<csymbol.rest.len - 1:
+          var key = csymbol.rest[i].hash
+          ns = ns[key].internal.ns
+        var key = csymbol.rest[^1].hash
+        ns[key] = self.cur_stack[0]
+      else:
+        not_allowed()
     of GetMember:
       self.pos += 1
       var key = instr.reg

@@ -78,6 +78,9 @@ proc instr_save*(reg: int, val: GeneValue): Instruction =
 proc instr_copy*(reg, reg2: int): Instruction =
   return Instruction(kind: Copy, reg: reg, reg2: reg2)
 
+proc instr_global*(): Instruction =
+  return Instruction(kind: Global)
+
 proc instr_self*(): Instruction =
   return Instruction(kind: Self)
 
@@ -86,6 +89,9 @@ proc instr_def_member*(name: string): Instruction =
 
 proc instr_def_member*(v: int): Instruction =
   return Instruction(kind: DefMember, reg: v)
+
+proc instr_def_ns_member*(name: GeneValue): Instruction =
+  return Instruction(kind: DefNsMember, val: name)
 
 proc instr_get_member*(name: string): Instruction =
   return Instruction(kind: GetMember, val: new_gene_string_move(name))
@@ -287,6 +293,8 @@ proc compile_symbol*(self: var Compiler, blk: var Block, name: string) =
     self.compile_prop_get(blk, name)
   elif name == "self":
     blk.add(instr_self())
+  elif name == "global":
+    blk.add(instr_global())
   else:
     blk.add(instr_get_member(cast[int](name.hash)))
 
@@ -404,7 +412,12 @@ proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue) =
   blk.add(instr_def_member(name.hash))
 
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
-  var name = node.gene_data[0].symbol
+  var first = node.gene_data[0]
+  var name: string
+  if first.kind == GeneSymbol:
+    name = first.symbol
+  elif first.kind == GeneComplexSymbol:
+    name = first.csymbol.rest[^1]
   var args: seq[string] = @[]
   var a = node.gene_data[1]
   case a.kind:
@@ -423,6 +436,7 @@ proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue) =
   var body_block = self.compile_fn_body(fn)
   fn.body_block = body_block
   blk.add(instr_function(fn))
+  # blk.add(instr_def_ns_member(first))
 
 proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue) =
   var name = node.gene_data[0].symbol
