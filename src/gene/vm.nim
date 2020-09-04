@@ -32,9 +32,15 @@ type
   StackManager* = ref object
     cache*: seq[Stack]
 
+  ScopeManager = ref object
+    cache*: seq[Scope]
+
 var StackMgr* = StackManager(cache: @[])
+var ScopeMgr* = ScopeManager(cache: @[])
 
 #################### Interfaces ##################
+
+proc get*(self: var ScopeManager): Scope {.inline.}
 
 #################### Namespace ###################
 
@@ -46,6 +52,9 @@ proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
 #################### Scope #######################
 
 proc new_scope*(): Scope = Scope(members: Table[int, GeneValue]())
+
+proc reset*(self: var Scope) =
+  self.members.clear()
 
 proc hasKey*(self: Scope, key: int): bool {.inline.} = self.members.hasKey(key)
 
@@ -64,14 +73,14 @@ proc new_stack*(): Stack =
 proc new_stack*(ns: Namespace): Stack =
   return Stack(
     cur_ns: ns,
-    cur_scope: new_scope(),
+    cur_scope: ScopeMgr.get(),
     more_regs: @[],
   )
 
 proc grow*(self: var Stack): Stack =
   return Stack(
     cur_ns: self.cur_ns,
-    cur_scope: new_scope(),
+    cur_scope: ScopeMgr.get(),
     more_regs: @[],
   )
 
@@ -120,6 +129,18 @@ proc get*(self: var StackManager): Stack {.inline.} =
 proc free*(self: var StackManager, stack: var Stack) {.inline.} =
   stack.reset()
   self.cache.add(stack)
+
+#################### ScopeManager ################
+
+proc get*(self: var ScopeManager): Scope {.inline.} =
+  if self.cache.len > 0:
+    return self.cache.pop()
+  else:
+    return new_scope()
+
+proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
+  scope.reset()
+  self.cache.add(scope)
 
 #################### VM ##########################
 

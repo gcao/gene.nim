@@ -132,7 +132,7 @@ proc run*(self: var VM, module: Module): GeneValue =
         var args = self.cur_stack[instr.reg].internal.args
         self.cur_stack = StackMgr.get
         self.cur_stack.cur_ns = stack.cur_ns
-        self.cur_stack.cur_scope = new_scope()
+        self.cur_stack.cur_scope = ScopeMgr.get()
         self.cur_stack.self = instance
         self.cur_stack.caller_stack = stack
         self.cur_stack.caller_blk = self.cur_block
@@ -168,7 +168,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       var stack = self.cur_stack
       self.cur_stack = StackMgr.get
       self.cur_stack.cur_ns = stack.cur_ns
-      self.cur_stack.cur_scope = new_scope()
+      self.cur_stack.cur_scope = ScopeMgr.get()
       self.cur_stack.self = this
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
@@ -192,7 +192,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       var stack = self.cur_stack
       self.cur_stack = StackMgr.get
       self.cur_stack.cur_ns = stack.cur_ns
-      self.cur_stack.cur_scope = new_scope()
+      self.cur_stack.cur_scope = ScopeMgr.get()
       for i in 0..<fn.args.len:
         var arg = fn.args[i]
         var val = args[i]
@@ -222,7 +222,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       var stack = self.cur_stack
       self.cur_stack = StackMgr.get
       self.cur_stack.cur_ns = stack.cur_ns
-      self.cur_stack.cur_scope = new_scope()
+      self.cur_stack.cur_scope = ScopeMgr.get()
       self.cur_stack.self = stack[instr.reg2]
 
       self.cur_stack.caller_stack = stack
@@ -233,11 +233,12 @@ proc run*(self: var VM, module: Module): GeneValue =
 
     of CallEnd:
       var cur_stack = self.cur_stack
-      if not self.cur_block.no_return:
-        cur_stack.caller_stack[0] = self.cur_stack[0]
       self.cur_stack = cur_stack.caller_stack
+      if not self.cur_block.no_return:
+        self.cur_stack[0] = cur_stack[0]
       self.cur_block = cur_stack.caller_blk
       self.pos = cur_stack.caller_pos
+      ScopeMgr.free(cur_stack.cur_scope)
       StackMgr.free(cur_stack)
 
     of SetItem:
