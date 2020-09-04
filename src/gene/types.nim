@@ -35,6 +35,7 @@ type
     DefMember
     DefNsMember
     GetMember
+    GetNestedNsMember
     # GetMemberInScope(String)
     # GetMemberInNS(String)
     # SetMember(String)

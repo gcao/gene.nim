@@ -66,6 +66,22 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.pos += 1
       var key = instr.reg
       self.cur_stack[0] = self.cur_stack.get(key)
+    of GetNestedNsMember:
+      self.pos += 1
+      var name = instr.val.csymbol
+      var ns: Namespace
+      case name.first:
+      of "global":
+        ns = APP.ns
+      else:
+        var key = name.first.hash
+        ns = self.cur_stack.cur_ns[key].internal.ns
+      for i in 0..<name.rest.len - 1:
+        var s = name.rest[i]
+        var key = s.hash
+        ns = ns[key].internal.ns
+      var key = name.rest[^1].hash
+      self.cur_stack[0] = ns[key]
     of Add:
       self.pos += 1
       let first = self.cur_stack[instr.reg].num

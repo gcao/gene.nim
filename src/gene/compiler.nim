@@ -31,6 +31,7 @@ type
 #################### Interfaces ##################
 
 proc compile_symbol*(self: var Compiler, blk: var Block, name: string)
+proc compile_complex_symbol*(self: var Compiler, blk: var Block, name: GeneValue)
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
@@ -98,6 +99,9 @@ proc instr_get_member*(name: string): Instruction =
 
 proc instr_get_member*(v: int): Instruction =
   return Instruction(kind: GetMember, reg: v)
+
+proc instr_get_nested_ns_member*(name: GeneValue): Instruction =
+  return Instruction(kind: GetNestedNsMember, val: name)
 
 proc instr_set_item*(reg: int, index: int): Instruction =
   return Instruction(kind: SetItem, reg: reg, val: new_gene_int(index))
@@ -270,6 +274,8 @@ proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
     blk.add(instr_default(node))
   of GeneSymbol:
     self.compile_symbol(blk, node.symbol)
+  of GeneComplexSymbol:
+    self.compile_complex_symbol(blk, node)
   of GeneGene:
     self.compile_gene(blk, node)
   else:
@@ -297,6 +303,9 @@ proc compile_symbol*(self: var Compiler, blk: var Block, name: string) =
     blk.add(instr_global())
   else:
     blk.add(instr_get_member(cast[int](name.hash)))
+
+proc compile_complex_symbol*(self: var Compiler, blk: var Block, name: GeneValue) =
+  blk.add(instr_get_nested_ns_member(name))
 
 proc compile_fn_body*(self: var Compiler, fn: Function): Block =
   result = new_block()

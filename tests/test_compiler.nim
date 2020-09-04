@@ -56,6 +56,12 @@ test_compiler "global", proc(r: GeneValue) =
 test_compiler "(fn global/f [] 1)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
 
+test_compiler """
+  (import from "src/core.gene")
+  global/String
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "String"
+
 test "Compiler / VM: Import":
   var c = new_compiler()
   var vm = new_vm()
