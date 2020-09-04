@@ -93,14 +93,14 @@ proc main() =
       let start = cpuTime()
       let result = vm.eval(parsed)
       echo "Time: " & $(cpuTime() - start)
-      echo result.num
+      echo result
     else:
       var c = new_compiler()
       var module = c.compile(readFile(file))
       let start = cpuTime()
       let result = vm.run(module)
       echo "Time: " & $(cpuTime() - start)
-      echo result.num
+      echo result
 
 when isMainModule:
   main()

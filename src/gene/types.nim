@@ -32,6 +32,9 @@ type
     # Copy from one register to another
     Copy
 
+    Print
+    Println
+
     DefMember
     DefNsMember
     GetMember

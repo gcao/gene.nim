@@ -1,0 +1,3 @@
+#!/usr/bin/env gene
+(print "test print")
+(println "test println")

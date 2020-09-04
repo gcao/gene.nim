@@ -33,6 +33,7 @@ type
 proc compile_symbol*(self: var Compiler, blk: var Block, name: string)
 proc compile_complex_symbol*(self: var Compiler, blk: var Block, name: GeneValue)
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_print*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_fn_body*(self: var Compiler, fn: Function): Block
@@ -78,6 +79,12 @@ proc instr_save*(reg: int, val: GeneValue): Instruction =
 
 proc instr_copy*(reg, reg2: int): Instruction =
   return Instruction(kind: Copy, reg: reg, reg2: reg2)
+
+proc instr_print*(reg: int): Instruction =
+  return Instruction(kind: Print, reg: reg)
+
+proc instr_println*(reg: int): Instruction =
+  return Instruction(kind: Println, reg: reg)
 
 proc instr_global*(): Instruction =
   return Instruction(kind: Global)
@@ -334,6 +341,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
     of "@=":
       var name = node.gene_data[0].str
       self.compile_prop_set(blk, name, node.gene_data[1])
+    of "print", "println":
+      self.compile_print(blk, node)
     of "if":
       self.compile_if(blk, node)
     of "fn":
@@ -358,6 +367,19 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_call(blk, node)
   else:
     self.compile_call(blk, node)
+
+proc compile_print*(self: var Compiler, blk: var Block, node: GeneValue) =
+  for i in 0..<node.gene_data.len - 1:
+    var child = node.gene_data[i]
+    self.compile(blk, child)
+    blk.add(instr_print(0))
+  var last = node.gene_data[^1]
+  if not last.isNil:
+    self.compile(blk, last)
+    if node.gene_op.symbol == "println":
+      blk.add(instr_println(0))
+    else:
+      blk.add(instr_print(0))
 
 proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
   node.normalize

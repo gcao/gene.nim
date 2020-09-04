@@ -28,6 +28,18 @@ proc run*(self: var VM, module: Module): GeneValue =
     of Copy:
       self.pos += 1
       self.cur_stack[instr.reg2] = self.cur_stack[instr.reg]
+    of Print, Println:
+      self.pos += 1
+      let val = self.cur_stack[instr.reg]
+      case val.kind:
+      of GeneNilKind:
+        discard
+      of GeneString:
+        stdout.write(val.str)
+      else:
+        stdout.write($val)
+      if instr.kind == Println:
+        stdout.write("\n")
     of Global:
       self.pos += 1
       self.cur_stack[0] = new_gene_internal(APP.ns)
