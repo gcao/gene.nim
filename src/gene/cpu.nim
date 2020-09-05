@@ -1,5 +1,5 @@
 # import strformat, logging
-import tables, hashes
+import tables, hashes, sequtils
 
 import ./types
 import ./interpreter
@@ -163,6 +163,14 @@ proc run*(self: var VM, module: Module): GeneValue =
         var s = name.symbol
         let key = cast[Hash](s.hash)
         self.cur_stack.cur_ns[key] = ns[key]
+    of ImportNative:
+      self.pos += 1
+      var module = self.cur_stack[0].str
+      var names = instr.val.vec.map(proc(v: GeneValue): string = v.symbol)
+      var mappings = load_dynamic(module, names)
+      for name in names:
+        let key = cast[Hash](name.hash)
+        self.cur_stack.cur_ns[key] = new_gene_internal(mappings[name])
     of CreateClass:
       self.pos += 1
       var name = instr.val.str
@@ -264,6 +272,12 @@ proc run*(self: var VM, module: Module): GeneValue =
         self.cur_stack[0] = new_gene_int(str.len)
       else:
         todo(name)
+
+    of InvokeNative:
+      self.pos += 1
+      var target = self.cur_stack[instr.reg].internal.native_proc
+      var args = self.cur_stack[instr.reg2].internal.args
+      self.cur_stack[0] = target(args.positional)
 
     of CallBlock:
       self.pos += 1

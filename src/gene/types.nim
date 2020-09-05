@@ -1,4 +1,4 @@
-import strutils, oids, sets, tables
+import strutils, oids, sets, tables, dynlib
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -110,6 +110,7 @@ type
 
     CreateNamespace # name
     Import # names
+    ImportNative # names
 
     CreateClass # name
     # self: class
@@ -137,6 +138,8 @@ type
     # name: native proc name
     # reg: args
     CallNative
+
+    InvokeNative
 
     # reg: target block
     # reg2: optional self
@@ -223,6 +226,7 @@ type
     GeneNamespace
     GeneReturn
     GeneBreak
+    GeneNativeProc
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -240,6 +244,8 @@ type
       return_val*: GeneValue
     of GeneBreak:
       break_val*: GeneValue
+    of GeneNativeProc:
+      native_proc*: native_proc
 
   ComplexSymbol* = ref object
     first*: string
@@ -338,6 +344,8 @@ type
     name*: string
     path*: string
     data*: seq[GeneValue]
+
+  native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
 let
   GeneNil*   = GeneValue(kind: GeneNilKind)
@@ -577,6 +585,9 @@ proc new_gene_internal*(fn: Function): GeneValue =
     internal: Internal(kind: GeneFunction, fn: fn),
   )
 
+proc new_gene_internal*(value: native_proc): GeneValue =
+  return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
+
 proc new_gene_arguments*(): GeneValue =
   return GeneValue(
     kind: GeneInternal,
@@ -673,7 +684,7 @@ proc normalize*(self: GeneValue) =
       else:
         self.gene_op = new_gene_symbol("@")
         self.gene_data = @[new_gene_string_move(op.symbol.substr(2))]
-    elif op.symbol == "import":
+    elif op.symbol == "import" or op.symbol == "import_native":
       var names: seq[GeneValue] = @[]
       var module: GeneValue
       var expect_module = false
@@ -761,3 +772,17 @@ converter from_gene*(v: GeneValue): bool =
     return v.vec.len != 0
   else:
     true
+
+#################### Dynamic #####################
+
+proc load_dynamic*(path:string, names: seq[string]): Table[string, native_proc] =
+  result = Table[string, native_proc]()
+  let lib = loadLib(path)
+  for name in names:
+    var s = name
+    let p = lib.symAddr(s)
+    result[s] = cast[native_proc](p)
+
+# This is not needed
+# proc call_dynamic*(p: native_proc, args: seq[GeneValue]): GeneValue =
+#   return p(args)

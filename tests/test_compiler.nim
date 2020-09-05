@@ -62,6 +62,12 @@ test_compiler """
 """, proc(r: GeneValue) =
   check r.internal.class.name == "String"
 
+# This depends on "nimble buildext" to build the dynamic lib
+# test_compiler """
+#   (import_native test from "tests/libtest_ext.dylib")
+#   ($invoke_native test 1 2)
+# """, 3
+
 test "Compiler / VM: Import":
   var c = new_compiler()
   var vm = new_vm()

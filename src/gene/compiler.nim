@@ -40,6 +40,7 @@ proc compile_fn_body*(self: var Compiler, fn: Function): Block
 proc compile_var*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_ns*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_import*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_import_native*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_method*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_new*(self: var Compiler, blk: var Block, node: GeneValue)
@@ -47,6 +48,7 @@ proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block
 proc compile_invoke*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_call*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_call_native*(self: var Compiler, blk: var Block, node: GeneValue)
+proc compile_invoke_native*(self: var Compiler, blk: var Block, node: GeneValue)
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue)
 proc compile_prop_get*(self: var Compiler, blk: var Block, name: string)
 proc compile_prop_get*(self: var Compiler, blk: var Block, node: GeneValue)
@@ -155,6 +157,9 @@ proc instr_ns*(name: string): Instruction =
 proc instr_import*(names: seq[GeneValue]): Instruction =
   return Instruction(kind: Import, val: new_gene_vec(names))
 
+proc instr_import_native*(names: seq[GeneValue]): Instruction =
+  return Instruction(kind: ImportNative, val: new_gene_vec(names))
+
 proc instr_class*(name: string): Instruction =
   return Instruction(kind: CreateClass, val: new_gene_string_move(name))
 
@@ -172,6 +177,9 @@ proc instr_call*(reg: int): Instruction =
 
 proc instr_call_native*(name: string, reg: int): Instruction =
   return Instruction(kind: CallNative, reg: reg, val: new_gene_string_move(name))
+
+proc instr_invoke_native*(reg, reg2: int): Instruction =
+  return Instruction(kind: InvokeNative, reg: reg, reg2: reg2)
 
 proc instr_call_block*(reg, reg2: int): Instruction =
   return Instruction(kind: CallBlock, reg: reg, reg2: reg2)
@@ -353,6 +361,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_ns(blk, node)
     of "import":
       self.compile_import(blk, node)
+    of "import_native":
+      self.compile_import_native(blk, node)
     of "class":
       self.compile_class(blk, node)
     of "method":
@@ -363,6 +373,8 @@ proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
       self.compile_invoke(blk, node)
     of "$call_native":
       self.compile_call_native(blk, node)
+    of "$invoke_native":
+      self.compile_invoke_native(blk, node)
     else:
       self.compile_call(blk, node)
   else:
@@ -484,6 +496,10 @@ proc compile_import*(self: var Compiler, blk: var Block, node: GeneValue) =
   blk.add(instr_default(node.gene_props["module"]))
   blk.add(instr_import(node.gene_props["names"].vec))
 
+proc compile_import_native*(self: var Compiler, blk: var Block, node: GeneValue) =
+  blk.add(instr_default(node.gene_props["module"]))
+  blk.add(instr_import_native(node.gene_props["names"].vec))
+
 proc compile_class*(self: var Compiler, blk: var Block, node: GeneValue) =
   var name = node.gene_data[0].symbol
   var body: seq[GeneValue] = @[]
@@ -578,6 +594,17 @@ proc compile_call_native*(self: var Compiler, blk: var Block, node: GeneValue) =
     self.compile(blk, child)
     blk.add(instr_set_item(args_reg, i - 1))
   blk.add(instr_call_native(name.str, args_reg))
+  blk.reg_mgr.free(args_reg)
+
+proc compile_invoke_native*(self: var Compiler, blk: var Block, node: GeneValue) =
+  var args_reg = blk.reg_mgr.get
+  blk.add(instr_arguments(args_reg))
+  for i in 1..<node.gene_data.len:
+    var child = node.gene_data[i]
+    self.compile(blk, child)
+    blk.add(instr_set_item(args_reg, i - 1))
+  self.compile(blk, node.gene_data[0])
+  blk.add(instr_invoke_native(0, args_reg))
   blk.reg_mgr.free(args_reg)
 
 proc compile_binary*(self: var Compiler, blk: var Block, first: GeneValue, op: string, second: GeneValue) =
