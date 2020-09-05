@@ -12,6 +12,7 @@
 .vagrant
 *.dSYM/
 bin/
+*.dylib
 wip_test.nim
 profile_results.txt
 callgrind.out*
