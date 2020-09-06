@@ -11,12 +11,11 @@ import ./compiler
 #################### Implementations #############
 
 proc run*(self: var VM, module: Module): GeneValue =
-  self.cur_block = module.default
-
-  var instr: Instruction
+  var cur_block = module.default
   var pos = 0
-  while pos < self.cur_block.instructions.len:
-    instr = self.cur_block.instructions[pos]
+  var instr: Instruction
+  while pos < cur_block.instructions.len:
+    instr = cur_block.instructions[pos]
     # debug(&"{pos:>4} {instr}")
     case instr.kind:
     of Default:
@@ -198,14 +197,14 @@ proc run*(self: var VM, module: Module): GeneValue =
         self.cur_stack.cur_scope = ScopeMgr.get()
         self.cur_stack.self = instance
         self.cur_stack.caller_stack = stack
-        self.cur_stack.caller_blk = self.cur_block
+        self.cur_stack.caller_blk = cur_block
         self.cur_stack.caller_pos = pos
         for i in 0..<fn.args.len:
           var arg = fn.args[i]
           var val = args[i]
           let key = cast[Hash](arg.hash)
           self.cur_stack.cur_scope[key] = val
-        self.cur_block = fn.body_block
+        cur_block = fn.body_block
         pos = 0
     of PropGet:
       pos += 1
@@ -236,10 +235,10 @@ proc run*(self: var VM, module: Module): GeneValue =
         let key = cast[Hash](arg.hash)
         cur_stack.cur_scope[key] = val
       cur_stack.caller_stack = stack
-      cur_stack.caller_blk = self.cur_block
+      cur_stack.caller_blk = cur_block
       cur_stack.caller_pos = pos
       self.cur_stack = cur_stack
-      self.cur_block = fn.body_block
+      cur_block = fn.body_block
       pos = 0
 
     of Call:
@@ -256,10 +255,10 @@ proc run*(self: var VM, module: Module): GeneValue =
         let key = cast[Hash](arg.hash)
         cur_stack.cur_scope[key] = val
       cur_stack.caller_stack = stack
-      cur_stack.caller_blk = self.cur_block
+      cur_stack.caller_blk = cur_block
       cur_stack.caller_pos = pos
       self.cur_stack = cur_stack
-      self.cur_block = fn.body_block
+      cur_block = fn.body_block
       pos = 0
 
     of CallNative:
@@ -287,18 +286,18 @@ proc run*(self: var VM, module: Module): GeneValue =
       cur_stack.cur_scope = ScopeMgr.get()
       cur_stack.self = stack[instr.reg2]
       cur_stack.caller_stack = stack
-      cur_stack.caller_blk = self.cur_block
+      cur_stack.caller_blk = cur_block
       cur_stack.caller_pos = pos
       self.cur_stack = cur_stack
-      self.cur_block = stack[instr.reg].internal.blk
+      cur_block = stack[instr.reg].internal.blk
       pos = 0
 
     of CallEnd:
       var stack = self.cur_stack
       self.cur_stack = stack.caller_stack
-      if not self.cur_block.no_return:
+      if not cur_block.no_return:
         self.cur_stack[0] = stack[0]
-      self.cur_block = stack.caller_blk
+      cur_block = stack.caller_blk
       pos = stack.caller_pos
       ScopeMgr.free(stack.cur_scope)
       StackMgr.free(stack)
