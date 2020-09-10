@@ -4,6 +4,7 @@ date "+%Y-%m-%d %H:%M:%S %A"
 echo Git commit: $(git rev-parse HEAD)
 
 BUILD_CMD="nimble build -d:release"
+# BUILD_CMD="nim c -d:release --gc:arc --out:gene src/gene.nim"
 EXEC_CMD="./gene examples/fib24.gene"
 echo $BUILD_CMD
 $BUILD_CMD && (echo $EXEC_CMD; $EXEC_CMD)

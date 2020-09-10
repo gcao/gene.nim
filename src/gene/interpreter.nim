@@ -380,6 +380,7 @@ proc eval_at*(self: var VM, node: GeneValue): GeneValue =
     not_allowed()
 
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
+  # todo("map() does not work with arc GC algorithm")
   if node.gene_data.len == 1:
     if node.gene_data[0] == new_gene_int(0):
       return new_gene_string_move(getAppFilename())

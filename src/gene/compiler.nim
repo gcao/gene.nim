@@ -276,6 +276,7 @@ proc new_module*(): Module =
 
 proc set_default*(self: var Module, blk: Block) =
   self.default = blk
+  # TODO: does not work with arc GC algorithm
   self.blocks[blk.id] = blk
 
 #################### Compiler ####################
