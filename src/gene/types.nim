@@ -1,5 +1,14 @@
 import strutils, oids, sets, tables, dynlib
 
+proc todo*() =
+  raise newException(Exception, "TODO")
+
+proc todo*(message: string) =
+  raise newException(Exception, "TODO: " & message)
+
+proc not_allowed*() =
+  raise newException(Exception, "Error: should not arrive here.")
+
 const BINARY_OPS* = [
   "+", "-", "*", "/",
   "=", "+=", "-=", "*=", "/=",
@@ -289,7 +298,7 @@ type
     count*: int
     buckets*: seq[seq[HMapEntry]]
 
-  GeneValue* {.acyclic.} = ref object
+  GeneValue* {.acyclic.} = ptr object
     case kind*: GeneKind
     of GeneAny:
       val: pointer
@@ -347,10 +356,19 @@ type
 
   native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
-let
-  GeneNil*   = GeneValue(kind: GeneNilKind)
-  GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
-  GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+proc new_gene*(kind: GeneKind): GeneValue =
+  result = cast[GeneValue](alloc(sizeof(GeneValue)))
+  result.kind = kind
+
+# var
+#   GeneNil*   = GeneValue(kind: GeneNilKind)
+#   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
+#   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+var GeneNil*   = new_gene(GeneNilKind)
+var GeneTrue*  = new_gene(GeneBool)
+GeneTrue.bool_val = true
+var GeneFalse* = new_gene(GeneBool)
+GeneFalse.bool_val = false
 
 var APP*: Application
 
@@ -490,33 +508,47 @@ proc `$`*(node: GeneValue): string =
 ## ============== NEW OBJ FACTORIES =================
 
 proc new_gene_string*(s: string): GeneValue =
-  return GeneValue(kind: GeneString, str: s)
+  # return GeneValue(kind: GeneString, str: s)
+  result = new_gene(GeneString)
+  result.str = s
 
 proc new_gene_string_move*(s: string): GeneValue =
-  result = GeneValue(kind: GeneString)
+  # result = GeneValue(kind: GeneString)
+  result = new_gene(GeneString)
   shallowCopy(result.str, s)
 
 proc new_gene_int*(s: string): GeneValue =
-  return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
+  # return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
+  result = new_gene(GeneInt)
+  result.num = parseBiggestInt(s)
 
 proc new_gene_int*(val: int): GeneValue =
-  return GeneValue(kind: GeneInt, num: val)
+  # return GeneValue(kind: GeneInt, num: val)
+  result = new_gene(GeneInt)
+  result.num = val
   # if val > 100 or val < -10:
   #   return GeneValue(kind: GeneInt, num: val)
   # else:
   #   return GeneInts[val + 10]
 
 proc new_gene_int*(val: BiggestInt): GeneValue =
-  return GeneValue(kind: GeneInt, num: val)
+  # return GeneValue(kind: GeneInt, num: val)
+    result = new_gene(GeneInt)
+    result.num = val
 
 proc new_gene_ratio*(nom, denom: BiggestInt): GeneValue =
-  return GeneValue(kind: GeneRatio, rnum: (nom, denom))
+  # return GeneValue(kind: GeneRatio, rnum: (nom, denom))
+  todo()
 
 proc new_gene_float*(s: string): GeneValue =
-  return GeneValue(kind: GeneFloat, fnum: parseFloat(s))
+  # return GeneValue(kind: GeneFloat, fnum: parseFloat(s))
+  result = new_gene(GeneFloat)
+  result.fnum = parseFloat(s)
 
 proc new_gene_float*(val: float): GeneValue =
-  return GeneValue(kind: GeneFloat, fnum: val)
+  # return GeneValue(kind: GeneFloat, fnum: val)
+  result = new_gene(GeneFloat)
+  result.fnum = val
 
 proc new_gene_bool*(val: bool): GeneValue =
   case val
@@ -527,33 +559,41 @@ proc new_gene_bool*(val: bool): GeneValue =
 
 proc new_gene_bool*(s: string): GeneValue =
   let parsed: bool = parseBool(s)
-  return new_gene_bool(parsed)
+  # return new_gene_bool(parsed)
+  result = new_gene(GeneBool)
+  result.boolVal = parsed
 
 proc new_gene_symbol*(name: string): GeneValue =
-  return GeneValue(kind: GeneSymbol, symbol: name)
+  # return GeneValue(kind: GeneSymbol, symbol: name)
+  result = new_gene(GeneSymbol)
+  result.symbol = name
 
 proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
-  return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
+  # return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
+  result = new_gene(GeneComplexSymbol)
+  result.csymbol = ComplexSymbol(first: first, rest: rest)
 
 proc new_gene_keyword*(ns, name: string): GeneValue =
-  return GeneValue(kind: GeneKeyword, keyword: (ns, name))
+  # return GeneValue(kind: GeneKeyword, keyword: (ns, name))
+  result = new_gene(GeneKeyword)
+  result.keyword = (ns, name)
 
 proc new_gene_keyword*(name: string): GeneValue =
-  return GeneValue(kind: GeneKeyword, keyword: ("", name))
+  # return GeneValue(kind: GeneKeyword, keyword: ("", name))
+  result = new_gene(GeneKeyword)
+  result.keyword = ("", name)
 
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
-  return GeneValue(
-    kind: GeneVector,
-    vec: items,
-  )
+  # return GeneValue(kind: GeneVector, vec: items)
+  result = new_gene(GeneVector)
+  result.vec = items
 
 proc new_gene_vec*(items: varargs[GeneValue]): GeneValue = new_gene_vec(@items)
 
 proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
-  return GeneValue(
-    kind: GeneMap,
-    map: map,
-  )
+  # return GeneValue(kind: GeneMap, map: map)
+  result = new_gene(GeneMap)
+  result.map = map
 
 # proc new_gene_gene_simple*(op: GeneValue): GeneValue =
 #   return GeneValue(
@@ -562,37 +602,52 @@ proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
 #   )
 
 proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
-  return GeneValue(
-    kind: GeneGene,
-    gene_op: op,
-    gene_data: @data,
-  )
+  # return GeneValue(
+  #   kind: GeneGene,
+  #   gene_op: op,
+  #   gene_data: @data,
+  # )
+  result = new_gene(GeneGene)
+  result.gene_op = op
+  result.gene_data = @data
 
 proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: varargs[GeneValue]): GeneValue =
-  return GeneValue(
-    kind: GeneGene,
-    gene_op: op,
-    gene_props: props,
-    gene_data: @data,
-  )
+  # return GeneValue(
+  #   kind: GeneGene,
+  #   gene_op: op,
+  #   gene_props: props,
+  #   gene_data: @data,
+  # )
+  result = new_gene(GeneGene)
+  result.gene_op = op
+  result.gene_props = props
+  result.gene_data = @data
 
 proc new_gene_internal*(value: Internal): GeneValue =
-  return GeneValue(kind: GeneInternal, internal: value)
+  # return GeneValue(kind: GeneInternal, internal: value)
+  result = new_gene(GeneInternal)
+  result.internal = value
 
 proc new_gene_internal*(fn: Function): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(kind: GeneFunction, fn: fn),
-  )
+  # return GeneValue(
+  #   kind: GeneInternal,
+  #   internal: Internal(kind: GeneFunction, fn: fn),
+  # )
+  result = new_gene(GeneInternal)
+  result.internal = Internal(kind: GeneFunction, fn: fn)
 
 proc new_gene_internal*(value: native_proc): GeneValue =
-  return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
+  # return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
+  result = new_gene(GeneInternal)
+  result.internal = Internal(kind: GeneNativeProc, native_proc: value)
 
 proc new_gene_arguments*(): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(kind: GeneArguments, args: new_args()),
-  )
+  # return GeneValue(
+  #   kind: GeneInternal,
+  #   internal: Internal(kind: GeneArguments, args: new_args()),
+  # )
+  result = new_gene(GeneInternal)
+  result.internal = Internal(kind: GeneArguments, args: new_args())
 
 proc new_class*(name: string): Class =
   return Class(name: name)
@@ -620,22 +675,28 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
   )
 
 proc new_gene_internal*(class: Class): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(kind: GeneClass, class: class),
-  )
+  # return GeneValue(
+  #   kind: GeneInternal,
+  #   internal: Internal(kind: GeneClass, class: class),
+  # )
+  result = new_gene(GeneInternal)
+  result.internal = Internal(kind: GeneClass, class: class)
 
 proc new_gene_instance*(instance: Instance): GeneValue =
-  return GeneValue(
-    kind: GeneInstance,
-    instance: instance,
-  )
+  # return GeneValue(
+  #   kind: GeneInstance,
+  #   instance: instance,
+  # )
+  result = new_gene(GeneInstance)
+  result.instance = instance
 
 proc new_gene_internal*(ns: Namespace): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(kind: GeneNamespace, ns: ns),
-  )
+  # return GeneValue(
+  #   kind: GeneInternal,
+  #   internal: Internal(kind: GeneNamespace, ns: ns),
+  # )
+  result = new_gene(GeneInternal)
+  result.internal = Internal(kind: GeneNamespace, ns: ns)
 
 ### === VALS ===
 
@@ -648,15 +709,6 @@ let
   LineKw*: GeneValue   = new_gene_keyword("gene.nim", "line")
   ColumnKw*: GeneValue   = new_gene_keyword("gene.nim", "column")
   SplicedQKw*: GeneValue = new_gene_keyword("gene.nim", "spliced?")
-
-proc todo*() =
-  raise newException(Exception, "TODO")
-
-proc todo*(message: string) =
-  raise newException(Exception, "TODO: " & message)
-
-proc not_allowed*() =
-  raise newException(Exception, "Error: should not arrive here.")
 
 #################### GeneValue ###################
 

@@ -183,7 +183,7 @@ proc read_string(p: var Parser): GeneValue =
 
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
-  result = GeneValue(kind: GeneGene)
+  result = new_gene(GeneGene)
   result.gene_op = new_gene_symbol(quote_name)
   result.gene_data = @[quoted]
 
@@ -203,7 +203,7 @@ proc read_unquoted*(p: var Parser): GeneValue =
 proc read_comment(p: var Parser): GeneValue =
   var pos = p.bufpos
   var buf = p.buf
-  result = GeneValue(kind: GeneCommentLine)
+  result = new_gene(GeneCommentLine)
   if p.options.comments_handling == keepComments:
     while true:
       case buf[pos]
@@ -261,7 +261,7 @@ proc read_character(p: var Parser): GeneValue =
   if ch == EndOfFile:
     raise new_exception(ParseError, "EOF while reading character")
 
-  result = GeneValue(kind: GeneChar)
+  result = new_gene(GeneChar)
   let token = read_token(p, false)
   if token.len == 1:
     result.character = token[0]
@@ -593,7 +593,7 @@ proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
           result[key] = read(p)
 
 proc read_gene(p: var Parser): GeneValue =
-  result = GeneValue(kind: GeneGene)
+  result = new_gene(GeneGene)
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col(p, result)
@@ -607,18 +607,18 @@ proc read_gene(p: var Parser): GeneValue =
   discard maybe_add_comments(result, result_list)
 
 proc read_map(p: var Parser): GeneValue =
-  result = GeneValue(kind: GeneMap)
+  result = new_gene(GeneMap)
   let map = read_map(p, false)
   result.map = map
 
 proc read_vector(p: var Parser): GeneValue =
-  result = GeneValue(kind: GeneVector)
+  result = new_gene(GeneVector)
   let list_result = read_delimited_list(p, ']', true)
   result.vec = list_result.list
   discard maybe_add_comments(result, list_result)
 
 proc read_set(p: var Parser): GeneValue =
-  result = GeneValue(kind: GeneSet)
+  result = new_gene(GeneSet)
   let list_result = read_delimited_list(p, ']', true)
   var elements = list_result.list
   discard maybe_add_comments(result, list_result)
@@ -682,7 +682,8 @@ proc hash*(node: GeneValue): Hash =
 
 proc read_regex(p: var Parser): GeneValue =
   let s = read_string(p)
-  result = GeneValue(kind: GeneRegex, regex: s.str)
+  result = new_gene(GeneRegex)
+  result.regex = s.str
 
 proc read_unmatched_delimiter(p: var Parser): GeneValue =
   raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
@@ -789,8 +790,9 @@ proc val_at*(m: HMap, key: GeneValue, default: GeneValue = nil): GeneValue =
 
       
 proc `[]`*(m: HMap, key: GeneValue): Option[GeneValue] =
+  var default = new_gene(GeneBool)
+  default.bool_val = true
   let
-    default = GeneValue(kind: GeneBool, bool_val: true)
     found = val_at(m, key, default)
     pf = cast[pointer](found)
     pd = cast[pointer](default)
