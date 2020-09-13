@@ -181,7 +181,7 @@ test "Parser":
   check node.gene_data.len == 0
 
   node = read("(1)")
-  check node.gene_op == GeneValue(kind: GeneInt, num: 1)
+  check node.gene_op == new_gene_int(1)
   check node.kind == GeneGene
   check node.gene_data.len == 0
 
@@ -295,10 +295,10 @@ test "Parser":
     discard
 
   node = read("()") # for the following to work
-  var n1: GeneValue = GeneValue(kind: GeneNilKind)
-  var n2: GeneValue = GeneValue(kind: GeneNilKind)
-  var n3: GeneValue = GeneValue(kind: GeneBool, boolVal: false)
-  var n4: GeneValue = GeneValue(kind: GeneBool, boolVal: false)
+  var n1: GeneValue = GeneNil
+  var n2: GeneValue = GeneNil
+  var n3: GeneValue = GeneFalse
+  var n4: GeneValue = GeneFalse
   #echo "===? ", n1 == n2
   var t = new_table[GeneValue,int]()
   t[n3] = 3

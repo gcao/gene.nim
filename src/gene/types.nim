@@ -356,9 +356,15 @@ type
 
   native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
+proc `$`*(node: GeneValue): string
+
+let GeneValueSize = sizeof(typeof(default(GeneValue)[]))
+
 proc new_gene*(kind: GeneKind): GeneValue =
-  result = cast[GeneValue](alloc(sizeof(GeneValue)))
-  result.kind = kind
+  var address = alloc0(GeneValueSize)
+  result = cast[GeneValue](address)
+  var offset = GeneValue.offsetOf(kind)
+  cast[ptr GeneKind](cast[uint](address) + offset.uint)[] = kind
 
 # var
 #   GeneNil*   = GeneValue(kind: GeneNilKind)
@@ -533,12 +539,13 @@ proc new_gene_int*(val: int): GeneValue =
 
 proc new_gene_int*(val: BiggestInt): GeneValue =
   # return GeneValue(kind: GeneInt, num: val)
-    result = new_gene(GeneInt)
-    result.num = val
+  result = new_gene(GeneInt)
+  result.num = val
 
 proc new_gene_ratio*(nom, denom: BiggestInt): GeneValue =
   # return GeneValue(kind: GeneRatio, rnum: (nom, denom))
-  todo()
+  result = new_gene(GeneRatio)
+  result.rnum = (nom, denom)
 
 proc new_gene_float*(s: string): GeneValue =
   # return GeneValue(kind: GeneFloat, fnum: parseFloat(s))
