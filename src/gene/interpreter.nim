@@ -213,7 +213,7 @@ proc eval_loop(self: var VM, node: GeneValue): GeneValue =
   while true:
     var child = node.d.gene_data[i]
     var r = self.eval(child)
-    if not r.d.isNil and r.d.kind == GeneInternal and r.d.internal.kind == GeneBreak:
+    if r.d != nil and r.d.kind == GeneInternal and r.d.internal.kind == GeneBreak:
       result = r.d.internal.break_val
       break
     i = (i + 1) mod len
@@ -223,7 +223,7 @@ proc eval_for(self: var VM, node: GeneValue): GeneValue =
   while self.eval(node.d.gene_props["guard"]):
     for child in node.d.gene_data:
       var r = self.eval(child)
-      if not r.d.isNil and r.d.internal.kind == GeneBreak:
+      if r.d != nil and r.d.internal.kind == GeneBreak:
         return
     discard self.eval(node.d.gene_props["update"])
 
@@ -366,7 +366,7 @@ proc eval_new*(self: var VM, node: GeneValue): GeneValue =
 
 proc eval_at*(self: var VM, node: GeneValue): GeneValue =
   var target =
-    if node.d.gene_props["self"].d.isNil:
+    if node.d.gene_props["self"].d == nil:
       self.cur_stack.self
     else:
       self.eval(node.d.gene_props["self"])

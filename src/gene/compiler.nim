@@ -239,7 +239,7 @@ proc `[]`*(self: ScopeManager, name: string): Member =
     var names = self.reused_members[name]
     var name = names[^1]
     return self.members[name]
-  elif not self.parent.isNil:
+  elif self.parent != nil:
     return self.parent[name]
 
 proc def_member*(self: var ScopeManager, member: Member) =
@@ -387,7 +387,7 @@ proc compile_print*(self: var Compiler, blk: var Block, node: GeneValue) =
     self.compile(blk, child)
     blk.add(instr_print(0))
   var last = node.d.gene_data[^1]
-  if not last.d.isNil:
+  if last.d != nil:
     self.compile(blk, last)
     if node.d.gene_op.d.symbol == "println":
       blk.add(instr_println(0))
@@ -427,7 +427,7 @@ proc compile_if*(self: var Compiler, blk: var Block, node: GeneValue) =
           blk.add(instr)
           jump_next.add(instr)
 
-          if not last_jump_if_false.isNil:
+          if last_jump_if_false != nil:
             last_jump_if_false.val = new_gene_int(blk.instructions.len)
             last_jump_if_false = nil
 

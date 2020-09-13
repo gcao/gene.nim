@@ -360,24 +360,44 @@ type
 
   native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
-# proc `=destroy`*(x: var GeneValue) {.inline.} =
-#   todo()
-
-# proc `=sink`*(dst: var GeneValue, src: GeneValue) {.inline.} =
-#   todo()
-
-# proc `=`*(dst: var GeneValue, src: GeneValue) {.inline.} =
-#   todo()
+var GeneValueCache: seq[GeneValueInternal] = @[]
 
 proc `$`*(node: GeneValue): string
+
+proc `=destroy`*(x: var GeneValue) {.inline.} =
+  if x.d == nil:
+    return
+  if x.d.refCount == 0:
+    # We have the last reference
+    if x.d != nil:
+      GeneValueCache.add(x.d)
+  else:
+    x.d.refCount -= 1
+  x.d = nil
+
+proc `=sink`*(dst: var GeneValue, src: GeneValue) {.inline.} =
+  `=destroy`(dst)
+  system.`=sink`(dst.d, src.d)
+
+proc `=`*(dst: var GeneValue, src: GeneValue) {.inline.} =
+  `=destroy`(dst)
+  if src.d == nil:
+    dst.d = nil
+  else:
+    src.d.refCount += 1
+    dst.d = src.d
 
 let GeneValueSize = sizeof(typeof(default(GeneValueInternal)[]))
 
 proc new_gene*(kind: GeneKind): GeneValue =
-  var address = alloc0(GeneValueSize)
-  var internal = cast[GeneValueInternal](address)
+  var internal: GeneValueInternal
+  if GeneValueCache.len > 0:
+    internal = GeneValueCache.pop()
+  else:
+    var address = alloc0(GeneValueSize)
+    internal = cast[GeneValueInternal](address)
   var offset = GeneValueInternal.offsetOf(kind)
-  cast[ptr GeneKind](cast[uint](address) + offset.uint)[] = kind
+  cast[ptr GeneKind](cast[uint](internal) + offset.uint)[] = kind
   result = GeneValue(d: internal)
 
 # var
@@ -479,7 +499,7 @@ proc is_literal*(self: GeneValue): bool =
     return false
 
 proc `$`*(node: GeneValue): string =
-  if node.d.isNil:
+  if node.d == nil:
     return "nil"
   case node.d.kind
   of GeneNilKind:
@@ -489,7 +509,8 @@ proc `$`*(node: GeneValue): string =
   of GeneInt:
     result = $(node.d.num)
   of GeneString:
-    result = "\"" & node.d.str.replace("\"", "\\\"") & "\""
+    result = "TODO"
+    # result = "\"" & node.d.str.replace("\"", "\\\"") & "\""
   of GeneKeyword:
     if node.d.is_namespaced:
       result = "::" & node.d.keyword.name
@@ -510,7 +531,7 @@ proc `$`*(node: GeneValue): string =
     result &= "]"
   # of GeneGene:
   #   result = "("
-  #   if node.gene_op.isNil:
+  #   if node.gene_op == nil:
   #     result &= "nil "
   #   else:
   #     result &= $node.gene_op & " "
@@ -830,7 +851,7 @@ converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
 # converter to_gene*(v: seq[GeneValue]): GeneValue           = new_gene_vec(v)
 
 converter from_gene*(v: GeneValue): bool =
-  if v.d.isNil:
+  if v.d == nil:
     return false
   case v.d.kind:
   of GeneBool:
