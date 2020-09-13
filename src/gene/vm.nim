@@ -85,11 +85,11 @@ proc grow*(self: var Stack): Stack =
   )
 
 proc reset*(self: var Stack) =
-  self.self = nil
+  self.self.d = nil
   self.cur_ns = nil
   self.cur_scope = nil
   for i in 0..<CORE_REGISTERS:
-    self.registers[i] = nil
+    self.registers[i].d = nil
   self.more_regs.delete(0, self.more_regs.len)
   self.caller_stack = nil
   self.caller_blk = nil

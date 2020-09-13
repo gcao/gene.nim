@@ -298,7 +298,11 @@ type
     count*: int
     buckets*: seq[seq[HMapEntry]]
 
-  GeneValue* {.acyclic.} = ptr object
+  GeneValue* = object
+    d*: GeneValueInternal
+
+  GeneValueInternal* = ptr object
+    refCount: uint
     case kind*: GeneKind
     of GeneAny:
       val: pointer
@@ -356,15 +360,25 @@ type
 
   native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
+# proc `=destroy`*(x: var GeneValue) {.inline.} =
+#   todo()
+
+# proc `=sink`*(dst: var GeneValue, src: GeneValue) {.inline.} =
+#   todo()
+
+# proc `=`*(dst: var GeneValue, src: GeneValue) {.inline.} =
+#   todo()
+
 proc `$`*(node: GeneValue): string
 
-let GeneValueSize = sizeof(typeof(default(GeneValue)[]))
+let GeneValueSize = sizeof(typeof(default(GeneValueInternal)[]))
 
 proc new_gene*(kind: GeneKind): GeneValue =
   var address = alloc0(GeneValueSize)
-  result = cast[GeneValue](address)
-  var offset = GeneValue.offsetOf(kind)
+  var internal = cast[GeneValueInternal](address)
+  var offset = GeneValueInternal.offsetOf(kind)
   cast[ptr GeneKind](cast[uint](address) + offset.uint)[] = kind
+  result = GeneValue(d: internal)
 
 # var
 #   GeneNil*   = GeneValue(kind: GeneNilKind)
@@ -372,9 +386,9 @@ proc new_gene*(kind: GeneKind): GeneValue =
 #   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
 var GeneNil*   = new_gene(GeneNilKind)
 var GeneTrue*  = new_gene(GeneBool)
-GeneTrue.bool_val = true
+GeneTrue.d.bool_val = true
 var GeneFalse* = new_gene(GeneBool)
-GeneFalse.bool_val = false
+GeneFalse.d.bool_val = false
 
 var APP*: Application
 
@@ -411,88 +425,88 @@ proc `==`*(this, that: ComplexSymbol): bool =
 #################### GeneValue ###################
 
 proc `==`*(this, that: GeneValue): bool =
-  if this.is_nil:
-    if that.is_nil: return true
+  if this.d.is_nil:
+    if that.d.is_nil: return true
     return false
-  elif that.is_nil or this.kind != that.kind:
+  elif that.d.is_nil or this.d.kind != that.d.kind:
     return false
   else:
-    case this.kind
-    of GeneAny:
-      return this.val == that.val
+    case this.d.kind
     of GeneNilKind:
-      return that.kind == GeneNilKind
+      return that.d.kind == GeneNilKind
     of GeneBool:
-      return this.boolVal == that.boolVal
+      return this.d.boolVal == that.d.boolVal
     of GeneChar:
-      return this.character == that.character
+      return this.d.character == that.d.character
     of GeneInt:
-      return this.num == that.num
+      return this.d.num == that.d.num
     of GeneRatio:
-      return this.rnum == that.rnum
+      return this.d.rnum == that.d.rnum
     of GeneFloat:
-      return this.fnum == that.fnum
+      return this.d.fnum == that.d.fnum
     of GeneString:
-      return this.str == that.str
+      return this.d.str == that.d.str
     of GeneSymbol:
-      return this.symbol == that.symbol
+      return this.d.symbol == that.d.symbol
     of GeneComplexSymbol:
-      return this.csymbol == that.csymbol
+      return this.d.csymbol == that.d.csymbol
     of GeneKeyword:
-      return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
+      return this.d.keyword == that.d.keyword and this.d.is_namespaced == that.d.is_namespaced
     of GeneGene:
-      return this.gene_op == that.gene_op and this.gene_data == that.gene_data
+      return this.d.gene_op == that.d.gene_op and this.d.gene_data == that.d.gene_data
     of GeneMap:
-      return this.map == that.map
+      return this.d.map == that.d.map
     of GeneVector:
-      return this.vec == that.vec
+      return this.d.vec == that.d.vec
     of GeneSet:
-      return this.set_elems == that.set_elems
+      return this.d.set_elems == that.d.set_elems
     of GeneCommentLine:
-      return this.comment == that.comment
+      return this.d.comment == that.d.comment
     of GeneRegex:
-      return this.regex == that.regex
+      return this.d.regex == that.d.regex
     of GeneInternal:
-      return this.internal == that.internal
+      return this.d.internal == that.d.internal
     of GeneInstance:
-      return this.instance == that.instance
+      return this.d.instance == that.d.instance
+    else:
+      todo()
 
 proc is_literal*(self: GeneValue): bool =
-  case self.kind:
+  case self.d.kind:
   of GeneBool, GeneNilKind, GeneInt, GeneFloat, GeneRatio:
     return true
   else:
     return false
 
 proc `$`*(node: GeneValue): string =
-  if node.isNil:
+  if node.d.isNil:
     return "nil"
-  case node.kind
+  case node.d.kind
   of GeneNilKind:
     result = "nil"
   of GeneBool:
-    result = $(node.boolVal)
+    result = $(node.d.boolVal)
   of GeneInt:
-    result = $(node.num)
+    result = $(node.d.num)
   of GeneString:
-    result = "\"" & node.str.replace("\"", "\\\"") & "\""
+    result = "\"" & node.d.str.replace("\"", "\\\"") & "\""
   of GeneKeyword:
-    if node.is_namespaced:
-      result = "::" & node.keyword.name
-    elif node.keyword.ns == "":
-      result = ":" & node.keyword.name
+    if node.d.is_namespaced:
+      result = "::" & node.d.keyword.name
+    elif node.d.keyword.ns == "":
+      result = ":" & node.d.keyword.name
     else:
-      result = ":" & node.keyword.ns & "/" & node.keyword.name
+      result = ":" & node.d.keyword.ns & "/" & node.d.keyword.name
   of GeneSymbol:
-    result = node.symbol
+    result = node.d.symbol
   of GeneComplexSymbol:
-    if node.csymbol.first == "":
-      result = "/" & node.csymbol.rest.join("/")
+    if node.d.csymbol.first == "":
+      result = "/" & node.d.csymbol.rest.join("/")
     else:
-      result = node.csymbol.first & "/" & node.csymbol.rest.join("/")
+      result = node.d.csymbol.first & "/" & node.d.csymbol.rest.join("/")
   of GeneVector:
     result = "["
-    result &= node.vec.join(" ")
+    result &= node.d.vec.join(" ")
     result &= "]"
   # of GeneGene:
   #   result = "("
@@ -503,35 +517,35 @@ proc `$`*(node: GeneValue): string =
   #   # result &= node.gene_data.join(" ")
   #   result &= ")"
   of GeneInternal:
-    case node.internal.kind:
+    case node.d.internal.kind:
     of GeneFunction:
-      result = "(fn $# ...)" % [node.internal.fn.name]
+      result = "(fn $# ...)" % [node.d.internal.fn.name]
     else:
       result = "GeneInternal"
   else:
-    result = $node.kind
+    result = $node.d.kind
 
 ## ============== NEW OBJ FACTORIES =================
 
 proc new_gene_string*(s: string): GeneValue =
   # return GeneValue(kind: GeneString, str: s)
   result = new_gene(GeneString)
-  result.str = s
+  result.d.str = s
 
 proc new_gene_string_move*(s: string): GeneValue =
   # result = GeneValue(kind: GeneString)
   result = new_gene(GeneString)
-  shallowCopy(result.str, s)
+  shallowCopy(result.d.str, s)
 
 proc new_gene_int*(s: string): GeneValue =
   # return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
   result = new_gene(GeneInt)
-  result.num = parseBiggestInt(s)
+  result.d.num = parseBiggestInt(s)
 
 proc new_gene_int*(val: int): GeneValue =
   # return GeneValue(kind: GeneInt, num: val)
   result = new_gene(GeneInt)
-  result.num = val
+  result.d.num = val
   # if val > 100 or val < -10:
   #   return GeneValue(kind: GeneInt, num: val)
   # else:
@@ -540,22 +554,22 @@ proc new_gene_int*(val: int): GeneValue =
 proc new_gene_int*(val: BiggestInt): GeneValue =
   # return GeneValue(kind: GeneInt, num: val)
   result = new_gene(GeneInt)
-  result.num = val
+  result.d.num = val
 
 proc new_gene_ratio*(nom, denom: BiggestInt): GeneValue =
   # return GeneValue(kind: GeneRatio, rnum: (nom, denom))
   result = new_gene(GeneRatio)
-  result.rnum = (nom, denom)
+  result.d.rnum = (nom, denom)
 
 proc new_gene_float*(s: string): GeneValue =
   # return GeneValue(kind: GeneFloat, fnum: parseFloat(s))
   result = new_gene(GeneFloat)
-  result.fnum = parseFloat(s)
+  result.d.fnum = parseFloat(s)
 
 proc new_gene_float*(val: float): GeneValue =
   # return GeneValue(kind: GeneFloat, fnum: val)
   result = new_gene(GeneFloat)
-  result.fnum = val
+  result.d.fnum = val
 
 proc new_gene_bool*(val: bool): GeneValue =
   case val
@@ -568,39 +582,39 @@ proc new_gene_bool*(s: string): GeneValue =
   let parsed: bool = parseBool(s)
   # return new_gene_bool(parsed)
   result = new_gene(GeneBool)
-  result.boolVal = parsed
+  result.d.boolVal = parsed
 
 proc new_gene_symbol*(name: string): GeneValue =
   # return GeneValue(kind: GeneSymbol, symbol: name)
   result = new_gene(GeneSymbol)
-  result.symbol = name
+  result.d.symbol = name
 
 proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
   # return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
   result = new_gene(GeneComplexSymbol)
-  result.csymbol = ComplexSymbol(first: first, rest: rest)
+  result.d.csymbol = ComplexSymbol(first: first, rest: rest)
 
 proc new_gene_keyword*(ns, name: string): GeneValue =
   # return GeneValue(kind: GeneKeyword, keyword: (ns, name))
   result = new_gene(GeneKeyword)
-  result.keyword = (ns, name)
+  result.d.keyword = (ns, name)
 
 proc new_gene_keyword*(name: string): GeneValue =
   # return GeneValue(kind: GeneKeyword, keyword: ("", name))
   result = new_gene(GeneKeyword)
-  result.keyword = ("", name)
+  result.d.keyword = ("", name)
 
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
   # return GeneValue(kind: GeneVector, vec: items)
   result = new_gene(GeneVector)
-  result.vec = items
+  result.d.vec = items
 
 proc new_gene_vec*(items: varargs[GeneValue]): GeneValue = new_gene_vec(@items)
 
 proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
   # return GeneValue(kind: GeneMap, map: map)
   result = new_gene(GeneMap)
-  result.map = map
+  result.d.map = map
 
 # proc new_gene_gene_simple*(op: GeneValue): GeneValue =
 #   return GeneValue(
@@ -615,8 +629,8 @@ proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
   #   gene_data: @data,
   # )
   result = new_gene(GeneGene)
-  result.gene_op = op
-  result.gene_data = @data
+  result.d.gene_op = op
+  result.d.gene_data = @data
 
 proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: varargs[GeneValue]): GeneValue =
   # return GeneValue(
@@ -626,14 +640,14 @@ proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: vararg
   #   gene_data: @data,
   # )
   result = new_gene(GeneGene)
-  result.gene_op = op
-  result.gene_props = props
-  result.gene_data = @data
+  result.d.gene_op = op
+  result.d.gene_props = props
+  result.d.gene_data = @data
 
 proc new_gene_internal*(value: Internal): GeneValue =
   # return GeneValue(kind: GeneInternal, internal: value)
   result = new_gene(GeneInternal)
-  result.internal = value
+  result.d.internal = value
 
 proc new_gene_internal*(fn: Function): GeneValue =
   # return GeneValue(
@@ -641,12 +655,12 @@ proc new_gene_internal*(fn: Function): GeneValue =
   #   internal: Internal(kind: GeneFunction, fn: fn),
   # )
   result = new_gene(GeneInternal)
-  result.internal = Internal(kind: GeneFunction, fn: fn)
+  result.d.internal = Internal(kind: GeneFunction, fn: fn)
 
 proc new_gene_internal*(value: native_proc): GeneValue =
   # return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
   result = new_gene(GeneInternal)
-  result.internal = Internal(kind: GeneNativeProc, native_proc: value)
+  result.d.internal = Internal(kind: GeneNativeProc, native_proc: value)
 
 proc new_gene_arguments*(): GeneValue =
   # return GeneValue(
@@ -654,7 +668,7 @@ proc new_gene_arguments*(): GeneValue =
   #   internal: Internal(kind: GeneArguments, args: new_args()),
   # )
   result = new_gene(GeneInternal)
-  result.internal = Internal(kind: GeneArguments, args: new_args())
+  result.d.internal = Internal(kind: GeneArguments, args: new_args())
 
 proc new_class*(name: string): Class =
   return Class(name: name)
@@ -687,7 +701,7 @@ proc new_gene_internal*(class: Class): GeneValue =
   #   internal: Internal(kind: GeneClass, class: class),
   # )
   result = new_gene(GeneInternal)
-  result.internal = Internal(kind: GeneClass, class: class)
+  result.d.internal = Internal(kind: GeneClass, class: class)
 
 proc new_gene_instance*(instance: Instance): GeneValue =
   # return GeneValue(
@@ -695,7 +709,7 @@ proc new_gene_instance*(instance: Instance): GeneValue =
   #   instance: instance,
   # )
   result = new_gene(GeneInstance)
-  result.instance = instance
+  result.d.instance = instance
 
 proc new_gene_internal*(ns: Namespace): GeneValue =
   # return GeneValue(
@@ -703,7 +717,7 @@ proc new_gene_internal*(ns: Namespace): GeneValue =
   #   internal: Internal(kind: GeneNamespace, ns: ns),
   # )
   result = new_gene(GeneInternal)
-  result.internal = Internal(kind: GeneNamespace, ns: ns)
+  result.d.internal = Internal(kind: GeneNamespace, ns: ns)
 
 ### === VALS ===
 
@@ -720,78 +734,78 @@ let
 #################### GeneValue ###################
 
 proc is_truthy*(self: GeneValue): bool =
-  case self.kind:
+  case self.d.kind:
   of GeneBool:
-    return self.boolVal
+    return self.d.boolVal
   of GeneNilKind:
     return false
   else:
     return true
 
 proc normalize*(self: GeneValue) =
-  if self.gene_normalized:
+  if self.d.gene_normalized:
     return
-  self.gene_normalized = true
+  self.d.gene_normalized = true
 
-  var op = self.gene_op
-  if op.kind == GeneSymbol:
-    if op.symbol.startsWith(".@"):
-      if op.symbol.endsWith("="):
-        var name = op.symbol.substr(2, op.symbol.len-2)
-        self.gene_op = new_gene_symbol("@=")
-        self.gene_data.insert(new_gene_string_move(name), 0)
+  var op = self.d.gene_op
+  if op.d.kind == GeneSymbol:
+    if op.d.symbol.startsWith(".@"):
+      if op.d.symbol.endsWith("="):
+        var name = op.d.symbol.substr(2, op.d.symbol.len-2)
+        self.d.gene_op = new_gene_symbol("@=")
+        self.d.gene_data.insert(new_gene_string_move(name), 0)
       else:
-        self.gene_op = new_gene_symbol("@")
-        self.gene_data = @[new_gene_string_move(op.symbol.substr(2))]
-    elif op.symbol == "import" or op.symbol == "import_native":
+        self.d.gene_op = new_gene_symbol("@")
+        self.d.gene_data = @[new_gene_string_move(op.d.symbol.substr(2))]
+    elif op.d.symbol == "import" or op.d.symbol == "import_native":
       var names: seq[GeneValue] = @[]
       var module: GeneValue
       var expect_module = false
-      for val in self.gene_data:
+      for val in self.d.gene_data:
         if expect_module:
           module = val
-        elif val.kind == GeneSymbol and val.symbol == "from":
+        elif val.d.kind == GeneSymbol and val.d.symbol == "from":
           expect_module = true
         else:
           names.add(val)
-      self.gene_props["names"] = new_gene_vec(names)
-      self.gene_props["module"] = module
+      self.d.gene_props["names"] = new_gene_vec(names)
+      self.d.gene_props["module"] = module
       return
-    elif op.symbol.startsWith("for"):
-      self.gene_props["init"]   = self.gene_data[0]
-      self.gene_props["guard"]  = self.gene_data[1]
-      self.gene_props["update"] = self.gene_data[2]
+    elif op.d.symbol.startsWith("for"):
+      self.d.gene_props["init"]   = self.d.gene_data[0]
+      self.d.gene_props["guard"]  = self.d.gene_data[1]
+      self.d.gene_props["update"] = self.d.gene_data[2]
       var body: seq[GeneValue] = @[]
-      for i in 3..<self.gene_data.len:
-        body.add(self.gene_data[i])
-      self.gene_data = body
+      for i in 3..<self.d.gene_data.len:
+        body.add(self.d.gene_data[i])
+      self.d.gene_data = body
 
-  if self.gene_data.len == 0:
+  if self.d.gene_data.len == 0:
     return
 
-  var first = self.gene_data[0]
-  if first.kind == GeneSymbol:
-    if first.symbol == "+=":
-      self.gene_op = new_gene_symbol("=")
-      var second = self.gene_data[1]
-      self.gene_data[0] = op
-      self.gene_data[1] = new_gene_gene(new_gene_symbol("+"), op, second)
-    elif first.symbol in BINARY_OPS:
-      self.gene_data.delete 0
-      self.gene_data.insert op, 0
-      self.gene_op = first
-    elif first.symbol.startsWith(".@"):
-      if first.symbol.endsWith("="):
+  var first = self.d.gene_data[0]
+  if first.d.kind == GeneSymbol:
+    if first.d.symbol == "+=":
+      self.d.gene_op = new_gene_symbol("=")
+      var second = self.d.gene_data[1]
+      self.d.gene_data[0] = op
+      self.d.gene_data[1] = new_gene_gene(new_gene_symbol("+"), op, second)
+    elif first.d.symbol in BINARY_OPS:
+      self.d.gene_data.delete 0
+      self.d.gene_data.insert op, 0
+      self.d.gene_op = first
+    elif first.d.symbol.startsWith(".@"):
+      if first.d.symbol.endsWith("="):
         todo()
       else:
-        self.gene_op = new_gene_symbol("@")
-        self.gene_data[0] = new_gene_string_move(first.symbol.substr(2))
-        self.gene_props["self"] = op
-    elif first.symbol[0] == '.':
-      self.gene_props["self"] = op
-      self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
-      self.gene_data.delete 0
-      self.gene_op = new_gene_symbol("$invoke_method")
+        self.d.gene_op = new_gene_symbol("@")
+        self.d.gene_data[0] = new_gene_string_move(first.d.symbol.substr(2))
+        self.d.gene_props["self"] = op
+    elif first.d.symbol[0] == '.':
+      self.d.gene_props["self"] = op
+      self.d.gene_props["method"] = new_gene_string_move(first.d.symbol.substr(1))
+      self.d.gene_data.delete 0
+      self.d.gene_op = new_gene_symbol("$invoke_method")
 
 #################### Document ####################
 
@@ -816,19 +830,19 @@ converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
 # converter to_gene*(v: seq[GeneValue]): GeneValue           = new_gene_vec(v)
 
 converter from_gene*(v: GeneValue): bool =
-  if v.isNil:
+  if v.d.isNil:
     return false
-  case v.kind:
+  case v.d.kind:
   of GeneBool:
-    return v.boolVal
+    return v.d.boolVal
   of GeneInt:
-    return v.num != 0
+    return v.d.num != 0
   of GeneFloat:
-    return v.fnum != 0
+    return v.d.fnum != 0
   of GeneString:
-    return v.str.len != 0
+    return v.d.str.len != 0
   of GeneVector:
-    return v.vec.len != 0
+    return v.d.vec.len != 0
   else:
     true
 

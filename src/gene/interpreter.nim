@@ -53,122 +53,122 @@ proc eval_module*(self: var VM, name: string)
 
 proc eval_gene(self: var VM, node: GeneValue): GeneValue =
   node.normalize
-  var op = node.gene_op
-  case op.kind:
+  var op = node.d.gene_op
+  case op.d.kind:
   of GeneSymbol:
-    if op.symbol == "var":
-      var name = $node.gene_data[0]
+    if op.d.symbol == "var":
+      var name = $node.d.gene_data[0]
       var value =
-        if node.gene_data.len > 1:
-          self.eval(node.gene_data[1])
+        if node.d.gene_data.len > 1:
+          self.eval(node.d.gene_data[1])
         else:
           GeneNil
       let key = cast[Hash](name.hash)
       self.cur_stack.cur_scope[key] = value
-    elif op.symbol == "@":
+    elif op.d.symbol == "@":
       return self.eval_at(node)
-    elif op.symbol == "if":
-      return self.eval_if(node.gene_data)
-    elif op.symbol == "do":
+    elif op.d.symbol == "if":
+      return self.eval_if(node.d.gene_data)
+    elif op.d.symbol == "do":
       return self.eval_do(node)
-    elif op.symbol == "loop":
+    elif op.d.symbol == "loop":
       return self.eval_loop(node)
-    elif op.symbol == "for":
+    elif op.d.symbol == "for":
       return self.eval_for(node)
-    elif op.symbol == "break":
+    elif op.d.symbol == "break":
       return self.eval_break(node)
-    elif op.symbol == "fn":
+    elif op.d.symbol == "fn":
       return self.eval_fn(node)
-    elif op.symbol == "return":
+    elif op.d.symbol == "return":
       return self.eval_return(node)
-    elif op.symbol == "ns":
+    elif op.d.symbol == "ns":
       return self.eval_ns(node)
-    elif op.symbol == "import":
+    elif op.d.symbol == "import":
       return self.eval_import(node)
-    elif op.symbol == "class":
+    elif op.d.symbol == "class":
       return self.eval_class(node)
-    elif op.symbol == "method":
+    elif op.d.symbol == "method":
       return self.eval_method(node)
-    elif op.symbol == "new":
+    elif op.d.symbol == "new":
       return self.eval_new(node)
-    elif op.symbol == "$invoke_method":
+    elif op.d.symbol == "$invoke_method":
       return self.eval_invoke_method(node)
-    elif op.symbol == "$ARGV":
+    elif op.d.symbol == "$ARGV":
       return self.eval_argv(node)
-    elif op.symbol == "$call_native":
+    elif op.d.symbol == "$call_native":
       return self.eval_call_native(node)
-    elif op.symbol == "=":
-      var first = node.gene_data[0]
-      var second = node.gene_data[1]
-      case first.kind:
+    elif op.d.symbol == "=":
+      var first = node.d.gene_data[0]
+      var second = node.d.gene_data[1]
+      case first.d.kind:
       of GeneSymbol:
-        var symbol = first.symbol
+        var symbol = first.d.symbol
         if symbol[0] == '@':
           var cur_self = self.cur_stack.self
-          case cur_self.kind:
+          case cur_self.d.kind:
           of GeneInstance:
-            cur_self.instance.value.gene_props[symbol.substr(1)] = self.eval(second)
+            cur_self.d.instance.value.d.gene_props[symbol.substr(1)] = self.eval(second)
           else:
             todo()
         else:
-          let key = cast[Hash](first.symbol.hash) 
+          let key = cast[Hash](first.d.symbol.hash) 
           self.cur_stack.cur_scope[key] = self.eval(second)
       else:
         todo($node)
-    elif op.symbol == "+":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
+    elif op.d.symbol == "+":
+      var first = self.eval(node.d.gene_data[0])
+      var second = self.eval(node.d.gene_data[1])
+      var firstKind = first.d.kind
+      var secondKind = second.d.kind
       if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_int(first.num + second.num)
+        return new_gene_int(first.d.num + second.d.num)
       else:
         todo($node)
-    elif op.symbol == "-":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
+    elif op.d.symbol == "-":
+      var first = self.eval(node.d.gene_data[0])
+      var second = self.eval(node.d.gene_data[1])
+      var firstKind = first.d.kind
+      var secondKind = second.d.kind
       if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_int(first.num - second.num)
+        return new_gene_int(first.d.num - second.d.num)
       else:
         todo($node)
-    elif op.symbol == "==":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
+    elif op.d.symbol == "==":
+      var first = self.eval(node.d.gene_data[0])
+      var second = self.eval(node.d.gene_data[1])
       return new_gene_bool(first == second)
-    elif op.symbol == "<=":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
+    elif op.d.symbol == "<=":
+      var first = self.eval(node.d.gene_data[0])
+      var second = self.eval(node.d.gene_data[1])
+      var firstKind = first.d.kind
+      var secondKind = second.d.kind
       if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_bool(first.num <= second.num)
+        return new_gene_bool(first.d.num <= second.d.num)
       else:
         todo($node)
-    elif op.symbol == "<":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
+    elif op.d.symbol == "<":
+      var first = self.eval(node.d.gene_data[0])
+      var second = self.eval(node.d.gene_data[1])
+      var firstKind = first.d.kind
+      var secondKind = second.d.kind
       if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_bool(first.num < second.num)
+        return new_gene_bool(first.d.num < second.d.num)
       else:
         todo($node)
-    elif op.symbol == "&&":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
+    elif op.d.symbol == "&&":
+      var first = self.eval(node.d.gene_data[0])
+      var second = self.eval(node.d.gene_data[1])
       return new_gene_bool(first.is_truthy and second.is_truthy)
-    elif op.symbol == "||":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
+    elif op.d.symbol == "||":
+      var first = self.eval(node.d.gene_data[0])
+      var second = self.eval(node.d.gene_data[1])
       return new_gene_bool(first.is_truthy or second.is_truthy)
     else:
       var target = self.eval(op)
-      if target.kind == GeneInternal and target.internal.kind == GeneFunction:
-        var fn = target.internal.fn
+      if target.d.kind == GeneInternal and target.d.internal.kind == GeneFunction:
+        var fn = target.d.internal.fn
         var this = self
-        var args = node.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
+        var args = node.d.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
         return self.call(fn, new_args(args))
       else:
         todo($node)
@@ -188,67 +188,67 @@ proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
     of IfState.Else:
       result = self.eval(node)
     of IfState.Truthy:
-      case node.kind:
+      case node.d.kind:
       of GeneSymbol:
-        if node.symbol == "elif" or node.symbol == "else":
+        if node.d.symbol == "elif" or node.d.symbol == "else":
           break
         else:
           result = self.eval(node)
       else:
         result = self.eval(node)
     of IfState.Falsy:
-      if node.kind == GeneSymbol:
-        if node.symbol == "elif":
+      if node.d.kind == GeneSymbol:
+        if node.d.symbol == "elif":
           state = IfState.ElseIf
-        elif node.symbol == "else":
+        elif node.d.symbol == "else":
           state = IfState.Else
 
 proc eval_do(self: var VM, node: GeneValue): GeneValue =
-  for child in node.gene_data:
+  for child in node.d.gene_data:
     result = self.eval(child)
 
 proc eval_loop(self: var VM, node: GeneValue): GeneValue =
   var i = 0
-  var len = node.gene_data.len
+  var len = node.d.gene_data.len
   while true:
-    var child = node.gene_data[i]
+    var child = node.d.gene_data[i]
     var r = self.eval(child)
-    if not r.isNil and r.kind == GeneInternal and r.internal.kind == GeneBreak:
-      result = r.internal.break_val
+    if not r.d.isNil and r.d.kind == GeneInternal and r.d.internal.kind == GeneBreak:
+      result = r.d.internal.break_val
       break
     i = (i + 1) mod len
 
 proc eval_for(self: var VM, node: GeneValue): GeneValue =
-  discard self.eval(node.gene_props["init"])
-  while self.eval(node.gene_props["guard"]):
-    for child in node.gene_data:
+  discard self.eval(node.d.gene_props["init"])
+  while self.eval(node.d.gene_props["guard"]):
+    for child in node.d.gene_data:
       var r = self.eval(child)
-      if not r.isNil and r.internal.kind == GeneBreak:
+      if not r.d.isNil and r.d.internal.kind == GeneBreak:
         return
-    discard self.eval(node.gene_props["update"])
+    discard self.eval(node.d.gene_props["update"])
 
 proc eval_break(self: var VM, node: GeneValue): GeneValue =
-  if node.gene_data.len > 0:
-    var v = self.eval(node.gene_data[0])
+  if node.d.gene_data.len > 0:
+    var v = self.eval(node.d.gene_data[0])
     return new_gene_internal(Internal(kind: GeneBreak, break_val: v))
   else:
     return new_gene_internal(Internal(kind: GeneBreak))
 
 proc eval_fn(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].symbol
+  var name = node.d.gene_data[0].d.symbol
   var args: seq[string] = @[]
-  var a = node.gene_data[1]
-  case a.kind:
+  var a = node.d.gene_data[1]
+  case a.d.kind:
   of GeneSymbol:
-    args.add(a.symbol)
+    args.add(a.d.symbol)
   of GeneVector:
-    for item in a.vec:
-      args.add(item.symbol)
+    for item in a.d.vec:
+      args.add(item.d.symbol)
   else:
     not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
-    body.add node.gene_data[i]
+  for i in 2..<node.d.gene_data.len:
+    body.add node.d.gene_data[i]
 
   var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)
@@ -257,11 +257,11 @@ proc eval_fn(self: var VM, node: GeneValue): GeneValue =
   self.cur_stack.cur_ns[key] = result
 
 proc eval_return(self: var VM, node: GeneValue): GeneValue =
-  var val = self.eval(node.gene_data[0])
+  var val = self.eval(node.d.gene_data[0])
   return new_gene_internal(Internal(kind: GeneReturn, return_val: val))
 
 proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].symbol
+  var name = node.d.gene_data[0].d.symbol
   var ns = new_namespace(name)
   result = new_gene_internal(ns)
   let key = cast[Hash](name.hash)
@@ -271,8 +271,8 @@ proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
   self.cur_stack = stack.grow()
   self.cur_stack.self = result
   self.cur_stack.cur_ns = ns
-  for i in 1..<node.gene_data.len:
-    var child = node.gene_data[i]
+  for i in 1..<node.d.gene_data.len:
+    var child = node.d.gene_data[i]
     discard self.eval child
 
   self.cur_stack = stack
@@ -280,23 +280,23 @@ proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
 proc eval_class*(self: var VM, node: GeneValue): GeneValue =
   var name: string
   var ns: Namespace
-  var first = node.gene_data[0]
-  case first.kind:
+  var first = node.d.gene_data[0]
+  case first.d.kind:
   of GeneSymbol:
-    name = first.symbol
+    name = first.d.symbol
     ns = self.cur_stack.cur_ns
   of GeneComplexSymbol:
-    var nsName = first.csymbol.first
-    var rest = first.csymbol.rest
+    var nsName = first.d.csymbol.first
+    var rest = first.d.csymbol.rest
     name = rest[^1]
     if nsName == "global":
       ns = APP.ns
     else:
       let key = cast[Hash](nsName.hash)
-      ns = self.cur_stack.cur_ns[key].internal.ns
+      ns = self.cur_stack.cur_ns[key].d.internal.ns
     for i in 0..<rest.len - 1:
       let key = cast[Hash](rest[i].hash)
-      ns = ns[key].internal.ns
+      ns = ns[key].d.internal.ns
   else:
     not_allowed()
 
@@ -309,108 +309,108 @@ proc eval_class*(self: var VM, node: GeneValue): GeneValue =
   var stack = self.cur_stack
   self.cur_stack = stack.grow()
   self.cur_stack.self = result
-  for i in 1..<node.gene_data.len:
-    var child = node.gene_data[i]
+  for i in 1..<node.d.gene_data.len:
+    var child = node.d.gene_data[i]
     discard self.eval child
 
   self.cur_stack = stack
 
 proc eval_method(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].symbol
+  var name = node.d.gene_data[0].d.symbol
   var args: seq[string] = @[]
-  var a = node.gene_data[1]
-  case a.kind:
+  var a = node.d.gene_data[1]
+  case a.d.kind:
   of GeneSymbol:
-    args.add(a.symbol)
+    args.add(a.d.symbol)
   of GeneVector:
-    for item in a.vec:
-      args.add(item.symbol)
+    for item in a.d.vec:
+      args.add(item.d.symbol)
   else:
     not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
-    body.add node.gene_data[i]
+  for i in 2..<node.d.gene_data.len:
+    body.add node.d.gene_data[i]
 
   var fn = Function(name: name, args: args, body: body)
   var internal = Internal(kind: GeneFunction, fn: fn)
   result = new_gene_internal(internal)
-  self.cur_stack.self.internal.class.methods[name] = fn
+  self.cur_stack.self.d.internal.class.methods[name] = fn
 
 proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue =
-  var instance = self.eval(node.gene_props["self"])
+  var instance = self.eval(node.d.gene_props["self"])
   var class: Class
-  case instance.kind:
+  case instance.d.kind:
   of GeneInstance:
-    class = instance.instance.class
+    class = instance.d.instance.class
   of GeneString:
     let key = cast[Hash]("String".hash)
-    class = APP.ns[key].internal.class
+    class = APP.ns[key].d.internal.class
   else:
     todo()
-  var meth = class.methods[node.gene_props["method"].str]
+  var meth = class.methods[node.d.gene_props["method"].d.str]
   var this = self
-  var args = node.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
+  var args = node.d.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
   return self.call_method(instance, meth, new_args(args))
 
 proc eval_new*(self: var VM, node: GeneValue): GeneValue =
-  var class = self.eval(node.gene_data[0]).internal.class
+  var class = self.eval(node.d.gene_data[0]).d.internal.class
   var instance = new_instance(class)
   result = new_gene_instance(instance)
 
   if class.methods.hasKey("new"):
     var new_method = class.methods["new"]
     var args: seq[GeneValue] = @[]
-    for i in 1..<node.gene_data.len:
-      args.add(self.eval(node.gene_data[i]))
+    for i in 1..<node.d.gene_data.len:
+      args.add(self.eval(node.d.gene_data[i]))
     discard self.call_method(result, new_method, new_args(args))
 
 proc eval_at*(self: var VM, node: GeneValue): GeneValue =
   var target =
-    if node.gene_props["self"].isNil:
+    if node.d.gene_props["self"].d.isNil:
       self.cur_stack.self
     else:
-      self.eval(node.gene_props["self"])
-  var name = node.gene_data[0].str
-  case target.kind:
+      self.eval(node.d.gene_props["self"])
+  var name = node.d.gene_data[0].d.str
+  case target.d.kind:
   of GeneInstance:
-    return target.instance.value.gene_props[name]
+    return target.d.instance.value.d.gene_props[name]
   of GeneGene:
-    return target.gene_props[name]
+    return target.d.gene_props[name]
   else:
     not_allowed()
 
 proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
   # todo("map() does not work with arc GC algorithm")
-  if node.gene_data.len == 1:
-    if node.gene_data[0] == new_gene_int(0):
+  if node.d.gene_data.len == 1:
+    if node.d.gene_data[0] == new_gene_int(0):
       return new_gene_string_move(getAppFilename())
     else:
       var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
-      return argv[node.gene_data[0].num - 1]
+      return argv[node.d.gene_data[0].d.num - 1]
 
   var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
   argv.insert(new_gene_string_move(getAppFilename()))
   return new_gene_vec(argv)
 
 proc eval_import*(self: var VM, node: GeneValue): GeneValue =
-  var module = node.gene_props["module"].str
+  var module = node.d.gene_props["module"].d.str
   var ns: Namespace
   if not APP.namespaces.hasKey(module):
     self.eval_module(module)
   ns = APP.namespaces[module]
   if ns == nil:
     todo("Evaluate module")
-  for name in node.gene_props["names"].vec:
-    var s = name.symbol
+  for name in node.d.gene_props["names"].d.vec:
+    var s = name.d.symbol
     let key = cast[Hash](s.hash)
     self.cur_stack.cur_ns[key] = ns[key]
   return GeneNil
 
 proc eval_call_native*(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].str
+  var name = node.d.gene_data[0].d.str
   case name:
   of "str_len":
-    var arg0 = self.eval(node.gene_data[1]).str
+    var arg0 = self.eval(node.d.gene_data[1]).d.str
     return new_gene_int(len(arg0))
   else:
     todo()
@@ -449,17 +449,17 @@ proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Argumen
     self.cur_stack = stack
 
 proc eval*(self: var VM, node: GeneValue): GeneValue =
-  case node.kind:
+  case node.d.kind:
   of GeneNilKind:
     return GeneNil
   of GeneInt:
-    return new_gene_int(node.num)
+    return new_gene_int(node.d.num)
   of GeneString:
-    return new_gene_string_move(node.str)
+    return new_gene_string_move(node.d.str)
   of GeneBool:
-    return new_gene_bool(node.boolVal)
+    return new_gene_bool(node.d.boolVal)
   of GeneSymbol:
-    var name = node.symbol
+    var name = node.d.symbol
     case name:
     of "global":
       return new_gene_internal(APP.ns)
@@ -469,7 +469,7 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
       let key = cast[Hash](name.hash)
       return self[key]
   of GeneComplexSymbol:
-    var sym = node.csymbol
+    var sym = node.d.csymbol
     if sym.first == "":
       result = new_gene_internal(self.cur_stack.cur_ns)
     elif sym.first == "global":
@@ -479,17 +479,18 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
       result = self[key]
     for name in sym.rest:
       let key = cast[Hash](name.hash)
-      result = result.internal.ns[key]
+      result = result.d.internal.ns[key]
     return result
   of GeneGene:
     node.normalize
     return self.eval_gene(node)
   of GeneVector:
-    return new_gene_vec(node.vec.mapIt(self.eval(it)))
+    # return new_gene_vec(node.d.vec.mapIt(self.eval(it)))
+    todo()
   of GeneMap:
     var map = Table[string, GeneValue]()
-    for key in node.map.keys:
-      map[key] = self.eval(node.map[key])
+    for key in node.d.map.keys:
+      map[key] = self.eval(node.d.map[key])
     return new_gene_map(map)
   else:
     todo($node)

@@ -65,7 +65,7 @@ proc new_hmap*(capacity: int = 16): HMap
 
 proc `[]=`*(m: HMap, key: GeneValue, val: GeneValue)
 
-proc val_at*(m: HMap, key: GeneValue, default: GeneValue = nil): GeneValue
+# proc val_at*(m: HMap, key: GeneValue, default: GeneValue = nil): GeneValue
 
 proc `[]`*(m: HMap, key: GeneValue): Option[GeneValue]
 
@@ -184,8 +184,8 @@ proc read_string(p: var Parser): GeneValue =
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
   result = new_gene(GeneGene)
-  result.gene_op = new_gene_symbol(quote_name)
-  result.gene_data = @[quoted]
+  result.d.gene_op = new_gene_symbol(quote_name)
+  result.d.gene_data = @[quoted]
 
 proc read_quoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "quote")
@@ -219,7 +219,7 @@ proc read_comment(p: var Parser): GeneValue =
         add(p.a, buf[pos])
         inc(pos)
     p.bufpos = pos
-    result.comment = p.a
+    result.d.comment = p.a
     p.a = ""
   else:
     while true:
@@ -264,19 +264,19 @@ proc read_character(p: var Parser): GeneValue =
   result = new_gene(GeneChar)
   let token = read_token(p, false)
   if token.len == 1:
-    result.character = token[0]
+    result.d.character = token[0]
   elif token == "newline":
-    result.character = '\c'
+    result.d.character = '\c'
   elif token == "space":
-    result.character = ' '
+    result.d.character = ' '
   elif token == "tab":
-    result.character = '\t'
+    result.d.character = '\t'
   elif token == "backspace":
-    result.character = '\b'
+    result.d.character = '\b'
   elif token == "formfeed":
-    result.character = '\f'
+    result.d.character = '\f'
   elif token == "return":
-    result.character = '\r'
+    result.d.character = '\r'
   elif token.startsWith("u"):
     # TODO: impl unicode char reading
     raise new_exception(ParseError, "Not implemented: reading unicode chars")
@@ -338,22 +338,22 @@ proc match_symbol(s: string): GeneValue =
   #   # locally namespaced kw (e.g. ::foo)
   #   if split_sym.len == 1:
   #     if 2 < s.high() and s[1] == ':':
-  #       result.keyword = (ns, name.substr(2, name.len))
-  #       result.is_namespaced = true
+  #       result.d.keyword = (ns, name.substr(2, name.len))
+  #       result.d.is_namespaced = true
   #     else:
-  #       result.keyword = (ns, name.substr(1,name.len))
-  #       result.is_namespaced = false
+  #       result.d.keyword = (ns, name.substr(1,name.len))
+  #       result.d.is_namespaced = false
   #   else:
-  #     result.keyword = (ns, name)
-  #     result.is_namespaced = false
+  #     result.d.keyword = (ns, name)
+  #     result.d.is_namespaced = false
   # else:
   #   result = GeneValue(kind: GeneSymbol)
   #   # TODO: complex symbol
-  #   # result.symbol = (ns, name)
-  #   result.symbol = name
+  #   # result.d.symbol = (ns, name)
+  #   result.d.symbol = name
 
 proc interpret_token(token: string): GeneValue =
-  result = nil
+  result.d = nil
   case token
   of "nil":
     # result = new_gene_nil()
@@ -363,11 +363,11 @@ proc interpret_token(token: string): GeneValue =
   of "false":
     result = new_gene_bool(token)
   else:
-    result = nil
+    result.d = nil
 
-  if result == nil:
+  if result.d == nil:
     result = match_symbol(token)
-  if result == nil:
+  if result.d == nil:
     raise new_exception(ParseError, "Invalid token: " & token)
 
 
@@ -376,8 +376,8 @@ proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement
   # var co = new(Comment)
   # co.placement = placement
   # co.comment_lines = comment_lines
-  # if node.comments.len == 0: node.comments = @[co]
-  # else: node.comments.add(co)
+  # if node.d.comments.len == 0: node.d.comments = @[co]
+  # else: node.d.comments.add(co)
 
 type DelimitedListResult = object
   list: seq[GeneValue]
@@ -413,10 +413,10 @@ proc read_gene_op(p: var Parser): GeneValue =
       inc(pos)
       p.bufpos = pos
       result = m(p)
-      if result != nil:
-        if ch == ';' and result.kind == GeneCommentLine:
+      if result.d != nil:
+        if ch == ';' and result.d.kind == GeneCommentLine:
           if with_comments:
-            comment_lines.add(result.comment)
+            comment_lines.add(result.d.comment)
           else:
             discard
         else:
@@ -428,11 +428,11 @@ proc read_gene_op(p: var Parser): GeneValue =
           break
     else:
       result = read(p)
-      if result != nil:
+      if result.d != nil:
         if with_comments:
-          case result.kind
+          case result.d.kind
           of GeneCommentLine:
-            comment_lines.add(result.comment)
+            comment_lines.add(result.d.comment)
           else:
             if comment_lines.len > 0:
               attach_comment_lines(result, comment_lines, Before)
@@ -440,7 +440,7 @@ proc read_gene_op(p: var Parser): GeneValue =
             inc(count)
             break
         else: # discardComments
-          case result.kind
+          case result.d.kind
           of GeneCommentLine:
             discard
           else:
@@ -476,10 +476,10 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
       inc(pos)
       p.bufpos = pos
       let node = m(p)
-      if node != nil:
-        if ch == ';' and node.kind == GeneCommentLine:
+      if node.d != nil:
+        if ch == ';' and node.d.kind == GeneCommentLine:
           if with_comments:
-            comment_lines.add(node.comment)
+            comment_lines.add(node.d.comment)
           else:
             discard
         else:
@@ -491,11 +491,11 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
             comment_lines = @[]
     else:
       let node = read(p)
-      if node != nil:
+      if node.d != nil:
         if with_comments:
-          case node.kind
+          case node.d.kind
           of GeneCommentLine:
-            comment_lines.add(node.comment)
+            comment_lines.add(node.d.comment)
           else:
             if comment_lines.len > 0:
               attach_comment_lines(node, comment_lines, Before)
@@ -503,7 +503,7 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
             inc(count)
             list.add(node)
         else: # discardComments
-          case node.kind
+          case node.d.kind
           of GeneCommentLine:
             discard
           else:
@@ -519,17 +519,17 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
 
 proc add_line_col(p: var Parser, node: var GeneValue): void =
   discard
-  # node.line = p.line_number
-  # node.column = getColNumber(p, p.bufpos)
+  # node.d.line = p.line_number
+  # node.d.column = getColNumber(p, p.bufpos)
 
 proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): GeneValue =
   discard
-  # if list_result.comment_lines.len > 0:
+  # if list_result.d.comment_lines.len > 0:
   #   var co = new(Comment)
   #   co.placement = Inside
-  #   co.comment_lines = list_result.comment_lines
-  #   if node.comments.len == 0: node.comments = @[co]
-  #   else: node.comments.add(co)
+  #   co.comment_lines = list_result.d.comment_lines
+  #   if node.d.comments.len == 0: node.d.comments = @[co]
+  #   else: node.d.comments.add(co)
   #   return node
 
 type
@@ -597,24 +597,24 @@ proc read_gene(p: var Parser): GeneValue =
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col(p, result)
-  result.gene_op = read_gene_op(p)
+  result.d.gene_op = read_gene_op(p)
   skip_ws(p)
   if p.buf[p.bufpos] == ':':
     let props = read_map(p, true)
-    result.gene_props = props
+    result.d.gene_props = props
   var result_list = read_delimited_list(p, ')', true)
-  result.gene_data = result_list.list
+  result.d.gene_data = result_list.list
   discard maybe_add_comments(result, result_list)
 
 proc read_map(p: var Parser): GeneValue =
   result = new_gene(GeneMap)
   let map = read_map(p, false)
-  result.map = map
+  result.d.map = map
 
 proc read_vector(p: var Parser): GeneValue =
   result = new_gene(GeneVector)
   let list_result = read_delimited_list(p, ']', true)
-  result.vec = list_result.list
+  result.d.vec = list_result.list
   discard maybe_add_comments(result, list_result)
 
 proc read_set(p: var Parser): GeneValue =
@@ -624,73 +624,73 @@ proc read_set(p: var Parser): GeneValue =
   discard maybe_add_comments(result, list_result)
   var i = 0
   # TODO: hmap_capacity(len(elements))
-  result.set_elems = new_hmap()
+  result.d.set_elems = new_hmap()
   while i <= elements.high:
-    result.set_elems[elements[i]] = new_gene_bool(true)
+    result.d.set_elems[elements[i]] = new_gene_bool(true)
     inc(i)
 
 proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
-  h = h !& hash(node.kind)
-  case node.kind
+  h = h !& hash(node.d.kind)
+  case node.d.kind
   of GeneAny:
     todo()
   of GeneNilKind:
     h = h !& hash(0)
   of GeneBool:
-    h = h !& hash(node.bool_val)
+    h = h !& hash(node.d.bool_val)
   of GeneChar:
-    h = h !& hash(node.character)
+    h = h !& hash(node.d.character)
   of GeneInt:
-    h = h !& hash(node.num)
+    h = h !& hash(node.d.num)
   of GeneRatio:
-    h = h !& hash(node.rnum)
+    h = h !& hash(node.d.rnum)
   of GeneFloat:
-    h = h !& hash(node.fnum)
+    h = h !& hash(node.d.fnum)
   of GeneString:
-    h = h !& hash(node.str)
+    h = h !& hash(node.d.str)
   of GeneSymbol:
-    h = h !& hash(node.symbol)
+    h = h !& hash(node.d.symbol)
   of GeneComplexSymbol:
-    h = h !& hash(node.csymbol.first & "/" & node.csymbol.rest.join("/"))
+    h = h !& hash(node.d.csymbol.first & "/" & node.d.csymbol.rest.join("/"))
   of GeneKeyword:
-    h = h !& hash(node.keyword)
-    h = h !& hash(node.is_namespaced)
+    h = h !& hash(node.d.keyword)
+    h = h !& hash(node.d.is_namespaced)
   of GeneGene:
-    if node.gene_op != nil:
-      h = h !& hash(node.gene_op)
-    h = h !& hash(node.gene_data)
+    if node.d.gene_op.d != nil:
+      h = h !& hash(node.d.gene_op)
+    h = h !& hash(node.d.gene_data)
   of GeneMap:
-    for key, val in node.map:
+    for key, val in node.d.map:
       h = h !& hash(key)
       h = h !& hash(val)
   of GeneVector:
-    h = h !& hash(node.vec)
+    h = h !& hash(node.d.vec)
   of GeneSet:
-    for entry in node.set_elems:
+    for entry in node.d.set_elems:
       h = h !& hash(entry.key)
       h = h !& hash(entry.value)
   of GeneCommentLine:
-    h = h !& hash(node.comment)
+    h = h !& hash(node.d.comment)
   of GeneRegex:
-    h = h !& hash(node.regex)
+    h = h !& hash(node.d.regex)
   of GeneInternal:
-    todo($node.internal.kind)
+    todo($node.d.internal.kind)
   of GeneInstance:
-    h = h !& hash(node.instance.value)
+    h = h !& hash(node.d.instance.value)
   result = !$h
 
 proc read_regex(p: var Parser): GeneValue =
   let s = read_string(p)
   result = new_gene(GeneRegex)
-  result.regex = s.str
+  result.d.regex = s.d.str
 
 proc read_unmatched_delimiter(p: var Parser): GeneValue =
   raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
 
 proc read_discard(p: var Parser): GeneValue =
   discard read(p)
-  result = nil
+  result.d = nil
 
 proc read_dispatch(p: var Parser): GeneValue =
   var pos = p.bufpos
@@ -775,7 +775,7 @@ proc `[]=`*(m: HMap, key: GeneValue, val: GeneValue) =
         m.buckets[bucket_index].add(entry)
         inc(m.count)
 
-proc val_at*(m: HMap, key: GeneValue, default: GeneValue = nil): GeneValue =
+proc val_at*(m: HMap, key: GeneValue, default: GeneValue): GeneValue =
   let
     h = hash(key)
     bucket_index = h and m.buckets.high
@@ -791,7 +791,7 @@ proc val_at*(m: HMap, key: GeneValue, default: GeneValue = nil): GeneValue =
       
 proc `[]`*(m: HMap, key: GeneValue): Option[GeneValue] =
   var default = new_gene(GeneBool)
-  default.bool_val = true
+  default.d.bool_val = true
   let
     found = val_at(m, key, default)
     pf = cast[pointer](found)
@@ -869,7 +869,7 @@ proc read_num(p: var Parser): GeneValue =
     if opts.eof_is_error:
       raise new_exception(ParseError, "EOF while reading")
     else:
-      result = nil
+      result.d = nil
   of tkInt:
     if p.buf[p.bufpos] == '/':
       if not isDigit(p.buf[p.bufpos+1]):
@@ -881,7 +881,7 @@ proc read_num(p: var Parser): GeneValue =
       var denom_tok = parse_number(p)
       if denom_tok == tkInt:
         var denom = new_gene_int(p.a)
-        result = new_gene_ratio(numerator.num, denom.num)
+        result = new_gene_ratio(numerator.d.num, denom.d.num)
       else:
         raise new_exception(ParseError, "error reading a ratio: " & p.a)
     else:
@@ -923,14 +923,14 @@ proc read_internal(p: var Parser): GeneValue =
 
   token = read_token(p, true)
   if opts.suppress_read:
-    result = nil
+    result.d = nil
   else:
     result = interpret_token(token)
 
 proc read*(p: var Parser): GeneValue =
   result = read_internal(p)
   let noComments = p.options.comments_handling != keepComments
-  while result != nil and noComments and result.kind == GeneCommentLine:
+  while result.d != nil and noComments and result.d.kind == GeneCommentLine:
     result = read_internal(p)
 
 proc read*(s: Stream, filename: string): GeneValue =
@@ -955,9 +955,9 @@ proc read_all*(buffer: string): seq[GeneValue] =
   defer: p.close()
   while true:
     var node = p.read_internal
-    if node == nil:
+    if node.d == nil:
       return result
-    elif p.options.comments_handling != keepComments and node.kind == GeneCommentLine:
+    elif p.options.comments_handling != keepComments and node.d.kind == GeneCommentLine:
       continue
     else:
       result.add(node)

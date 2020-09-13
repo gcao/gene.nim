@@ -25,7 +25,7 @@ test_compiler "(if false 1 elif false 2 else 3)", 3
 test_compiler "(var a 1) a", 1
 
 test_compiler "(fn f [] 1)", proc(r: GeneValue) =
-  check r.internal.fn.name == "f"
+  check r.d.internal.fn.name == "f"
 test_compiler "(fn f [] 1) (f)", 1
 test_compiler "(fn f a (a + 1)) (f 1)", 2
 test_compiler """
@@ -42,25 +42,25 @@ test_compiler """
 test_compiler """
   (ns n)
 """, proc(r: GeneValue) =
-  check r.internal.ns.name == "n"
+  check r.d.internal.ns.name == "n"
 
 test_compiler """
   (ns n)
   n
 """, proc(r: GeneValue) =
-  check r.internal.ns.name == "n"
+  check r.d.internal.ns.name == "n"
 
 test_compiler "global", proc(r: GeneValue) =
-  check r.internal.ns.name == "global"
+  check r.d.internal.ns.name == "global"
 
 test_compiler "(fn global/f [] 1)", proc(r: GeneValue) =
-  check r.internal.fn.name == "f"
+  check r.d.internal.fn.name == "f"
 
 test_compiler """
   (import from "src/core.gene")
   global/String
 """, proc(r: GeneValue) =
-  check r.internal.class.name == "String"
+  check r.d.internal.class.name == "String"
 
 # This depends on "nimble buildext" to build the dynamic lib
 # test_compiler """
@@ -79,24 +79,24 @@ test "Compiler / VM: Import":
     f
   """
   var result = vm.run(module)
-  check result.internal.fn.name == "f"
+  check result.d.internal.fn.name == "f"
 
 test_compiler """
   (class A)
 """, proc(r: GeneValue) =
-  check r.internal.class.name == "A"
+  check r.d.internal.class.name == "A"
 
 test_compiler """
   (class A)
   A
 """, proc(r: GeneValue) =
-  check r.internal.class.name == "A"
+  check r.d.internal.class.name == "A"
 
 test_compiler """
   (class A)
   (new A)
 """, proc(r: GeneValue) =
-  check r.instance.class.name == "A"
+  check r.d.instance.class.name == "A"
 
 test_compiler """
   (class A
@@ -106,7 +106,7 @@ test_compiler """
   )
   (new A)
 """, proc(r: GeneValue) =
-  check r.instance.value.gene_props["description"] == "Class A"
+  check r.d.instance.value.d.gene_props["description"] == "Class A"
 
 test_compiler """
   (class A
@@ -118,7 +118,7 @@ test_compiler """
   )
   ((new A) .test)
 """, proc(r: GeneValue) =
-  check r.instance.class.name == "A"
+  check r.d.instance.class.name == "A"
 
 test_compiler """
   (class A

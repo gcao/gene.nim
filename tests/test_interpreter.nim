@@ -89,7 +89,7 @@ test_eval """
 # """, 3
 
 test_eval "(fn f a a)", proc(r: GeneValue) =
-  check r.internal.fn.name == "f"
+  check r.d.internal.fn.name == "f"
 
 test_eval "(fn f [] 1) (f)", 1
 test_eval "(fn f a (a + 1)) (f 1)", 2
@@ -113,13 +113,13 @@ test_eval """
 # """, 1
 
 test_eval "(class A)", proc(r: GeneValue) =
-  check r.internal.class.name == "A"
+  check r.d.internal.class.name == "A"
 
 test_eval """
   (class A)
   (new A)
 """, proc(r: GeneValue) =
-  check r.instance.class.name == "A"
+  check r.d.instance.class.name == "A"
 
 # @name            : get "name" property of current self
 # (.@name)         : get "name" property of current self
@@ -145,7 +145,7 @@ test_eval """
   )
   (new A)
 """, proc(r: GeneValue) =
-  check r.instance.value.gene_props["description"] == "Class A"
+  check r.d.instance.value.d.gene_props["description"] == "Class A"
 
 test_eval """
   (class A
@@ -155,7 +155,7 @@ test_eval """
   )
   ((new A) .@description)
 """, proc(r: GeneValue) =
-  check r.str == "Class A"
+  check r.d.str == "Class A"
 
 test_eval """
   (class A
@@ -165,7 +165,7 @@ test_eval """
   )
   (new A "test")
 """, proc(r: GeneValue) =
-  check r.instance.value.gene_props["description"] == "test"
+  check r.d.instance.value.d.gene_props["description"] == "test"
 
 test_eval """
   (import from "src/core.gene")
@@ -176,10 +176,10 @@ test_eval """
 # ($ARGV 0) returns the program name
 # ($ARGV 1) returns first argument
 test_eval "($ARGV)", proc(r: GeneValue) =
-  check r.vec.len == 1
+  check r.d.vec.len == 1
 
 test_eval "(ns test)", proc(r: GeneValue) =
-  check r.internal.ns.name == "test"
+  check r.d.internal.ns.name == "test"
 
 test_eval """
   (ns n
@@ -187,19 +187,19 @@ test_eval """
   )
   n/A
 """, proc(r: GeneValue) =
-  check r.internal.class.name == "A"
+  check r.d.internal.class.name == "A"
 
 test_eval """
   (ns n)
   n
 """, proc(r: GeneValue) =
-  check r.internal.ns.name == "n"
+  check r.d.internal.ns.name == "n"
 
 test_eval """
   (ns n)
   /n
 """, proc(r: GeneValue) =
-  check r.internal.ns.name == "n"
+  check r.d.internal.ns.name == "n"
 
 # * import/export
 #
@@ -222,13 +222,13 @@ test "Interpreter / eval: import":
     (import n from "file1")
     n/f
   """
-  check result.internal.fn.name == "f"
+  check result.d.internal.fn.name == "f"
 
 test_eval """
   (import from "src/core.gene")
   global/String
 """, proc(r: GeneValue) =
-  check r.internal.class.name == "String"
+  check r.d.internal.class.name == "String"
 
 test_eval """
   ($call_native "str_len" "test")
