@@ -27,39 +27,39 @@ test "Parser":
 
   nodes = read_all("10 11")
   check nodes.len == 2
-  check nodes[0].num == 10
-  check nodes[1].num == 11
+  check nodes[0].d.num == 10
+  check nodes[1].d.num == 11
 
   node = read("1 2 3")
-  check node.kind == GeneInt
-  check node.num == 1
+  check node.d.kind == GeneInt
+  check node.d.num == 1
 
   node = read("(1 2 3)")
-  check node.kind == GeneGene
-  check node.gene_data.len == 2
+  check node.d.kind == GeneGene
+  check node.d.gene_data.len == 2
 
   node = read("(1 :a 1 2 3)")
-  check node.kind == GeneGene
-  check node.gene_props == {"a": new_gene_int(1)}.toTable
-  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+  check node.d.kind == GeneGene
+  check node.d.gene_props == {"a": new_gene_int(1)}.toTable
+  check node.d.gene_data == @[new_gene_int(2), new_gene_int(3)]
 
   node = read("(1 ::a 2 3)")
-  check node.kind == GeneGene
-  check node.gene_props == {"a": GeneTrue}.toTable
-  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+  check node.d.kind == GeneGene
+  check node.d.gene_props == {"a": GeneTrue}.toTable
+  check node.d.gene_data == @[new_gene_int(2), new_gene_int(3)]
 
   node = read("(1 :!a 2 3)")
-  check node.kind == GeneGene
-  check node.gene_props == {"a": GeneFalse}.toTable
-  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+  check node.d.kind == GeneGene
+  check node.d.gene_props == {"a": GeneFalse}.toTable
+  check node.d.gene_data == @[new_gene_int(2), new_gene_int(3)]
 
   node = read("""
     (
       ;; comment in a list
     )
   """)
-  check node.kind == GeneGene
-  # check node.comments.len == 0
+  check node.d.kind == GeneGene
+  # check node.d.comments.len == 0
 
   block:
     # comment related tests
@@ -72,23 +72,23 @@ test "Parser":
       ;; this is a comment
       ()
     """, opts)
-    check node.kind == GeneCommentLine
+    check node.d.kind == GeneCommentLine
     # check node.comments.len == 0
 
     node = read("""
       #!/usr/bin/env gene
       ()
     """, opts)
-    check node.kind == GeneCommentLine
-    # check node.comments.len == 0
+    check node.d.kind == GeneCommentLine
+    # check node.d.comments.len == 0
 
     # node = read("""
     #   (
     #     ;; this is a comment
     #   ())
     # """, opts)
-    # check node.kind == GeneGene
-    # check node.gene_op.comments.len > 0
+    # check node.d.kind == GeneGene
+    # check node.d.gene_op.comments.len > 0
 
     # node = read("""
     #   ;; this is a comment
@@ -96,7 +96,7 @@ test "Parser":
     #     ;; last elem
     #   3)
     # """, opts)
-    # check node.kind == GeneCommentLine
+    # check node.d.kind == GeneCommentLine
 
     # # the comment should be returned on subsequent read().
     # # not very clean, but does not require a look-ahead read()
@@ -104,17 +104,17 @@ test "Parser":
     #   ()
     #   ;; comment after a list
     # """, opts)
-    # check node.kind == GeneGene
-    # check node.comments.len == 0
+    # check node.d.kind == GeneGene
+    # check node.d.comments.len == 0
 
     # node = read("""
     #   (
     #     ;; comment in a list
     #   )
     # """, opts)
-    # check node.kind == GeneGene
-    # check node.comments.len == 1
-    # check node.comments[0].placement == Inside
+    # check node.d.kind == GeneGene
+    # check node.d.comments.len == 1
+    # check node.d.comments[0].placement == Inside
 
     # node = read("""
     #   ;; this is a comment
@@ -122,22 +122,22 @@ test "Parser":
     #     ;; last elem
     #   3)
     # """, opts)
-    # check node.kind == GeneCommentLine
-    # check node.comments.len == 0
+    # check node.d.kind == GeneCommentLine
+    # check node.d.comments.len == 0
 
     node = read("""
       {:x 1
       ;;comment
       :y 2}
     """, opts)
-    check node.kind == GeneMap
-    check node.map == {"x": new_gene_int(1), "y": new_gene_int(2)}.toTable
+    check node.d.kind == GeneMap
+    check node.d.map == {"x": new_gene_int(1), "y": new_gene_int(2)}.toTable
 
     node = read("""
       {::x :!y ::z}
     """, opts)
-    check node.kind == GeneMap
-    check node.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
+    check node.d.kind == GeneMap
+    check node.d.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
 
   #   node = read("""
   #     {:view s/Keyword
@@ -145,7 +145,7 @@ test "Parser":
   #     (s/optional-key :label 1) s/Str
   #     (foo 1) 2}
   #   """, opts)
-  #   check node.kind == GeneMap
+  #   check node.d.kind == GeneMap
 
 
   # node = read("""
@@ -155,7 +155,7 @@ test "Parser":
   #     (foo 1) 2
   #   }
   # """)
-  # check node.kind == GeneMap
+  # check node.d.kind == GeneMap
 
   node = read("""
     ;; this is a comment
@@ -163,40 +163,40 @@ test "Parser":
       ;; last elem
     3)
   """)
-  check node.kind == GeneGene
-  # check node.comments.len == 0
-  # check node.gene_data[1].comments.len == 0
+  check node.d.kind == GeneGene
+  # check node.d.comments.len == 0
+  # check node.d.gene_data[1].comments.len == 0
 
   node = read("1")
-  check node.kind == GeneInt
-  check node.num == 1
+  check node.d.kind == GeneInt
+  check node.d.num == 1
 
   node = read("-1")
-  check node.kind == GeneInt
-  check node.num == -1
+  check node.d.kind == GeneInt
+  check node.d.num == -1
 
   node = read("()")
-  check node.gene_op == nil
-  check node.kind == GeneGene
-  check node.gene_data.len == 0
+  check node.d.gene_op.d == nil
+  check node.d.kind == GeneGene
+  check node.d.gene_data.len == 0
 
   node = read("(1)")
-  check node.gene_op == new_gene_int(1)
-  check node.kind == GeneGene
-  check node.gene_data.len == 0
+  check node.d.gene_op == new_gene_int(1)
+  check node.d.kind == GeneGene
+  check node.d.gene_data.len == 0
 
   node = read("(())")
-  check node.kind == GeneGene
-  check node.gene_data.len == 0
-  check node.gene_op.kind == GeneGene
-  check node.gene_op.gene_data.len == 0
+  check node.d.kind == GeneGene
+  check node.d.gene_data.len == 0
+  check node.d.gene_op.d.kind == GeneGene
+  check node.d.gene_op.d.gene_data.len == 0
 
   node = read("nil")
-  check node.kind == GeneNilKind
+  check node.d.kind == GeneNilKind
 
   node = read("symbol-👋") #emoji
-  check node.kind == GeneSymbol
-  check node.symbol == "symbol-👋"
+  check node.d.kind == GeneSymbol
+  check node.d.symbol == "symbol-👋"
 
   # node = read(":foo")
   # check node.kind == GeneKeyword
@@ -212,8 +212,8 @@ test "Parser":
   # check $node == "::foobar"
 
   node = read("+foo+")
-  check node.kind == GeneSymbol
-  check node.symbol == "+foo+"
+  check node.d.kind == GeneSymbol
+  check node.d.symbol == "+foo+"
 
   # TODO
   # node = read("moo/bar")
@@ -221,20 +221,20 @@ test "Parser":
   # check node.csymbol == ("moo", "bar")
 
   node = read("'foo") # -> (quote foo)
-  check node.kind == GeneGene
-  check node.gene_op == new_gene_symbol("quote")
+  check node.d.kind == GeneGene
+  check node.d.gene_op == new_gene_symbol("quote")
 
   node = read("{}")
-  check node.kind == GeneMap
-  check node.map.len == 0
+  check node.d.kind == GeneMap
+  check node.d.map.len == 0
 
   node = read("{:A 1 :B 2}")
-  check node.kind == GeneMap
-  check node.map.len == 2
+  check node.d.kind == GeneMap
+  check node.d.map.len == 2
 
   node = read("{:A 1, :B 2}")
-  check node.kind == GeneMap
-  check node.map.len == 2
+  check node.d.kind == GeneMap
+  check node.d.map.len == 2
 
   # try:
   #   node = read("moo/bar/baz")
@@ -243,36 +243,36 @@ test "Parser":
   #   discard
 
   node = read("[1 2 , 3,4]")
-  check node.kind == GeneVector
-  check node.vec.len == 4
+  check node.d.kind == GeneVector
+  check node.d.vec.len == 4
 
   let hh = new_hmap()
   hh[new_gene_keyword("", "foo")] = GeneTrue
   check hh[new_gene_keyword("", "foo")].get() == new_gene_bool(true)
 
   node = read("\"foo\"")
-  check node.kind == GeneString
-  check node.str == "foo"
-  check node.str.len == 3
+  check node.d.kind == GeneString
+  check node.d.str == "foo"
+  check node.d.str.len == 3
 
   node = read("#_ [foo bar]")
-  check node == nil
+  check node.d == nil
 
   node = read("#[foo whateve 1]")
-  check node.kind == GeneSet
-  check node.set_elems.count == 3
+  check node.d.kind == GeneSet
+  check node.d.set_elems.count == 3
 
   node = read("#[]")
-  check node.kind == GeneSet
-  check node.set_elems.count == 0
+  check node.d.kind == GeneSet
+  check node.d.set_elems.count == 0
 
   node = read("1/2")
-  check node.kind == GeneRatio
-  check node.rnum == (BiggestInt(1), BiggestInt(2))
+  check node.d.kind == GeneRatio
+  check node.d.rnum == (BiggestInt(1), BiggestInt(2))
 
   node = read("{:ratio -1/2}")
-  check node.kind == GeneMap
-  check node.map["ratio"] == new_gene_ratio(-1, 2)
+  check node.d.kind == GeneMap
+  check node.d.map["ratio"] == new_gene_ratio(-1, 2)
 
   # let's set up conditional forms reading
   var opts: ParseOptions
@@ -284,7 +284,7 @@ test "Parser":
 
   try:
     node = read("{:ratio 1/-2}")
-    check node.kind == GeneMap
+    check node.d.kind == GeneMap
   except ParseError:
     discard
 
@@ -325,7 +325,7 @@ test "Parser":
   check mm1[n1].get() == n2
 
   node = read("#\".*\"")
-  check node.kind == GeneRegex
+  check node.d.kind == GeneRegex
 
   #check add(5, 5) == 10
 

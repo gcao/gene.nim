@@ -120,6 +120,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.cur_stack[0] = new_gene_bool(first < second)
     of LtI:
       pos += 1
+      var f = self.cur_stack[instr.reg]
       let first = self.cur_stack[instr.reg].d.num
       let second = instr.val.d.num
       self.cur_stack[0] = new_gene_bool(first < second)

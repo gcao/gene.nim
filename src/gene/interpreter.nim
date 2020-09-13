@@ -486,7 +486,10 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
     return self.eval_gene(node)
   of GeneVector:
     # return new_gene_vec(node.d.vec.mapIt(self.eval(it)))
-    todo()
+    var vec: seq[GeneValue] = @[]
+    for child in node.d.vec:
+      vec.add(self.eval(child))
+    return new_gene_vec(vec)
   of GeneMap:
     var map = Table[string, GeneValue]()
     for key in node.d.map.keys:
