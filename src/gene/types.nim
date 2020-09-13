@@ -399,6 +399,7 @@ proc new_gene*(kind: GeneKind): GeneValue =
   var offset = GeneValueInternal.offsetOf(kind)
   cast[ptr GeneKind](cast[uint](internal) + offset.uint)[] = kind
   result = GeneValue(d: internal)
+  result.d.refCount = 1
 
 # var
 #   GeneNil*   = GeneValue(kind: GeneNilKind)
