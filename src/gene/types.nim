@@ -375,10 +375,6 @@ proc `=destroy`*(x: var GeneValue) {.inline.} =
     x.d.refCount -= 1
   x.d = nil
 
-proc `=sink`*(dst: var GeneValue, src: GeneValue) {.inline.} =
-  `=destroy`(dst)
-  system.`=sink`(dst.d, src.d)
-
 proc `=`*(dst: var GeneValue, src: GeneValue) {.inline.} =
   `=destroy`(dst)
   if src.d == nil:
