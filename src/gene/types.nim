@@ -370,13 +370,13 @@ proc `=destroy`*(x: var GeneValue) {.inline.} =
   if x.d.refCount == 0:
     # We have the last reference
     if x.d != nil:
+      x.d[].wasMoved
       GeneValueCache.add(x.d)
   else:
     x.d.refCount -= 1
   x.d = nil
 
 proc `=`*(dst: var GeneValue, src: GeneValue) {.inline.} =
-  `=destroy`(dst)
   if src.d == nil:
     dst.d = nil
   else:
@@ -440,6 +440,14 @@ proc `==`*(this, that: ComplexSymbol): bool =
   return this.first == that.first and this.rest == that.rest
 
 #################### GeneValue ###################
+
+# proc clone*(self: GeneValue): GeneValue =
+#   result = new_gene(self.d.kind)
+#   case self.d.kind:
+#   of GeneInt:
+#     result.d.num = self.d.num
+#   else:
+#     todo()
 
 proc `==`*(this, that: GeneValue): bool =
   if this.d.is_nil:

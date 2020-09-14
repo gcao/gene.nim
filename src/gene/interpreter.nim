@@ -482,7 +482,6 @@ proc eval*(self: var VM, node: GeneValue): GeneValue =
       result = result.d.internal.ns[key]
     return result
   of GeneGene:
-    node.normalize
     return self.eval_gene(node)
   of GeneVector:
     # return new_gene_vec(node.d.vec.mapIt(self.eval(it)))

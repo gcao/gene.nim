@@ -1,3 +1,4 @@
+import strformat, logging
 import sets, tables, oids, strutils, hashes
 
 import ./types
@@ -103,11 +104,8 @@ proc instr_def_member*(v: int): Instruction =
 proc instr_def_ns_member*(name: GeneValue): Instruction =
   return Instruction(kind: DefNsMember, val: name)
 
-proc instr_get_member*(name: string): Instruction =
-  return Instruction(kind: GetMember, val: new_gene_string_move(name))
-
-proc instr_get_member*(v: int): Instruction =
-  return Instruction(kind: GetMember, reg: v)
+proc instr_get_member*(v: int, name: string): Instruction =
+  return Instruction(kind: GetMember, reg: v, val: new_gene_string_move(name))
 
 proc instr_get_nested_ns_member*(name: GeneValue): Instruction =
   return Instruction(kind: GetNestedNsMember, val: name)
@@ -149,7 +147,7 @@ proc instr_function*(fn: Function): Instruction =
   return Instruction(kind: CreateFunction, val: new_gene_internal(fn))
 
 proc instr_arguments*(reg: int): Instruction =
-  return Instruction(kind: CreateArguments, reg: reg, val: new_gene_arguments())
+  return Instruction(kind: CreateArguments, reg: reg)
 
 proc instr_ns*(name: string): Instruction =
   return Instruction(kind: CreateNamespace, val: new_gene_string_move(name))
@@ -193,7 +191,7 @@ proc `$`*(instr: Instruction): string =
     return "$# $#" % [$instr.kind, $instr.val]
   of GetMember:
     return "$# $#" % [$instr.kind, $instr.val.d.str]
-  of Call:
+  of Call, CreateArguments:
     return "$# $#" % [$instr.kind, "R" & $instr.reg]
   of Save, SetItem:
     return "$# $# $#" % [$instr.kind, "R" & $instr.reg, $instr.val]
@@ -259,15 +257,22 @@ proc undef_member*(self: var ScopeManager, name: string) =
 
 #################### Block #######################
 
-proc new_block*(): Block =
+proc new_block*(name: string): Block =
   result = Block(
     id: genOid(),
+    name: name,
     reg_mgr: RegManager(next: 1),
     scope_mgr: new_scope_manager(),
   )
 
 proc add(self: var Block, instr: Instruction) =
   self.instructions.add(instr)
+
+proc `$`*(self: Block): string =
+  result = ""
+  for i in 0..<self.instructions.len:
+    var instr = self.instructions[i]
+    result &= &"{self.name:>20} {i:>4} {instr}\n"
 
 #################### Module ####################
 
@@ -298,9 +303,10 @@ proc compile*(self: var Compiler, blk: var Block, node: GeneValue) =
     todo($node)
 
 proc compile*(self: var Compiler, doc: GeneDocument): Block =
-  result = new_block()
+  result = new_block("<root>")
   for node in doc.data:
     self.compile(result, node)
+  debug("\n" & $result)
 
 proc compile*(self: var Compiler, buffer: string): Module =
   var doc = read_document(buffer)
@@ -318,22 +324,24 @@ proc compile_symbol*(self: var Compiler, blk: var Block, name: string) =
   elif name == "global":
     blk.add(instr_global())
   else:
-    blk.add(instr_get_member(cast[int](name.hash)))
+    blk.add(instr_get_member(cast[int](name.hash), name))
 
 proc compile_complex_symbol*(self: var Compiler, blk: var Block, name: GeneValue) =
   blk.add(instr_get_nested_ns_member(name))
 
 proc compile_fn_body*(self: var Compiler, fn: Function): Block =
-  result = new_block()
+  result = new_block(fn.name)
   for node in fn.body:
     self.compile(result, node)
   result.instructions.add(instr_call_end())
+  debug("\n" & $result)
 
 proc compile_body*(self: var Compiler, body: seq[GeneValue]): Block =
-  result = new_block()
+  result = new_block("<unknown>")
   for node in body:
     self.compile(result, node)
   result.instructions.add(instr_call_end())
+  debug("\n" & $result)
 
 proc compile_gene*(self: var Compiler, blk: var Block, node: GeneValue) =
   node.normalize
