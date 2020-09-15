@@ -369,14 +369,27 @@ proc `=destroy`*(x: var GeneValue) {.inline.} =
     return
   if x.d.refCount == 0:
     # We have the last reference
-    if x.d != nil:
-      x.d[].wasMoved
-      GeneValueCache.add(x.d)
+    x.d[].wasMoved
+    GeneValueCache.add(x.d)
   else:
     x.d.refCount -= 1
   x.d = nil
 
+proc `=sink`*(dst: var GeneValue, src: GeneValue) {.inline.} =
+  if dst.d == nil:
+    if src.d != nil:
+      dst.d = src.d
+      dst.d.refCount += 1
+  else:
+    `=destroy`(dst)
+    if src.d != nil:
+      dst.d = src.d
+      dst.d.refCount += 1
+
 proc `=`*(dst: var GeneValue, src: GeneValue) {.inline.} =
+  if src.d == dst.d:
+    return
+  `=destroy`(dst)
   if src.d == nil:
     dst.d = nil
   else:
@@ -390,12 +403,11 @@ proc new_gene*(kind: GeneKind): GeneValue =
   if GeneValueCache.len > 0:
     internal = GeneValueCache.pop()
   else:
-    var address = alloc0(GeneValueSize)
-    internal = cast[GeneValueInternal](address)
+    internal = cast[GeneValueInternal](alloc0(GeneValueSize))
   var offset = GeneValueInternal.offsetOf(kind)
   cast[ptr GeneKind](cast[uint](internal) + offset.uint)[] = kind
-  result = GeneValue(d: internal)
-  result.d.refCount = 1
+  internal.refCount = 1
+  return GeneValue(d: internal)
 
 # var
 #   GeneNil*   = GeneValue(kind: GeneNilKind)

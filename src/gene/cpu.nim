@@ -17,6 +17,11 @@ proc run*(self: var VM, module: Module): GeneValue =
   while pos < cur_block.instructions.len:
     instr = cur_block.instructions[pos]
     debug(&"{cur_block.name:>20} {pos:>4} {instr}")
+    if self.cur_stack[1].d != nil:
+      debug($cast[uint](self.cur_stack[1].d))
+      debug(&"{self.cur_stack[1].d.kind}")
+      if self.cur_stack[1].d.kind == GeneInternal:
+        debug(&"{self.cur_stack[1].d.internal.kind}")
     case instr.kind:
     of Default:
       pos += 1
@@ -95,10 +100,10 @@ proc run*(self: var VM, module: Module): GeneValue =
       self.cur_stack[0] = ns[key]
     of Add:
       pos += 1
-      echo "Add " & $instr.reg
-      echo self.cur_stack[instr.reg].d.kind
-      if self.cur_stack[instr.reg].d.kind == GeneInternal:
-        echo self.cur_stack[instr.reg].d.internal.kind
+      # echo "Add " & $instr.reg
+      # echo self.cur_stack[instr.reg].d.kind
+      # if self.cur_stack[instr.reg].d.kind == GeneInternal:
+      #   echo self.cur_stack[instr.reg].d.internal.kind
       let first = self.cur_stack[instr.reg].d.num
       let second = self.cur_stack[instr.reg2].d.num
       self.cur_stack[0] = new_gene_int(first + second)
@@ -249,7 +254,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       var stack = self.cur_stack
       var fn = stack[0].d.internal.fn
       var args = stack[instr.reg].d.internal.args
-      echo fn.name, $args.positional
+      # echo fn.name, $args.positional
       var cur_stack = StackMgr.get()
       cur_stack.cur_ns = stack.cur_ns
       cur_stack.cur_scope = ScopeMgr.get()
@@ -299,7 +304,7 @@ proc run*(self: var VM, module: Module): GeneValue =
     of CallEnd:
       var stack = self.cur_stack
       self.cur_stack = stack.caller_stack
-      echo cur_block.name, " DONE"
+      # echo cur_block.name, " DONE"
       if not cur_block.no_return:
         self.cur_stack[0] = stack[0]
       cur_block = stack.caller_blk
