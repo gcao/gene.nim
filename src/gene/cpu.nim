@@ -16,12 +16,11 @@ proc run*(self: var VM, module: Module): GeneValue =
   var instr: Instruction
   while pos < cur_block.instructions.len:
     instr = cur_block.instructions[pos]
-    debug(&"{cur_block.name:>20} {pos:>4} {instr}")
     if self.cur_stack[1].d != nil:
-      debug($cast[uint](self.cur_stack[1].d))
-      debug(&"{self.cur_stack[1].d.kind}")
+      debug(&"R1 {$cast[uint](self.cur_stack[1].d)} {$self.cur_stack[1].d.kind}")
       if self.cur_stack[1].d.kind == GeneInternal:
         debug(&"{self.cur_stack[1].d.internal.kind}")
+    debug(&"{cur_block.name:>20} {pos:>4} {instr}")
     case instr.kind:
     of Default:
       pos += 1
