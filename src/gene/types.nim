@@ -302,7 +302,7 @@ type
     d*: GeneValueInternal
 
   GeneValueInternal* = ptr object
-    refCount: uint
+    refCount*: uint
     case kind*: GeneKind
     of GeneAny:
       val: pointer

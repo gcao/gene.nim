@@ -17,7 +17,7 @@ proc run*(self: var VM, module: Module): GeneValue =
   while pos < cur_block.instructions.len:
     instr = cur_block.instructions[pos]
     if self.cur_stack[1].d != nil:
-      debug(&"R1 {$cast[uint](self.cur_stack[1].d)} {$self.cur_stack[1].d.kind}")
+      debug(&"R1 {$cast[uint](self.cur_stack[1].d)} {$self.cur_stack[1].d.refCount} {$self.cur_stack[1].d.kind}")
       if self.cur_stack[1].d.kind == GeneInternal:
         debug(&"{self.cur_stack[1].d.internal.kind}")
     debug(&"{cur_block.name:>20} {pos:>4} {instr}")
@@ -253,7 +253,7 @@ proc run*(self: var VM, module: Module): GeneValue =
       var stack = self.cur_stack
       var fn = stack[0].d.internal.fn
       var args = stack[instr.reg].d.internal.args
-      # echo fn.name, $args.positional
+      echo fn.name, $args.positional
       var cur_stack = StackMgr.get()
       cur_stack.cur_ns = stack.cur_ns
       cur_stack.cur_scope = ScopeMgr.get()
