@@ -3,6 +3,7 @@ import unittest, strutils
 import gene/types
 import gene/parser
 import gene/interpreter
+import gene/interpreter2
 import gene/compiler
 import gene/vm
 import gene/cpu
@@ -49,3 +50,15 @@ proc test_compiler*(code: string, callback: proc(result: GeneValue)) =
     var vm = new_vm()
     var module = c.compile(code)
     callback vm.run(module)
+
+proc test_interpreter*(code: string, result: GeneValue) =
+  var code = cleanup(code)
+  test "Interpreter2 / eval: " & code:
+    var interpreter = new_interpreter2()
+    check interpreter.eval(code) == result
+
+proc test_interpreter*(code: string, callback: proc(result: GeneValue)) =
+  var code = cleanup(code)
+  test "Interpreter2 / eval: " & code:
+    var interpreter = new_interpreter2()
+    callback interpreter.eval(code)
