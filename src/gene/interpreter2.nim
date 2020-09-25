@@ -10,7 +10,13 @@ type
 
   Frame* = ref object
     self*: GeneValue
+    namespace*: Namespace
+    scope*: Scope
     stack*: seq[GeneValue]
+
+  Scope* = ref object
+    parent*: Scope
+    members*: Table[string, GeneValue]
 
   ExprKind* = enum
     ExLiteral
@@ -20,6 +26,7 @@ type
     ExArray
     ExGene
     ExBlock
+    ExVar
     ExUnknown
 
   Expr* = ref object of RootObj
@@ -28,6 +35,8 @@ type
     case kind*: ExprKind
     of ExLiteral:
       literal: GeneValue
+    of ExSymbol:
+      symbol: string
     of ExUnknown:
       unknown: GeneValue
     of ExArray:
@@ -35,22 +44,45 @@ type
     of ExMap:
       map: seq[Expr]
     of ExMapChild:
-      mapKey: string
-      mapVal: Expr
+      map_key: string
+      map_val: Expr
     of ExGene:
       gene: GeneValue
       gene_blk: seq[Expr]
     of ExBlock:
       blk: seq[Expr]
-    else:
-      discard
+    of ExVar:
+      var_name: string
+      var_val: Expr
 
 #################### Interfaces ##################
 
 proc to_expr*(node: GeneValue): Expr
 proc to_expr*(parent: Expr, node: GeneValue): Expr
+proc to_var_expr*(name: string, val: GeneValue): Expr
 proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
 proc to_block*(nodes: seq[GeneValue]): Expr
+
+#################### Namespace ###################
+
+proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
+
+proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
+  self.members[key] = val
+
+#################### Scope #######################
+
+proc new_scope*(): Scope = Scope(members: Table[string, GeneValue]())
+
+proc reset*(self: var Scope) =
+  self.members.clear()
+
+proc hasKey*(self: Scope, key: string): bool {.inline.} = self.members.hasKey(key)
+
+proc `[]`*(self: Scope, key: string): GeneValue {.inline.} = self.members[key]
+
+proc `[]=`*(self: var Scope, key: string, val: GeneValue) {.inline.} =
+  self.members[key] = val
 
 #################### Implementations #############
 
@@ -59,6 +91,9 @@ proc new_literal_expr*(v: GeneValue): Expr =
 
 proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
   return Expr(parent: parent, kind: ExLiteral, literal: v)
+
+proc new_symbol_expr*(s: string): Expr =
+  return Expr(kind: ExSymbol, symbol: s)
 
 proc new_array_expr*(v: GeneValue): Expr =
   result = Expr(kind: ExArray, array: @[])
@@ -84,6 +119,8 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
   case expr.kind:
   of ExLiteral:
     result = expr.literal
+  of ExSymbol:
+    result = self.cur_frame.scope[expr.symbol]
   of ExBlock:
     for e in expr.blk:
       result = self.eval(e)
@@ -94,9 +131,9 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
   of ExMap:
     result = new_gene_map()
     for e in expr.map:
-      result.map[e.mapKey] = self.eval(e)
+      result.map[e.map_key] = self.eval(e)
   of ExMapChild:
-    result = self.eval(expr.mapVal)
+    result = self.eval(expr.map_val)
   of ExGene:
     var gene = expr.gene
     case gene.gene_op.kind:
@@ -122,11 +159,15 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
         of ">=": result = new_gene_bool(v1.num >= v2.num)
         of "&&": result = new_gene_bool(v1.boolVal and v2.boolVal)
         of "||": result = new_gene_bool(v1.boolVal or  v2.boolVal)
-        else: todo()
+        else: todo($gene)
       else:
-        todo()
+        todo($gene)
     else:
-      todo()
+      todo($gene)
+  of ExVar:
+    var val = self.eval(expr.var_val)
+    self.cur_frame.scope[expr.var_name] = val
+    result = GeneNil
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -135,14 +176,24 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
       parent.blk[expr.posInParent] = e
       result = self.eval(e)
     else:
-      todo()
-  else:
-    todo()
+      todo($expr.unknown)
+  # else:
+  #   todo($expr.kind)
+
+#################### Frame #######################
+
+proc new_frame*(): Frame =
+  return Frame(
+    namespace: new_namespace(),
+    scope: new_scope(),
+  )
 
 #################### VM2 #########################
 
 proc new_vm2*(): VM2 =
-  return VM2()
+  return VM2(
+    cur_frame: new_frame(),
+  )
 
 proc eval*(self: VM2, code: string): GeneValue =
   var parsed = read_all(code)
@@ -152,15 +203,27 @@ proc to_expr*(node: GeneValue): Expr =
   case node.kind:
   of GeneNilKind, GeneBool, GeneInt:
     return new_literal_expr(node)
+  of GeneSymbol:
+    return new_symbol_expr(node.symbol)
   of GeneVector:
     return new_array_expr(node)
   of GeneMap:
     return new_map_expr(node)
   of GeneGene:
     node.normalize
-    return new_gene_expr(node)
+    case node.gene_op.kind:
+    of GeneSymbol:
+      case node.gene_op.symbol:
+      of "var":
+        var name = node.gene_data[0].symbol
+        var val = node.gene_data[1]
+        return to_var_expr(name, val)
+      # else:
+      #   return new_gene_expr(node)
+    else:
+      return new_gene_expr(node)
   else:
-    todo()
+    todo($node)
 
 proc to_expr*(parent: Expr, node: GeneValue): Expr =
   result = to_expr(node)
@@ -175,6 +238,13 @@ proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
   result = Expr(
     kind: ExMapChild,
     parent: parent,
-    mapKey: key,
+    map_key: key,
   )
-  result.mapVal = to_expr(parent, val)
+  result.map_val = to_expr(result, val)
+
+proc to_var_expr*(name: string, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExVar,
+    var_name: name,
+  )
+  result.var_val = to_expr(result, val)
