@@ -29,6 +29,8 @@ type
     ExVar
     ExAssignment
     ExUnknown
+    ExIf
+    # ExIfElseIf
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -55,11 +57,16 @@ type
     of ExVar, ExAssignment:
       var_name: string
       var_val: Expr
+    of ExIf:
+      if_cond: Expr
+      if_then: Expr
+      if_else: Expr
 
 #################### Interfaces ##################
 
 proc to_expr*(node: GeneValue): Expr
 proc to_expr*(parent: Expr, node: GeneValue): Expr
+proc to_if_expr*(val: GeneValue): Expr
 proc to_var_expr*(name: string, val: GeneValue): Expr
 proc to_assignment_expr*(name: string, val: GeneValue): Expr
 proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
@@ -174,6 +181,12 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
     var val = self.eval(expr.var_val)
     self.cur_frame.scope[expr.var_name] = val
     result = GeneNil
+  of ExIf:
+    var v = self.eval(expr.if_cond)
+    if v:
+      result = self.eval(expr.if_then)
+    else:
+      result = self.eval(expr.if_else)
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -230,6 +243,8 @@ proc to_expr*(node: GeneValue): Expr =
         var name = node.gene_data[0].symbol
         var val = node.gene_data[1]
         return to_assignment_expr(name, val)
+      of "if":
+        return to_if_expr(node)
       else:
         return new_gene_expr(node)
     else:
@@ -267,3 +282,10 @@ proc to_assignment_expr*(name: string, val: GeneValue): Expr =
     var_name: name,
   )
   result.var_val = to_expr(result, val)
+
+proc to_if_expr*(val: GeneValue): Expr =
+  result = Expr(
+    kind: ExIf,
+    if_cond: to_expr(val.gene_data[0]),
+    if_then: to_expr(val.gene_data[1]),
+  )
