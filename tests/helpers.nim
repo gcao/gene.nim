@@ -54,11 +54,11 @@ proc test_compiler*(code: string, callback: proc(result: GeneValue)) =
 proc test_interpreter*(code: string, result: GeneValue) =
   var code = cleanup(code)
   test "Interpreter2 / eval: " & code:
-    var interpreter = new_interpreter2()
+    var interpreter = new_vm2()
     check interpreter.eval(code) == result
 
 proc test_interpreter*(code: string, callback: proc(result: GeneValue)) =
   var code = cleanup(code)
   test "Interpreter2 / eval: " & code:
-    var interpreter = new_interpreter2()
+    var interpreter = new_vm2()
     callback interpreter.eval(code)
