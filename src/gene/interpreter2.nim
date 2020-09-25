@@ -27,6 +27,7 @@ type
     ExGene
     ExBlock
     ExVar
+    ExAssignment
     ExUnknown
 
   Expr* = ref object of RootObj
@@ -51,7 +52,7 @@ type
       gene_blk: seq[Expr]
     of ExBlock:
       blk: seq[Expr]
-    of ExVar:
+    of ExVar, ExAssignment:
       var_name: string
       var_val: Expr
 
@@ -60,6 +61,7 @@ type
 proc to_expr*(node: GeneValue): Expr
 proc to_expr*(parent: Expr, node: GeneValue): Expr
 proc to_var_expr*(name: string, val: GeneValue): Expr
+proc to_assignment_expr*(name: string, val: GeneValue): Expr
 proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
 proc to_block*(nodes: seq[GeneValue]): Expr
 
@@ -168,6 +170,10 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
     var val = self.eval(expr.var_val)
     self.cur_frame.scope[expr.var_name] = val
     result = GeneNil
+  of ExAssignment:
+    var val = self.eval(expr.var_val)
+    self.cur_frame.scope[expr.var_name] = val
+    result = GeneNil
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -216,10 +222,16 @@ proc to_expr*(node: GeneValue): Expr =
       case node.gene_op.symbol:
       of "var":
         var name = node.gene_data[0].symbol
-        var val = node.gene_data[1]
+        var val = GeneNil
+        if node.gene_data.len > 1:
+          val = node.gene_data[1]
         return to_var_expr(name, val)
-      # else:
-      #   return new_gene_expr(node)
+      of "=":
+        var name = node.gene_data[0].symbol
+        var val = node.gene_data[1]
+        return to_assignment_expr(name, val)
+      else:
+        return new_gene_expr(node)
     else:
       return new_gene_expr(node)
   else:
@@ -245,6 +257,13 @@ proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
 proc to_var_expr*(name: string, val: GeneValue): Expr =
   result = Expr(
     kind: ExVar,
+    var_name: name,
+  )
+  result.var_val = to_expr(result, val)
+
+proc to_assignment_expr*(name: string, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExAssignment,
     var_name: name,
   )
   result.var_val = to_expr(result, val)
