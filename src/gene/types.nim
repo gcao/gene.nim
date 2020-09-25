@@ -549,6 +549,12 @@ proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
 
 proc new_gene_vec*(items: varargs[GeneValue]): GeneValue = new_gene_vec(@items)
 
+proc new_gene_map*(): GeneValue =
+  return GeneValue(
+    kind: GeneMap,
+    map: Table[string, GeneValue](),
+  )
+
 proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneMap,
