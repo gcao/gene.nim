@@ -102,7 +102,7 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
     case gene.gene_op.kind:
     of GeneSymbol:
       case gene.gene_op.symbol:
-      of "+":
+      of "+", "-", "==", "<", "<=", ">", ">=", "&&", "||":
         expr.gene_blk = @[]
         var first = gene.gene_data[0]
         var e1 = to_expr(first)
@@ -112,7 +112,17 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
         var e2 = to_expr(second)
         var v2 = self.eval(e2)
         # expr.gene_blk.add(e2)
-        result = new_gene_int(v1.num + v2.num)
+        case gene.gene_op.symbol:
+        of "+" : result = new_gene_int(v1.num + v2.num)
+        of "-" : result = new_gene_int(v1.num - v2.num)
+        of "==": result = new_gene_bool(v1.num == v2.num)
+        of "<" : result = new_gene_bool(v1.num <  v2.num)
+        of "<=": result = new_gene_bool(v1.num <= v2.num)
+        of ">" : result = new_gene_bool(v1.num >  v2.num)
+        of ">=": result = new_gene_bool(v1.num >= v2.num)
+        of "&&": result = new_gene_bool(v1.boolVal and v2.boolVal)
+        of "||": result = new_gene_bool(v1.boolVal or  v2.boolVal)
+        else: todo()
       else:
         todo()
     else:
