@@ -3,6 +3,11 @@ import tables
 import ./types
 import ./parser
 
+# let IF   = new_gene_symbol("if")
+# let THEN = new_gene_symbol("then")
+# let ELIF = new_gene_symbol("elif")
+# let ELSE = new_gene_symbol("else")
+
 type
   VM2* = ref object
     cur_frame*: Frame
@@ -62,6 +67,19 @@ type
       if_then: Expr
       if_else: Expr
 
+  # NormalizedIf = tuple
+  #   cond: GeneValue
+  #   then_logic: seq[GeneValue]
+  #   elif_pairs: seq[(GeneValue, seq[GeneValue])]
+  #   else_logic: seq[GeneValue]
+
+  # IfState = enum
+  #   Cond
+  #   ThenBlock
+  #   ElseIfCond
+  #   ElseIfThenBlock
+  #   ElseBlock
+
 #################### Interfaces ##################
 
 proc to_expr*(node: GeneValue): Expr
@@ -71,6 +89,7 @@ proc to_var_expr*(name: string, val: GeneValue): Expr
 proc to_assignment_expr*(name: string, val: GeneValue): Expr
 proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
 proc to_block*(nodes: seq[GeneValue]): Expr
+# proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Namespace ###################
 
@@ -289,3 +308,42 @@ proc to_if_expr*(val: GeneValue): Expr =
     if_cond: to_expr(val.gene_data[0]),
     if_then: to_expr(val.gene_data[1]),
   )
+  if val.gene_data.len > 3:
+    result.if_else = to_expr(val.gene_data[3])
+
+# proc normalize_if*(val: GeneValue): NormalizedIf =
+#   var cond: GeneValue = val.gene_data[0]
+#   result.cond = cond
+#   var then_logic: seq[GeneValue] = @[]
+#   result.then_logic = then_logic
+#   var elif_pairs: seq[(GeneValue, seq[GeneValue])] = @[]
+#   result.elif_pairs = elif_pairs
+#   var else_logic: seq[GeneValue] = @[]
+#   result.else_logic = else_logic
+
+#   var state = ThenBlock
+#   for i in 1..<val.gene_data.len:
+#     var item = val.gene_data[i]
+#     case state:
+#     of ThenBlock:
+#       if item == ELSE:
+#         state = ElseBlock
+#       elif item == ELIF:
+#         state = ElseIfCond
+#       else:
+#         then_logic.add(item)
+#     of ElseIfCond:
+#       if item in @[ELSE, ELIF, THEN]:
+#         not_allowed()
+#       else:
+#         state = ElseIfThenBlock
+#         elif_pairs.add((item, @[]))
+#     of ElseIfThenBlock:
+#       if item == ELSE:
+#         state = ElseBlock
+#       elif item == ELIF:
+#         state = ElseIfCond
+#       else:
+#         elif_pairs[^1][1].add(item)
+#     else:
+#       not_allowed()

@@ -38,7 +38,7 @@ test_interpreter "(var a 1) (a = 2) a", 2
 test_interpreter "(var a) (a = 2) a", 2
 
 test_interpreter "(if true 1)", 1
-# test_interpreter "(if false 1 else 2)", 2
+test_interpreter "(if false 1 else 2)", 2
 # test_interpreter """
 #   (if false
 #     1
