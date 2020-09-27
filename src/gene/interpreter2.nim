@@ -264,6 +264,8 @@ proc to_expr*(node: GeneValue): Expr =
         return to_assignment_expr(name, val)
       of "if":
         return to_if_expr(node)
+      of "do":
+        return to_block(node.gene_data)
       else:
         return new_gene_expr(node)
     else:

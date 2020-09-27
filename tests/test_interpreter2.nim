@@ -49,4 +49,4 @@ test_interpreter "(if false 1 else 2)", 2
 #   )
 # """, 2
 
-# test_interpreter "(do 1 2)", 2
+test_interpreter "(do 1 2)", 2
