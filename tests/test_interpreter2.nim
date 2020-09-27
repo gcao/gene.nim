@@ -67,3 +67,11 @@ test_interpreter """
     (break i)
   )
 """, 1
+
+test_interpreter """
+  (var i 0)
+  (while (i < 3)
+    (i = (i + 1))
+  )
+  i
+""", 3
