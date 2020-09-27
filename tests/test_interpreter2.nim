@@ -1,4 +1,4 @@
-import tables
+import unittest, tables
 
 import gene/types
 import ./helpers
@@ -75,3 +75,6 @@ test_interpreter """
   )
   i
 """, 3
+
+test_interpreter "(fn f a a)", proc(r: GeneValue) =
+  check r.internal.fn.name == "f"

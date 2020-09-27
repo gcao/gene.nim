@@ -39,6 +39,7 @@ type
     ExLoop
     ExBreak
     ExWhile
+    ExFn
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -76,6 +77,9 @@ type
     of ExWhile:
       while_cond: Expr
       while_blk: seq[Expr]
+    of ExFn:
+      fn: GeneValue
+      fn_body: seq[Expr]
 
   Break* = ref object of CatchableError
     val: GeneValue
@@ -105,6 +109,7 @@ proc to_block*(nodes: seq[GeneValue]): Expr
 proc to_loop_expr*(val: GeneValue): Expr
 proc to_break_expr*(val: GeneValue): Expr
 proc to_while_expr*(val: GeneValue): Expr
+proc to_fn_expr*(val: GeneValue): Expr
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Namespace ###################
@@ -246,6 +251,9 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
         cond = self.eval(expr.while_cond)
     except Break as b:
       result = b.val
+  of ExFn:
+    self.cur_frame.scope[expr.fn.internal.fn.name] = expr.fn
+    result = expr.fn
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -316,6 +324,8 @@ proc to_expr*(node: GeneValue): Expr =
         return to_break_expr(node)
       of "while":
         return to_while_expr(node)
+      of "fn":
+        return to_fn_expr(node)
       else:
         return new_gene_expr(node)
     else:
@@ -416,3 +426,10 @@ proc to_if_expr*(val: GeneValue): Expr =
 #         elif_pairs[^1][1].add(item)
 #     else:
 #       not_allowed()
+
+proc to_fn_expr*(val: GeneValue): Expr =
+  result = Expr(
+    kind: ExFn,
+  )
+  var fn: Function = val
+  result.fn = new_gene_internal(fn)

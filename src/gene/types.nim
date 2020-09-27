@@ -779,6 +779,29 @@ converter from_gene*(v: GeneValue): bool =
   else:
     true
 
+converter from_gene*(node: GeneValue): Function =
+  var first = node.gene_data[0]
+  var name: string
+  if first.kind == GeneSymbol:
+    name = first.symbol
+  elif first.kind == GeneComplexSymbol:
+    name = first.csymbol.rest[^1]
+  var args: seq[string] = @[]
+  var a = node.gene_data[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  return new_fn(name, args, body)
+
 #################### Dynamic #####################
 
 proc load_dynamic*(path:string, names: seq[string]): Table[string, native_proc] =
