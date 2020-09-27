@@ -50,3 +50,20 @@ test_interpreter "(if false 1 else 2)", 2
 # """, 2
 
 test_interpreter "(do 1 2)", 2
+
+test_interpreter """
+  (var i 0)
+  (loop
+    (i = (i + 1))
+    (break)
+  )
+  i
+""", 1
+
+test_interpreter """
+  (var i 0)
+  (loop
+    (i = (i + 1))
+    (break i)
+  )
+""", 1

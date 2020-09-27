@@ -36,6 +36,8 @@ type
     ExUnknown
     ExIf
     # ExIfElseIf
+    ExLoop
+    ExBreak
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -66,6 +68,13 @@ type
       if_cond: Expr
       if_then: Expr
       if_else: Expr
+    of ExLoop:
+      loop_blk: seq[Expr]
+    of ExBreak:
+      break_val: Expr
+
+  Break* = ref object of CatchableError
+    val: GeneValue
 
   # NormalizedIf = tuple
   #   cond: GeneValue
@@ -89,6 +98,8 @@ proc to_var_expr*(name: string, val: GeneValue): Expr
 proc to_assignment_expr*(name: string, val: GeneValue): Expr
 proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
 proc to_block*(nodes: seq[GeneValue]): Expr
+proc to_loop_expr*(val: GeneValue): Expr
+proc to_break_expr*(val: GeneValue): Expr
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Namespace ###################
@@ -206,12 +217,31 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
       result = self.eval(expr.if_then)
     else:
       result = self.eval(expr.if_else)
+  of ExLoop:
+    try:
+      while true:
+        for e in expr.loop_blk:
+          discard self.eval(e)
+    except Break as b:
+      result = b.val
+  of ExBreak:
+    var val = GeneNil
+    if expr.break_val != nil:
+      val = self.eval(expr.break_val)
+    var e: Break
+    e.new
+    e.val = val
+    raise e
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
     of ExBlock:
       var e = to_expr(expr.unknown)
       parent.blk[expr.posInParent] = e
+      result = self.eval(e)
+    of ExLoop:
+      var e = to_expr(expr.unknown)
+      parent.loop_blk[expr.posInParent] = e
       result = self.eval(e)
     else:
       todo($expr.unknown)
@@ -266,6 +296,10 @@ proc to_expr*(node: GeneValue): Expr =
         return to_if_expr(node)
       of "do":
         return to_block(node.gene_data)
+      of "loop":
+        return to_loop_expr(node)
+      of "break":
+        return to_break_expr(node)
       else:
         return new_gene_expr(node)
     else:
@@ -281,6 +315,16 @@ proc to_block*(nodes: seq[GeneValue]): Expr =
   result = Expr(kind: ExBlock)
   for node in nodes:
     result.blk.add(new_unknown_expr(result, node))
+
+proc to_loop_expr*(val: GeneValue): Expr =
+  result = Expr(kind: ExLoop)
+  for node in val.gene_data:
+    result.loop_blk.add(new_unknown_expr(result, node))
+
+proc to_break_expr*(val: GeneValue): Expr =
+  result = Expr(kind: ExBreak)
+  if val.gene_data.len > 0:
+    result.break_val = to_expr(val.gene_data[0])
 
 proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
   result = Expr(
