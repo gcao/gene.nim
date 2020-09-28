@@ -350,9 +350,14 @@ proc `[]`*(self: VM2, key: string): GeneValue {.inline.} =
   else:
     return self.cur_frame.namespace[key]
 
-proc eval*(self: VM2, code: string): GeneValue =
+proc prepare*(self: VM2, code: string): Expr =
   var parsed = read_all(code)
-  return self.eval(to_block(parsed))
+  return to_block(parsed)
+
+proc eval*(self: VM2, code: string): GeneValue =
+  return self.eval(self.prepare(code))
+
+##################################################
 
 proc to_expr*(node: GeneValue): Expr =
   case node.kind:
@@ -505,3 +510,16 @@ proc to_return_expr*(val: GeneValue): Expr =
   result = Expr(kind: ExReturn)
   if val.gene_data.len > 0:
     result.return_val = to_expr(val.gene_data[0])
+
+when isMainModule:
+  import os, times
+
+  if commandLineParams().len == 0:
+    echo "\nUsage: interpreter2 <GENE FILE>\n"
+    quit(0)
+  var interpreter = new_vm2()
+  let e = interpreter.prepare(readFile(commandLineParams()[0]))
+  let start = cpuTime()
+  let result = interpreter.eval(e)
+  echo "Time: " & $(cpuTime() - start)
+  echo result
