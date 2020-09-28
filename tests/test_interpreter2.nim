@@ -78,3 +78,25 @@ test_interpreter """
 
 test_interpreter "(fn f a a)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
+
+test_interpreter "(fn f [] 1) (f)", 1
+test_interpreter "(fn f a (a + 1)) (f 1)", 2
+
+test_eval """
+  (fn f []
+    (return 1)
+    2
+  )
+  (f)
+""", 1
+
+test_interpreter """
+  (fn fib n
+    (if (n < 2)
+      n
+    else
+      ((fib (n - 1)) + (fib (n - 2)))
+    )
+  )
+  (fib 6)
+""", 8

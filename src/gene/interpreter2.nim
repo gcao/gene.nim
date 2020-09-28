@@ -40,6 +40,7 @@ type
     ExBreak
     ExWhile
     ExFn
+    ExReturn
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -80,8 +81,13 @@ type
     of ExFn:
       fn: GeneValue
       fn_body: seq[Expr]
+    of ExReturn:
+      return_val: Expr
 
   Break* = ref object of CatchableError
+    val: GeneValue
+
+  Return* = ref object of CatchableError
     val: GeneValue
 
   # NormalizedIf = tuple
@@ -110,6 +116,7 @@ proc to_loop_expr*(val: GeneValue): Expr
 proc to_break_expr*(val: GeneValue): Expr
 proc to_while_expr*(val: GeneValue): Expr
 proc to_fn_expr*(val: GeneValue): Expr
+proc to_return_expr*(val: GeneValue): Expr
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Namespace ###################
@@ -210,7 +217,26 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
         of "||": result = new_gene_bool(v1.boolVal or  v2.boolVal)
         else: todo($gene)
       else:
-        todo($gene)
+        var target = self.cur_frame.scope[gene.gene_op.symbol]
+        if target.kind == GeneInternal and target.internal.kind == GeneFunction:
+          var fn = target.internal.fn
+          var fn_scope = new_scope()
+          var args: seq[GeneValue] = @[]
+          for item in gene.gene_data:
+            args.add(self.eval(to_expr(item)))
+          fn_scope.parent = self.cur_frame.scope
+          for i in 0..<fn.args.len:
+            var arg = fn.args[i]
+            var val = args[i]
+            fn_scope[arg] = val
+          var caller_scope = self.cur_frame.scope
+          self.cur_frame.scope = fn_scope
+          try:
+            for item in fn.body:
+              result = self.eval(to_expr(item))
+          except Return as r:
+            result = r.val
+          self.cur_frame.scope = caller_scope
     else:
       todo($gene)
   of ExVar:
@@ -254,6 +280,14 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
   of ExFn:
     self.cur_frame.scope[expr.fn.internal.fn.name] = expr.fn
     result = expr.fn
+  of ExReturn:
+    var val = GeneNil
+    if expr.return_val != nil:
+      val = self.eval(expr.return_val)
+    var e: Return
+    e.new
+    e.val = val
+    raise e
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -326,6 +360,8 @@ proc to_expr*(node: GeneValue): Expr =
         return to_while_expr(node)
       of "fn":
         return to_fn_expr(node)
+      of "return":
+        return to_return_expr(node)
       else:
         return new_gene_expr(node)
     else:
@@ -430,6 +466,10 @@ proc to_if_expr*(val: GeneValue): Expr =
 proc to_fn_expr*(val: GeneValue): Expr =
   result = Expr(
     kind: ExFn,
+    fn: val,
   )
-  var fn: Function = val
-  result.fn = new_gene_internal(fn)
+
+proc to_return_expr*(val: GeneValue): Expr =
+  result = Expr(kind: ExReturn)
+  if val.gene_data.len > 0:
+    result.return_val = to_expr(val.gene_data[0])
