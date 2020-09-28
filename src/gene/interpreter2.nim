@@ -19,6 +19,11 @@ type
     scope*: Scope
     stack*: seq[GeneValue]
 
+  Namespace = ref object
+    parent*: Namespace
+    name*: string
+    members*: Table[string, GeneValue]
+
   Scope* = ref object
     parent*: Scope
     members*: Table[string, GeneValue]
@@ -105,6 +110,7 @@ type
 
 #################### Interfaces ##################
 
+proc `[]`*(self: VM2, key: string): GeneValue {.inline.}
 proc to_expr*(node: GeneValue): Expr
 proc to_expr*(parent: Expr, node: GeneValue): Expr
 proc to_if_expr*(val: GeneValue): Expr
@@ -121,9 +127,28 @@ proc to_return_expr*(val: GeneValue): Expr
 
 #################### Namespace ###################
 
-proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
+proc new_namespace*(): Namespace =
+  return Namespace(
+    name: "<root>",
+    members: Table[string, GeneValue](),
+  )
 
-proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
+proc new_namespace*(name: string): Namespace =
+  return Namespace(
+    name: name,
+    members: Table[string, GeneValue](),
+  )
+
+proc new_namespace*(parent: Namespace, name: string): Namespace =
+  return Namespace(
+    parent: parent,
+    name: name,
+    members: Table[string, GeneValue](),
+  )
+
+proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} = self.members[key]
+
+proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
   self.members[key] = val
 
 #################### Scope #######################
@@ -176,7 +201,7 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
   of ExLiteral:
     result = expr.literal
   of ExSymbol:
-    result = self.cur_frame.scope[expr.symbol]
+    result = self[expr.symbol]
   of ExBlock:
     for e in expr.blk:
       result = self.eval(e)
@@ -217,7 +242,7 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
         of "||": result = new_gene_bool(v1.boolVal or  v2.boolVal)
         else: todo($gene)
       else:
-        var target = self.cur_frame.scope[gene.gene_op.symbol]
+        var target = self[gene.gene_op.symbol]
         if target.kind == GeneInternal and target.internal.kind == GeneFunction:
           var fn = target.internal.fn
           var fn_scope = new_scope()
@@ -278,7 +303,7 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
     except Break as b:
       result = b.val
   of ExFn:
-    self.cur_frame.scope[expr.fn.internal.fn.name] = expr.fn
+    self.cur_frame.namespace[expr.fn.internal.fn.name] = expr.fn
     result = expr.fn
   of ExReturn:
     var val = GeneNil
@@ -318,6 +343,12 @@ proc new_vm2*(): VM2 =
   return VM2(
     cur_frame: new_frame(),
   )
+
+proc `[]`*(self: VM2, key: string): GeneValue {.inline.} =
+  if self.cur_frame.scope.hasKey(key):
+    return self.cur_frame.scope[key]
+  else:
+    return self.cur_frame.namespace[key]
 
 proc eval*(self: VM2, code: string): GeneValue =
   var parsed = read_all(code)
@@ -464,9 +495,10 @@ proc to_if_expr*(val: GeneValue): Expr =
 #       not_allowed()
 
 proc to_fn_expr*(val: GeneValue): Expr =
+  var fn: Function = val
   result = Expr(
     kind: ExFn,
-    fn: val,
+    fn: new_gene_internal(fn),
   )
 
 proc to_return_expr*(val: GeneValue): Expr =

@@ -82,7 +82,7 @@ test_interpreter "(fn f a a)", proc(r: GeneValue) =
 test_interpreter "(fn f [] 1) (f)", 1
 test_interpreter "(fn f a (a + 1)) (f 1)", 2
 
-test_eval """
+test_interpreter """
   (fn f []
     (return 1)
     2
