@@ -181,34 +181,31 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
   of ExMapChild:
     result = self.eval(expr.map_val)
   of ExGene:
-    var gene = expr.gene
-    case gene.gene_op.kind:
-    of GeneSymbol:
-      var target = self[gene.gene_op.symbol]
-      if target.kind == GeneInternal and target.internal.kind == GeneFunction:
-        var fn = target.internal.fn
-        var fn_scope = new_scope()
-        var args: seq[GeneValue] = @[]
-        for item in gene.gene_data:
-          args.add(self.eval(to_expr(item)))
-        fn_scope.parent = self.cur_frame.scope
-        for i in 0..<fn.args.len:
-          var arg = fn.args[i]
-          var val = args[i]
-          fn_scope[arg] = val
-        var caller_scope = self.cur_frame.scope
-        self.cur_frame.scope = fn_scope
-        if fn.body_blk.len == 0:
-          for item in fn.body:
-            fn.body_blk.add(to_expr(item))
-        try:
-          for e in fn.body_blk:
-            result = self.eval(e)
-        except Return as r:
-          result = r.val
-        self.cur_frame.scope = caller_scope
+    var target = self.eval(expr.gene_op)
+    if target.kind == GeneInternal and target.internal.kind == GeneFunction:
+      var fn = target.internal.fn
+      var fn_scope = new_scope()
+      var args: seq[GeneValue] = @[]
+      for e in expr.gene_blk:
+        args.add(self.eval(e))
+      fn_scope.parent = self.cur_frame.scope
+      for i in 0..<fn.args.len:
+        var arg = fn.args[i]
+        var val = args[i]
+        fn_scope[arg] = val
+      var caller_scope = self.cur_frame.scope
+      self.cur_frame.scope = fn_scope
+      if fn.body_blk.len == 0:
+        for item in fn.body:
+          fn.body_blk.add(to_expr(item))
+      try:
+        for e in fn.body_blk:
+          result = self.eval(e)
+      except Return as r:
+        result = r.val
+      self.cur_frame.scope = caller_scope
     else:
-      todo($gene)
+      todo($expr.gene)
   of ExBinary:
     var first = self.eval(expr.bin_first)
     var second = self.eval(expr.bin_second)
@@ -363,9 +360,13 @@ proc to_expr*(node: GeneValue): Expr {.inline.} =
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return to_binary_expr(node.gene_op.symbol, node)
       else:
-        return new_gene_expr(node)
+        discard
     else:
-      return new_gene_expr(node)
+      discard
+    result = new_gene_expr(node)
+    result.gene_op = to_expr(node.gene_op)
+    for item in node.gene_data:
+      result.gene_blk.add(to_expr(item))
   else:
     todo($node)
 

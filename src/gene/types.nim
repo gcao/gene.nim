@@ -389,6 +389,7 @@ type
       map_val*: Expr
     of ExGene:
       gene*: GeneValue
+      gene_op*: Expr
       gene_blk*: seq[Expr]
     of ExBlock:
       blk*: seq[Expr]
