@@ -212,6 +212,7 @@ type
     args*: seq[string]
     body*: seq[GeneValue]
     body_block*: Block
+    body_blk*: seq[Expr]
     ## No need to return value to caller, applicable to class constructor etc
     no_return*: bool
 
@@ -346,6 +347,66 @@ type
     data*: seq[GeneValue]
 
   native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
+
+  ExprKind* = enum
+    ExLiteral
+    ExSymbol
+    ExMap
+    ExMapChild
+    ExArray
+    ExGene
+    ExBlock
+    ExVar
+    ExAssignment
+    ExUnknown
+    ExIf
+    # ExIfElseIf
+    ExLoop
+    ExBreak
+    ExWhile
+    ExFn
+    ExReturn
+
+  Expr* = ref object of RootObj
+    parent*: Expr
+    posInParent*: int
+    case kind*: ExprKind
+    of ExLiteral:
+      literal*: GeneValue
+    of ExSymbol:
+      symbol*: string
+    of ExUnknown:
+      unknown*: GeneValue
+    of ExArray:
+      array*: seq[Expr]
+    of ExMap:
+      map*: seq[Expr]
+    of ExMapChild:
+      map_key*: string
+      map_val*: Expr
+    of ExGene:
+      gene*: GeneValue
+      gene_blk*: seq[Expr]
+    of ExBlock:
+      blk*: seq[Expr]
+    of ExVar, ExAssignment:
+      var_name*: string
+      var_val*: Expr
+    of ExIf:
+      if_cond*: Expr
+      if_then*: Expr
+      if_else*: Expr
+    of ExLoop:
+      loop_blk*: seq[Expr]
+    of ExBreak:
+      break_val*: Expr
+    of ExWhile:
+      while_cond*: Expr
+      while_blk*: seq[Expr]
+    of ExFn:
+      fn*: GeneValue
+    of ExReturn:
+      return_val*: Expr
 
 let
   GeneNil*   = GeneValue(kind: GeneNilKind)

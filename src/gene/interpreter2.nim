@@ -28,67 +28,6 @@ type
     parent*: Scope
     members*: Table[string, GeneValue]
 
-  ExprKind* = enum
-    ExLiteral
-    ExSymbol
-    ExMap
-    ExMapChild
-    ExArray
-    ExGene
-    ExBlock
-    ExVar
-    ExAssignment
-    ExUnknown
-    ExIf
-    # ExIfElseIf
-    ExLoop
-    ExBreak
-    ExWhile
-    ExFn
-    ExReturn
-
-  Expr* = ref object of RootObj
-    parent*: Expr
-    posInParent*: int
-    case kind*: ExprKind
-    of ExLiteral:
-      literal: GeneValue
-    of ExSymbol:
-      symbol: string
-    of ExUnknown:
-      unknown: GeneValue
-    of ExArray:
-      array: seq[Expr]
-    of ExMap:
-      map: seq[Expr]
-    of ExMapChild:
-      map_key: string
-      map_val: Expr
-    of ExGene:
-      gene: GeneValue
-      gene_blk: seq[Expr]
-    of ExBlock:
-      blk: seq[Expr]
-    of ExVar, ExAssignment:
-      var_name: string
-      var_val: Expr
-    of ExIf:
-      if_cond: Expr
-      if_then: Expr
-      if_else: Expr
-    of ExLoop:
-      loop_blk: seq[Expr]
-    of ExBreak:
-      break_val: Expr
-    of ExWhile:
-      while_cond: Expr
-      while_blk: seq[Expr]
-    of ExFn:
-      fn: GeneValue
-      fn_body: seq[Expr]
-    of ExReturn:
-      return_val: Expr
-
   Break* = ref object of CatchableError
     val: GeneValue
 
@@ -111,8 +50,8 @@ type
 #################### Interfaces ##################
 
 proc `[]`*(self: VM2, key: string): GeneValue {.inline.}
-proc to_expr*(node: GeneValue): Expr
-proc to_expr*(parent: Expr, node: GeneValue): Expr
+proc to_expr*(node: GeneValue): Expr {.inline.}
+proc to_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
 proc to_if_expr*(val: GeneValue): Expr
 proc to_var_expr*(name: string, val: GeneValue): Expr
 proc to_assignment_expr*(name: string, val: GeneValue): Expr
@@ -165,6 +104,31 @@ proc `[]`*(self: Scope, key: string): GeneValue {.inline.} = self.members[key]
 proc `[]=`*(self: var Scope, key: string, val: GeneValue) {.inline.} =
   self.members[key] = val
 
+#################### Function ####################
+
+converter from_gene*(node: GeneValue): Function =
+  var first = node.gene_data[0]
+  var name: string
+  if first.kind == GeneSymbol:
+    name = first.symbol
+  elif first.kind == GeneComplexSymbol:
+    name = first.csymbol.rest[^1]
+  var args: seq[string] = @[]
+  var a = node.gene_data[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  return new_fn(name, args, body)
+
 #################### Implementations #############
 
 proc new_literal_expr*(v: GeneValue): Expr =
@@ -196,7 +160,7 @@ proc new_unknown_expr*(v: GeneValue): Expr =
 proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
   return Expr(parent: parent, kind: ExUnknown, unknown: v)
 
-proc eval*(self: VM2, expr: Expr): GeneValue =
+proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
   case expr.kind:
   of ExLiteral:
     result = expr.literal
@@ -256,9 +220,12 @@ proc eval*(self: VM2, expr: Expr): GeneValue =
             fn_scope[arg] = val
           var caller_scope = self.cur_frame.scope
           self.cur_frame.scope = fn_scope
-          try:
+          if fn.body_blk.len == 0:
             for item in fn.body:
-              result = self.eval(to_expr(item))
+              fn.body_blk.add(to_expr(item))
+          try:
+            for e in fn.body_blk:
+              result = self.eval(e)
           except Return as r:
             result = r.val
           self.cur_frame.scope = caller_scope
@@ -359,7 +326,7 @@ proc eval*(self: VM2, code: string): GeneValue =
 
 ##################################################
 
-proc to_expr*(node: GeneValue): Expr =
+proc to_expr*(node: GeneValue): Expr {.inline.} =
   case node.kind:
   of GeneNilKind, GeneBool, GeneInt:
     return new_literal_expr(node)
@@ -405,7 +372,7 @@ proc to_expr*(node: GeneValue): Expr =
   else:
     todo($node)
 
-proc to_expr*(parent: Expr, node: GeneValue): Expr =
+proc to_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   result = to_expr(node)
   result.parent = parent
 
