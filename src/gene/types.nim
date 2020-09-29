@@ -358,6 +358,9 @@ type
     ExBlock
     ExVar
     ExAssignment
+    ExBinary
+    # ExBinImmediate
+    # ExBinImmediate2
     ExUnknown
     ExIf
     # ExIfElseIf
@@ -392,6 +395,10 @@ type
     of ExVar, ExAssignment:
       var_name*: string
       var_val*: Expr
+    of ExBinary:
+      bin_op*: BinOps
+      bin_first*: Expr
+      bin_second*: Expr
     of ExIf:
       if_cond*: Expr
       if_then*: Expr
@@ -407,6 +414,20 @@ type
       fn*: GeneValue
     of ExReturn:
       return_val*: Expr
+
+  BinOps* = enum
+    BinAdd
+    BinSub
+    BinMul
+    BinDiv
+    BinEq
+    BinNeq
+    BinLt
+    BinLe
+    BinGt
+    BinGe
+    BinAnd
+    BinOr
 
 let
   GeneNil*   = GeneValue(kind: GeneNilKind)

@@ -62,6 +62,7 @@ proc to_break_expr*(val: GeneValue): Expr
 proc to_while_expr*(val: GeneValue): Expr
 proc to_fn_expr*(val: GeneValue): Expr
 proc to_return_expr*(val: GeneValue): Expr
+proc to_binary_expr*(op: string, val: GeneValue): Expr
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Namespace ###################
@@ -183,54 +184,48 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
     var gene = expr.gene
     case gene.gene_op.kind:
     of GeneSymbol:
-      case gene.gene_op.symbol:
-      of "+", "-", "==", "<", "<=", ">", ">=", "&&", "||":
-        expr.gene_blk = @[]
-        var first = gene.gene_data[0]
-        var e1 = to_expr(first)
-        var v1 = self.eval(e1)
-        # expr.gene_blk.add(e1)
-        var second = gene.gene_data[1]
-        var e2 = to_expr(second)
-        var v2 = self.eval(e2)
-        # expr.gene_blk.add(e2)
-        case gene.gene_op.symbol:
-        of "+" : result = new_gene_int(v1.num + v2.num)
-        of "-" : result = new_gene_int(v1.num - v2.num)
-        of "==": result = new_gene_bool(v1.num == v2.num)
-        of "<" : result = new_gene_bool(v1.num <  v2.num)
-        of "<=": result = new_gene_bool(v1.num <= v2.num)
-        of ">" : result = new_gene_bool(v1.num >  v2.num)
-        of ">=": result = new_gene_bool(v1.num >= v2.num)
-        of "&&": result = new_gene_bool(v1.boolVal and v2.boolVal)
-        of "||": result = new_gene_bool(v1.boolVal or  v2.boolVal)
-        else: todo($gene)
-      else:
-        var target = self[gene.gene_op.symbol]
-        if target.kind == GeneInternal and target.internal.kind == GeneFunction:
-          var fn = target.internal.fn
-          var fn_scope = new_scope()
-          var args: seq[GeneValue] = @[]
-          for item in gene.gene_data:
-            args.add(self.eval(to_expr(item)))
-          fn_scope.parent = self.cur_frame.scope
-          for i in 0..<fn.args.len:
-            var arg = fn.args[i]
-            var val = args[i]
-            fn_scope[arg] = val
-          var caller_scope = self.cur_frame.scope
-          self.cur_frame.scope = fn_scope
-          if fn.body_blk.len == 0:
-            for item in fn.body:
-              fn.body_blk.add(to_expr(item))
-          try:
-            for e in fn.body_blk:
-              result = self.eval(e)
-          except Return as r:
-            result = r.val
-          self.cur_frame.scope = caller_scope
+      var target = self[gene.gene_op.symbol]
+      if target.kind == GeneInternal and target.internal.kind == GeneFunction:
+        var fn = target.internal.fn
+        var fn_scope = new_scope()
+        var args: seq[GeneValue] = @[]
+        for item in gene.gene_data:
+          args.add(self.eval(to_expr(item)))
+        fn_scope.parent = self.cur_frame.scope
+        for i in 0..<fn.args.len:
+          var arg = fn.args[i]
+          var val = args[i]
+          fn_scope[arg] = val
+        var caller_scope = self.cur_frame.scope
+        self.cur_frame.scope = fn_scope
+        if fn.body_blk.len == 0:
+          for item in fn.body:
+            fn.body_blk.add(to_expr(item))
+        try:
+          for e in fn.body_blk:
+            result = self.eval(e)
+        except Return as r:
+          result = r.val
+        self.cur_frame.scope = caller_scope
     else:
       todo($gene)
+  of ExBinary:
+    var first = self.eval(expr.bin_first)
+    var second = self.eval(expr.bin_second)
+    case expr.bin_op:
+    of BinAdd: result = new_gene_int(first.num + second.num)
+    of BinSub: result = new_gene_int(first.num - second.num)
+    of BinMul: result = new_gene_int(first.num * second.num)
+    # of BinDiv: result = new_gene_int(first.num / second.num)
+    of BinEq:  result = new_gene_bool(first.num == second.num)
+    of BinNeq: result = new_gene_bool(first.num != second.num)
+    of BinLt:  result = new_gene_bool(first.num < second.num)
+    of BinLe:  result = new_gene_bool(first.num <= second.num)
+    of BinGt:  result = new_gene_bool(first.num > second.num)
+    of BinGe:  result = new_gene_bool(first.num >= second.num)
+    of BinAnd: result = new_gene_bool(first.boolVal and second.boolVal)
+    of BinOr:  result = new_gene_bool(first.boolVal or second.boolVal)
+    else: todo()
   of ExVar:
     var val = self.eval(expr.var_val)
     self.cur_frame.scope[expr.var_name] = val
@@ -365,6 +360,8 @@ proc to_expr*(node: GeneValue): Expr {.inline.} =
         return to_fn_expr(node)
       of "return":
         return to_return_expr(node)
+      of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
+        return to_binary_expr(node.gene_op.symbol, node)
       else:
         return new_gene_expr(node)
     else:
@@ -490,3 +487,22 @@ when isMainModule:
   let result = interpreter.eval(e)
   echo "Time: " & $(cpuTime() - start)
   echo result
+
+proc to_binary_expr*(op: string, val: GeneValue): Expr =
+  result = Expr(kind: ExBinary)
+  result.bin_first = to_expr(val.gene_data[0])
+  result.bin_second = to_expr(val.gene_data[1])
+  case op:
+  of "+":  result.bin_op = BinAdd
+  of "-":  result.bin_op = BinSub
+  of "*":  result.bin_op = BinMul
+  of "/":  result.bin_op = BinDiv
+  of "==": result.bin_op = BinEq
+  of "!=": result.bin_op = BinNeq
+  of "<":  result.bin_op = BinLt
+  of "<=": result.bin_op = BinLe
+  of ">":  result.bin_op = BinGt
+  of ">=": result.bin_op = BinGe
+  of "&&": result.bin_op = BinAnd
+  of "||": result.bin_op = BinOr
+  else: not_allowed()
