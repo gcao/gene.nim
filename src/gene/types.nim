@@ -441,9 +441,9 @@ let
 
 var APP*: Application
 
-# var GeneInts: array[111, GeneValue]
-# for i in 0..110:
-#   GeneInts[i] = GeneValue(kind: GeneInt, num: i - 10)
+var GeneInts: array[111, GeneValue]
+for i in 0..110:
+  GeneInts[i] = GeneValue(kind: GeneInt, num: i - 10)
 
 #################### Function ####################
 
@@ -586,15 +586,12 @@ proc new_gene_string_move*(s: string): GeneValue =
 proc new_gene_int*(s: string): GeneValue =
   return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
 
-proc new_gene_int*(val: int): GeneValue =
-  return GeneValue(kind: GeneInt, num: val)
-  # if val > 100 or val < -10:
-  #   return GeneValue(kind: GeneInt, num: val)
-  # else:
-  #   return GeneInts[val + 10]
-
 proc new_gene_int*(val: BiggestInt): GeneValue =
-  return GeneValue(kind: GeneInt, num: val)
+  # return GeneValue(kind: GeneInt, num: val)
+  if val > 100 or val < -10:
+    return GeneValue(kind: GeneInt, num: val)
+  else:
+    return GeneInts[val + 10]
 
 proc new_gene_ratio*(nom, denom: BiggestInt): GeneValue =
   return GeneValue(kind: GeneRatio, rnum: (nom, denom))
