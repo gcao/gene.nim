@@ -177,9 +177,10 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
   of ExMap:
     result = new_gene_map()
     for e in expr.map:
-      result.map[e.map_key] = self.eval(e)
+      result.map[e.map_key] = self.eval(e.map_val)
   of ExMapChild:
-    result = self.eval(expr.map_val)
+    discard
+    # result = self.eval(expr.map_val)
   of ExGene:
     var target = self.eval(expr.gene_op)
     if target.kind == GeneInternal and target.internal.kind == GeneFunction:
@@ -190,9 +191,11 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
         args.add(self.eval(e))
       fn_scope.parent = self.cur_frame.scope
       for i in 0..<fn.args.len:
-        var arg = fn.args[i]
+        # var arg = fn.args[i]
+        # var val = args[i]
+        # fn_scope[arg] = val
         var val = args[i]
-        fn_scope[arg] = val
+        fn_scope[fn.args[i]] = val
       var caller_scope = self.cur_frame.scope
       self.cur_frame.scope = fn_scope
       if fn.body_blk.len == 0:
@@ -210,6 +213,23 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
     var first = self.eval(expr.bin_first)
     var second = self.eval(expr.bin_second)
     case expr.bin_op:
+    of BinAdd: result = new_gene_int(first.num + second.num)
+    of BinSub: result = new_gene_int(first.num - second.num)
+    of BinMul: result = new_gene_int(first.num * second.num)
+    # of BinDiv: result = new_gene_int(first.num / second.num)
+    of BinEq:  result = new_gene_bool(first.num == second.num)
+    of BinNeq: result = new_gene_bool(first.num != second.num)
+    of BinLt:  result = new_gene_bool(first.num < second.num)
+    of BinLe:  result = new_gene_bool(first.num <= second.num)
+    of BinGt:  result = new_gene_bool(first.num > second.num)
+    of BinGe:  result = new_gene_bool(first.num >= second.num)
+    of BinAnd: result = new_gene_bool(first.boolVal and second.boolVal)
+    of BinOr:  result = new_gene_bool(first.boolVal or second.boolVal)
+    else: todo()
+  of ExBinImmediate:
+    var first = self.eval(expr.bini_first)
+    var second = expr.bini_second
+    case expr.bini_op:
     of BinAdd: result = new_gene_int(first.num + second.num)
     of BinSub: result = new_gene_int(first.num - second.num)
     of BinMul: result = new_gene_int(first.num * second.num)
@@ -476,6 +496,44 @@ proc to_return_expr*(val: GeneValue): Expr =
   if val.gene_data.len > 0:
     result.return_val = to_expr(val.gene_data[0])
 
+proc to_binary_expr*(op: string, val: GeneValue): Expr =
+  if val.gene_data[1].is_literal:
+    result = Expr(kind: ExBinImmediate)
+    result.bini_first = to_expr(val.gene_data[0])
+    result.bini_second = val.gene_data[1]
+    case op:
+    of "+":  result.bini_op = BinAdd
+    of "-":  result.bini_op = BinSub
+    of "*":  result.bini_op = BinMul
+    of "/":  result.bini_op = BinDiv
+    of "==": result.bini_op = BinEq
+    of "!=": result.bini_op = BinNeq
+    of "<":  result.bini_op = BinLt
+    of "<=": result.bini_op = BinLe
+    of ">":  result.bini_op = BinGt
+    of ">=": result.bini_op = BinGe
+    of "&&": result.bini_op = BinAnd
+    of "||": result.bini_op = BinOr
+    else: not_allowed()
+  else:
+    result = Expr(kind: ExBinary)
+    result.bin_first = to_expr(val.gene_data[0])
+    result.bin_second = to_expr(val.gene_data[1])
+    case op:
+    of "+":  result.bin_op = BinAdd
+    of "-":  result.bin_op = BinSub
+    of "*":  result.bin_op = BinMul
+    of "/":  result.bin_op = BinDiv
+    of "==": result.bin_op = BinEq
+    of "!=": result.bin_op = BinNeq
+    of "<":  result.bin_op = BinLt
+    of "<=": result.bin_op = BinLe
+    of ">":  result.bin_op = BinGt
+    of ">=": result.bin_op = BinGe
+    of "&&": result.bin_op = BinAnd
+    of "||": result.bin_op = BinOr
+    else: not_allowed()
+
 when isMainModule:
   import os, times
 
@@ -488,22 +546,3 @@ when isMainModule:
   let result = interpreter.eval(e)
   echo "Time: " & $(cpuTime() - start)
   echo result
-
-proc to_binary_expr*(op: string, val: GeneValue): Expr =
-  result = Expr(kind: ExBinary)
-  result.bin_first = to_expr(val.gene_data[0])
-  result.bin_second = to_expr(val.gene_data[1])
-  case op:
-  of "+":  result.bin_op = BinAdd
-  of "-":  result.bin_op = BinSub
-  of "*":  result.bin_op = BinMul
-  of "/":  result.bin_op = BinDiv
-  of "==": result.bin_op = BinEq
-  of "!=": result.bin_op = BinNeq
-  of "<":  result.bin_op = BinLt
-  of "<=": result.bin_op = BinLe
-  of ">":  result.bin_op = BinGt
-  of ">=": result.bin_op = BinGe
-  of "&&": result.bin_op = BinAnd
-  of "||": result.bin_op = BinOr
-  else: not_allowed()

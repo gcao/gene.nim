@@ -359,7 +359,7 @@ type
     ExVar
     ExAssignment
     ExBinary
-    # ExBinImmediate
+    ExBinImmediate
     # ExBinImmediate2
     ExUnknown
     ExIf
@@ -400,6 +400,10 @@ type
       bin_op*: BinOps
       bin_first*: Expr
       bin_second*: Expr
+    of ExBinImmediate:
+      bini_op*: BinOps
+      bini_first*: Expr
+      bini_second*: GeneValue
     of ExIf:
       if_cond*: Expr
       if_then*: Expr
