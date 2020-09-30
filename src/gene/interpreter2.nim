@@ -55,18 +55,18 @@ var ScopeMgr* = ScopeManager(cache: @[])
 #################### Interfaces ##################
 
 proc `[]`*(self: VM2, key: int): GeneValue {.inline.}
-proc to_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
-proc to_if_expr*(parent: Expr, val: GeneValue): Expr
-proc to_var_expr*(parent: Expr, name: string, val: GeneValue): Expr
-proc to_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr
-proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
-proc to_block*(parent: Expr, nodes: seq[GeneValue]): Expr
-proc to_loop_expr*(parent: Expr, val: GeneValue): Expr
-proc to_break_expr*(parent: Expr, val: GeneValue): Expr
-proc to_while_expr*(parent: Expr, val: GeneValue): Expr
-proc to_fn_expr*(parent: Expr, val: GeneValue): Expr
-proc to_return_expr*(parent: Expr, val: GeneValue): Expr
-proc to_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
+proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
+proc new_if_expr*(parent: Expr, val: GeneValue): Expr
+proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr
+proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr
+proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
+proc new_block_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
+proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
+proc new_break_expr*(parent: Expr, val: GeneValue): Expr
+proc new_while_expr*(parent: Expr, val: GeneValue): Expr
+proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
+proc new_return_expr*(parent: Expr, val: GeneValue): Expr
+proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Module2 #####################
@@ -114,7 +114,8 @@ proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
 
 proc new_scope*(): Scope = Scope(members: Table[int, GeneValue]())
 
-proc reset*(self: var Scope) =
+proc reset*(self: var Scope) {.inline.} =
+  self.parent = nil
   self.members.clear()
 
 proc hasKey*(self: Scope, key: int): bool {.inline.} = self.members.hasKey(key)
@@ -188,7 +189,7 @@ proc new_array_expr*(parent: Expr, v: GeneValue): Expr =
     array: @[],
   )
   for item in v.vec:
-    result.array.add(to_expr(result, item))
+    result.array.add(new_expr(result, item))
 
 proc new_map_expr*(parent: Expr, v: GeneValue): Expr =
   result = Expr(
@@ -198,7 +199,7 @@ proc new_map_expr*(parent: Expr, v: GeneValue): Expr =
     map: @[],
   )
   for key, val in v.map:
-    var e = to_map_key_expr(result, key, val)
+    var e = new_map_key_expr(result, key, val)
     result.map.add(e)
 
 proc new_gene_expr*(parent: Expr, v: GeneValue): Expr =
@@ -266,7 +267,7 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
       self.cur_frame.scope = fn_scope
       if fn.body_blk.len == 0:
         for item in fn.body:
-          fn.body_blk.add(to_expr(expr, item))
+          fn.body_blk.add(new_expr(expr, item))
       try:
         for e in fn.body_blk:
           result = self.eval(e)
@@ -364,11 +365,11 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
     var parent = expr.parent
     case parent.kind:
     of ExBlock:
-      var e = to_expr(parent, expr.unknown)
+      var e = new_expr(parent, expr.unknown)
       parent.blk[expr.posInParent] = e
       result = self.eval(e)
     of ExLoop:
-      var e = to_expr(parent, expr.unknown)
+      var e = new_expr(parent, expr.unknown)
       parent.loop_blk[expr.posInParent] = e
       result = self.eval(e)
     else:
@@ -403,14 +404,14 @@ proc prepare*(self: VM2, code: string): Expr =
     kind: ExRoot,
     module: new_module(),
   )
-  return to_block(root, parsed)
+  return new_block_expr(root, parsed)
 
 proc eval*(self: VM2, code: string): GeneValue =
   return self.eval(self.prepare(code))
 
 ##################################################
 
-proc to_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
+proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   case node.kind:
   of GeneNilKind, GeneBool, GeneInt:
     return new_literal_expr(parent, node)
@@ -430,39 +431,39 @@ proc to_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         var val = GeneNil
         if node.gene_data.len > 1:
           val = node.gene_data[1]
-        return to_var_expr(parent, name, val)
+        return new_var_expr(parent, name, val)
       of "=":
         var name = node.gene_data[0].symbol
         var val = node.gene_data[1]
-        return to_assignment_expr(parent, name, val)
+        return new_assignment_expr(parent, name, val)
       of "if":
-        return to_if_expr(parent, node)
+        return new_if_expr(parent, node)
       of "do":
-        return to_block(parent, node.gene_data)
+        return new_block_expr(parent, node.gene_data)
       of "loop":
-        return to_loop_expr(parent, node)
+        return new_loop_expr(parent, node)
       of "break":
-        return to_break_expr(parent, node)
+        return new_break_expr(parent, node)
       of "while":
-        return to_while_expr(parent, node)
+        return new_while_expr(parent, node)
       of "fn":
-        return to_fn_expr(parent, node)
+        return new_fn_expr(parent, node)
       of "return":
-        return to_return_expr(parent, node)
+        return new_return_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
-        return to_binary_expr(parent, node.gene_op.symbol, node)
+        return new_binary_expr(parent, node.gene_op.symbol, node)
       else:
         discard
     else:
       discard
     result = new_gene_expr(parent, node)
-    result.gene_op = to_expr(result, node.gene_op)
+    result.gene_op = new_expr(result, node.gene_op)
     for item in node.gene_data:
-      result.gene_blk.add(to_expr(result, item))
+      result.gene_blk.add(new_expr(result, item))
   else:
     todo($node)
 
-proc to_block*(parent: Expr, nodes: seq[GeneValue]): Expr =
+proc new_block_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
   result = Expr(
     kind: ExBlock,
     parent: parent,
@@ -471,45 +472,45 @@ proc to_block*(parent: Expr, nodes: seq[GeneValue]): Expr =
   for node in nodes:
     result.blk.add(new_unknown_expr(result, node))
 
-proc to_loop_expr*(parent: Expr, val: GeneValue): Expr =
+proc new_loop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExLoop,
     parent: parent,
     module: parent.module,
   )
   for node in val.gene_data:
-    result.loop_blk.add(to_expr(result, node))
+    result.loop_blk.add(new_expr(result, node))
 
-proc to_break_expr*(parent: Expr, val: GeneValue): Expr =
+proc new_break_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExBreak,
     parent: parent,
     module: parent.module,
   )
   if val.gene_data.len > 0:
-    result.break_val = to_expr(result, val.gene_data[0])
+    result.break_val = new_expr(result, val.gene_data[0])
 
-proc to_while_expr*(parent: Expr, val: GeneValue): Expr =
+proc new_while_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExWhile,
     parent: parent,
     module: parent.module,
   )
-  result.while_cond = to_expr(result, val.gene_data[0])
+  result.while_cond = new_expr(result, val.gene_data[0])
   for i in 1..<val.gene_data.len:
     var node = val.gene_data[i]
-    result.while_blk.add(to_expr(result, node))
+    result.while_blk.add(new_expr(result, node))
 
-proc to_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
+proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
   result = Expr(
     kind: ExMapChild,
     parent: parent,
     module: parent.module,
     map_key: key,
   )
-  result.map_val = to_expr(result, val)
+  result.map_val = new_expr(result, val)
 
-proc to_var_expr*(parent: Expr, name: string, val: GeneValue): Expr =
+proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr =
   var key = parent.module.get_index(name)
   result = Expr(
     kind: ExVar,
@@ -518,9 +519,9 @@ proc to_var_expr*(parent: Expr, name: string, val: GeneValue): Expr =
     # var_name: name,
     var_key: key,
   )
-  result.var_val = to_expr(result, val)
+  result.var_val = new_expr(result, val)
 
-proc to_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr =
+proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr =
   var key = parent.module.get_index(name)
   result = Expr(
     kind: ExAssignment,
@@ -529,18 +530,18 @@ proc to_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr =
     # var_name: name,
     var_key: key,
   )
-  result.var_val = to_expr(result, val)
+  result.var_val = new_expr(result, val)
 
-proc to_if_expr*(parent: Expr, val: GeneValue): Expr =
+proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExIf,
     parent: parent,
     module: parent.module,
   )
-  result.if_cond = to_expr(result, val.gene_data[0])
-  result.if_then = to_expr(result, val.gene_data[1])
+  result.if_cond = new_expr(result, val.gene_data[0])
+  result.if_then = new_expr(result, val.gene_data[1])
   if val.gene_data.len > 3:
-    result.if_else = to_expr(result, val.gene_data[3])
+    result.if_else = new_expr(result, val.gene_data[3])
 
 # proc normalize_if*(val: GeneValue): NormalizedIf =
 #   var cond: GeneValue = val.gene_data[0]
@@ -579,7 +580,7 @@ proc to_if_expr*(parent: Expr, val: GeneValue): Expr =
 #     else:
 #       not_allowed()
 
-proc to_fn_expr*(parent: Expr, val: GeneValue): Expr =
+proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val
   fn.name_key = parent.module.get_index(fn.name)
   for name in fn.args:
@@ -591,23 +592,23 @@ proc to_fn_expr*(parent: Expr, val: GeneValue): Expr =
     fn: new_gene_internal(fn),
   )
 
-proc to_return_expr*(parent: Expr, val: GeneValue): Expr =
+proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExReturn,
     parent: parent,
     module: parent.module,
   )
   if val.gene_data.len > 0:
-    result.return_val = to_expr(result, val.gene_data[0])
+    result.return_val = new_expr(result, val.gene_data[0])
 
-proc to_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
+proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene_data[1].is_literal:
     result = Expr(
       kind: ExBinImmediate,
       parent: parent,
       module: parent.module,
     )
-    result.bini_first = to_expr(result, val.gene_data[0])
+    result.bini_first = new_expr(result, val.gene_data[0])
     result.bini_second = val.gene_data[1]
     case op:
     of "+":  result.bini_op = BinAdd
@@ -629,8 +630,8 @@ proc to_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
       parent: parent,
       module: parent.module,
     )
-    result.bin_first = to_expr(result, val.gene_data[0])
-    result.bin_second = to_expr(result, val.gene_data[1])
+    result.bin_first = new_expr(result, val.gene_data[0])
+    result.bin_second = new_expr(result, val.gene_data[1])
     case op:
     of "+":  result.bin_op = BinAdd
     of "-":  result.bin_op = BinSub
