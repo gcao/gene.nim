@@ -244,16 +244,24 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
     if target.kind == GeneInternal and target.internal.kind == GeneFunction:
       var fn = target.internal.fn
       var fn_scope = ScopeMgr.get()
-      var args: seq[GeneValue] = @[]
-      for e in expr.gene_blk:
-        args.add(self.eval(e))
-      fn_scope.parent = self.cur_frame.scope
-      for i in 0..<fn.args.len:
-        # var arg = fn.args[i]
-        # var val = args[i]
-        # fn_scope[arg] = val
-        var val = args[i]
-        fn_scope[fn.arg_keys[i]] = val
+      case expr.gene_blk.len:
+      of 0:
+        for i in 0..<fn.args.len:
+          fn_scope[fn.arg_keys[i]] = GeneNil
+      of 1:
+        var arg = self.eval(expr.gene_blk[0])
+        for i in 0..<fn.args.len:
+          if i == 0:
+            fn_scope[fn.arg_keys[0]] = arg
+          else:
+            fn_scope[fn.arg_keys[i]] = GeneNil
+      else:
+        var args: seq[GeneValue] = @[]
+        for e in expr.gene_blk:
+          args.add(self.eval(e))
+        fn_scope.parent = self.cur_frame.scope
+        for i in 0..<fn.args.len:
+          fn_scope[fn.arg_keys[i]] = args[i]
       var caller_scope = self.cur_frame.scope
       self.cur_frame.scope = fn_scope
       if fn.body_blk.len == 0:
