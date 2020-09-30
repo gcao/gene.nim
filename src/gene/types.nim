@@ -209,7 +209,9 @@ type
 
   Function* = ref object
     name*: string
+    name_key*: int
     args*: seq[string]
+    arg_keys*: seq[int]
     body*: seq[GeneValue]
     body_block*: Block
     body_blk*: seq[Expr]
@@ -348,7 +350,13 @@ type
 
   native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
+  Module2* = ref object
+    name*: string
+    name_mappings*: Table[string, int]
+    names*: seq[string]
+
   ExprKind* = enum
+    ExRoot
     ExLiteral
     ExSymbol
     ExMap
@@ -371,13 +379,17 @@ type
     ExReturn
 
   Expr* = ref object of RootObj
+    module*: Module2
     parent*: Expr
     posInParent*: int
     case kind*: ExprKind
+    of ExRoot:
+      root*: Expr
     of ExLiteral:
       literal*: GeneValue
     of ExSymbol:
-      symbol*: string
+      # symbol*: string
+      key*: int
     of ExUnknown:
       unknown*: GeneValue
     of ExArray:
@@ -394,7 +406,8 @@ type
     of ExBlock:
       blk*: seq[Expr]
     of ExVar, ExAssignment:
-      var_name*: string
+      # var_name*: string
+      var_key*: int
       var_val*: Expr
     of ExBinary:
       bin_op*: BinOps
