@@ -47,6 +47,11 @@ type
   #   ElseIfThenBlock
   #   ElseBlock
 
+  ScopeManager = ref object
+    cache*: seq[Scope]
+
+var ScopeMgr* = ScopeManager(cache: @[])
+
 #################### Interfaces ##################
 
 proc `[]`*(self: VM2, key: int): GeneValue {.inline.}
@@ -118,6 +123,18 @@ proc `[]`*(self: Scope, key: int): GeneValue {.inline.} = self.members[key]
 
 proc `[]=`*(self: var Scope, key: int, val: GeneValue) {.inline.} =
   self.members[key] = val
+
+#################### ScopeManager ################
+
+proc get*(self: var ScopeManager): Scope {.inline.} =
+  if self.cache.len > 0:
+    return self.cache.pop()
+  else:
+    return new_scope()
+
+proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
+  scope.reset()
+  self.cache.add(scope)
 
 #################### Function ####################
 
@@ -226,7 +243,7 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
     var target = self.eval(expr.gene_op)
     if target.kind == GeneInternal and target.internal.kind == GeneFunction:
       var fn = target.internal.fn
-      var fn_scope = new_scope()
+      var fn_scope = ScopeMgr.get()
       var args: seq[GeneValue] = @[]
       for e in expr.gene_blk:
         args.add(self.eval(e))
@@ -247,6 +264,8 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
           result = self.eval(e)
       except Return as r:
         result = r.val
+
+      ScopeMgr.free(fn_scope)
       self.cur_frame.scope = caller_scope
     else:
       todo($expr.gene)
