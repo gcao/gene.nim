@@ -201,6 +201,7 @@ type
 
   Class* = ref object
     name*: string
+    name_key*: int
     methods*: Table[string, Function]
 
   Instance* = ref object
@@ -377,6 +378,9 @@ type
     ExWhile
     ExFn
     ExReturn
+    ExClass
+    ExNew
+    # ExMethod
 
   Expr* = ref object of RootObj
     module*: Module2
@@ -432,6 +436,14 @@ type
       fn*: GeneValue
     of ExReturn:
       return_val*: Expr
+    of ExClass:
+      class*: GeneValue
+      class_body*: seq[Expr]
+    of ExNew:
+      new_class*: Expr
+      new_args*: seq[Expr]
+    # of ExMethod:
+    #   meth*: GeneValue
 
   BinOps* = enum
     BinAdd

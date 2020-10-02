@@ -67,6 +67,9 @@ proc new_while_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
+proc new_class_expr*(parent: Expr, val: GeneValue): Expr
+proc new_new_expr*(parent: Expr, val: GeneValue): Expr
+# proc new_method_expr*(parent: Expr, val: GeneValue): Expr
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Module2 #####################
@@ -374,6 +377,13 @@ proc eval*(self: VM2, expr: Expr): GeneValue {.inline.} =
       result = self.eval(e)
     else:
       todo($expr.unknown)
+  of ExClass:
+    self.cur_frame.namespace[expr.class.internal.class.name_key] = expr.class
+    result = expr.class
+  of ExNew:
+    var class = self.eval(expr.new_class)
+    var instance = new_instance(class.internal.class)
+    result = new_gene_instance(instance)
   # else:
   #   todo($expr.kind)
 
@@ -450,6 +460,12 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_fn_expr(parent, node)
       of "return":
         return new_return_expr(parent, node)
+      of "class":
+        return new_class_expr(parent, node)
+      of "new":
+        return new_new_expr(parent, node)
+      # of "method":
+      #   return new_method_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       else:
@@ -600,6 +616,38 @@ proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   )
   if val.gene_data.len > 0:
     result.return_val = new_expr(result, val.gene_data[0])
+
+proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
+  var class = new_class(val.gene_data[0].symbol)
+  result = Expr(
+    kind: ExClass,
+    parent: parent,
+    module: parent.module,
+    class: new_gene_internal(class),
+  )
+  var body: seq[Expr] = @[]
+  for i in 1..<val.gene_data.len:
+    body.add(new_expr(parent, val.gene_data[i]))
+  result.class_body = body
+
+proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExNew,
+    parent: parent,
+    module: parent.module,
+  )
+  result.new_class = new_expr(parent, val.gene_data[0])
+
+# proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
+#   var fn: Function = val # Converter is implicitly called here
+#   for name in fn.args:
+#     fn.arg_keys.add(parent.module.get_index(name))
+#   result = Expr(
+#     kind: ExMethod,
+#     parent: parent,
+#     module: parent.module,
+#     meth: new_gene_internal(fn),
+#   )
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene_data[1].is_literal:

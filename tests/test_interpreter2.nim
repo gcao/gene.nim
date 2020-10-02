@@ -100,3 +100,22 @@ test_interpreter """
   )
   (fib 6)
 """, 8
+
+test_interpreter "(class A)", proc(r: GeneValue) =
+  check r.internal.class.name == "A"
+
+test_interpreter """
+  (class A)
+  (new A)
+""", proc(r: GeneValue) =
+  check r.instance.class.name == "A"
+
+# test_interpreter """
+#   (class A
+#     (method new []
+#       (@description = "Class A")
+#     )
+#   )
+#   (new A)
+# """, proc(r: GeneValue) =
+#   check r.instance.value.gene_props["description"] == "Class A"
