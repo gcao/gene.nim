@@ -54,7 +54,8 @@ proc new_new_expr*(parent: Expr, val: GeneValue): Expr
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
-proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string): GeneValue
+proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
+proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Module ######################
@@ -231,39 +232,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
   of ExGene:
     var target = self.eval(expr.gene_op)
     if target.kind == GeneInternal and target.internal.kind == GeneFunction:
-      var fn = target.internal.fn
-      var fn_scope = ScopeMgr.get()
-      case expr.gene_blk.len:
-      of 0:
-        for i in 0..<fn.args.len:
-          fn_scope[fn.arg_keys[i]] = GeneNil
-      of 1:
-        var arg = self.eval(expr.gene_blk[0])
-        for i in 0..<fn.args.len:
-          if i == 0:
-            fn_scope[fn.arg_keys[0]] = arg
-          else:
-            fn_scope[fn.arg_keys[i]] = GeneNil
-      else:
-        var args: seq[GeneValue] = @[]
-        for e in expr.gene_blk:
-          args.add(self.eval(e))
-        fn_scope.parent = self.cur_frame.scope
-        for i in 0..<fn.args.len:
-          fn_scope[fn.arg_keys[i]] = args[i]
-      var caller_scope = self.cur_frame.scope
-      self.cur_frame.scope = fn_scope
-      if fn.body_blk.len == 0:
-        for item in fn.body:
-          fn.body_blk.add(new_expr(fn.expr, item))
-      try:
-        for e in fn.body_blk:
-          result = self.eval(e)
-      except Return as r:
-        result = r.val
-
-      ScopeMgr.free(fn_scope)
-      self.cur_frame.scope = caller_scope
+      result = self.call_fn(GeneNil, target.internal.fn, expr)
     else:
       todo($expr.gene)
   of ExBinary:
@@ -372,7 +341,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     var class = self.eval(expr.new_class)
     var instance = new_instance(class.internal.class)
     result = new_gene_instance(instance)
-    discard self.eval_method(result, class.internal.class, "new")
+    discard self.eval_method(result, class.internal.class, "new", expr)
   of ExMethod:
     var meth = expr.meth
     self.cur_frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
@@ -421,15 +390,57 @@ proc prepare*(self: VM, code: string): Expr =
 proc eval*(self: VM, code: string): GeneValue =
   return self.eval(self.prepare(code))
 
-proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string): GeneValue =
+proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue =
   if class.methods.hasKey(method_name):
     var meth = class.methods[method_name]
-    self.cur_frame.self = instance
-    if meth.body_blk.len == 0:
-      for item in meth.body:
-        meth.body_blk.add(new_expr(meth.expr, item))
-    for e in meth.body_blk:
-      result = self.eval(e)
+    result = self.call_fn(instance, meth, expr)
+
+proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue =
+  var fn_scope = ScopeMgr.get()
+  var args_blk: seq[Expr]
+  case expr.kind:
+  of ExGene:
+    args_blk = expr.gene_blk
+  of ExNew:
+    args_blk = expr.new_args
+  else:
+    todo()
+  case args_blk.len:
+  of 0:
+    for i in 0..<fn.args.len:
+      fn_scope[fn.arg_keys[i]] = GeneNil
+  of 1:
+    var arg = self.eval(args_blk[0])
+    for i in 0..<fn.args.len:
+      if i == 0:
+        fn_scope[fn.arg_keys[0]] = arg
+      else:
+        fn_scope[fn.arg_keys[i]] = GeneNil
+  else:
+    var args: seq[GeneValue] = @[]
+    for e in args_blk:
+      args.add(self.eval(e))
+    for i in 0..<fn.args.len:
+      fn_scope[fn.arg_keys[i]] = args[i]
+
+  var old_self = self.cur_frame.self
+  var old_scope = self.cur_frame.scope
+  try:
+    self.cur_frame.scope = fn_scope
+    self.cur_frame.self = target
+    if fn.body_blk.len == 0:
+      for item in fn.body:
+        fn.body_blk.add(new_expr(fn.expr, item))
+    try:
+      for e in fn.body_blk:
+        result = self.eval(e)
+    except Return as r:
+      result = r.val
+  finally:
+    self.cur_frame.self = old_self
+    self.cur_frame.scope = old_scope
+
+  ScopeMgr.free(fn_scope)
 
 ##################################################
 
@@ -638,6 +649,7 @@ proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
 
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var class = new_class(val.gene_data[0].symbol)
+  class.name_key = parent.module.get_index(class.name)
   result = Expr(
     kind: ExClass,
     parent: parent,
@@ -656,6 +668,8 @@ proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
     module: parent.module,
   )
   result.new_class = new_expr(parent, val.gene_data[0])
+  for i in 1..<val.gene_data.len:
+    result.new_args.add(new_expr(result, val.gene_data[i]))
 
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val # Converter is implicitly called here
