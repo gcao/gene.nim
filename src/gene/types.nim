@@ -1,4 +1,5 @@
-import strutils, oids, sets, tables, dynlib
+import strutils, tables, dynlib
+
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -17,187 +18,10 @@ type
     args*: seq[string]
     namespaces*: Table[string, Namespace]
 
-  RunningMode* = enum
-    Interpreted
-    Compiled
-    # Mixed
-
-  InstrType* = enum
-    Init
-
-    # # Save Value to default register
-    Default
-    # Save Value to a register
-    Save
-    # Copy from one register to another
-    Copy
-
-    Print
-    Println
-
-    DefMember
-    DefNsMember
-    GetMember
-    GetNestedNsMember
-    # GetMemberInScope(String)
-    # GetMemberInNS(String)
-    # SetMember(String)
-    # SetMemberInScope(String)
-    # SetMemberInNS(String)
-
-    # GetItem(target reg, index)
-    # GetItem(u16, usize)
-    # GetItemDynamic(target reg, index reg)
-    # GetItemDynamic(String, String)
-    # SetItem(target reg, index, value reg)
-    SetItem
-    # SetItem(u16, usize)
-    # SetItemDynamic(target reg, index reg, value reg)
-    # SetItemDynamic(String, String, String)
-
-    # GetProp(target reg, name)
-    # GetProp(String, String)
-    # GetPropDynamic(target reg, name reg)
-    # GetPropDynamic(String, String)
-    # SetProp(target reg, name, value reg)
-    # SetProp(u16, String)
-    # SetPropDynamic(target reg, name reg, value reg)
-    # SetPropDynamic(String, String, String)
-
-    Jump
-    JumpIfFalse
-    # Below are pseudo instructions that should be replaced with other jump instructions
-    # before sent to the VM to execute.
-    # JumpToElse
-    # JumpToNextStatement
-
-    # Break
-    # LoopStart
-    # LoopEnd
-
-    # reg + default
-    Add
-    AddI
-    # reg - default
-    Sub
-    SubI
-    Mul
-    Div
-    Pow
-    Mod
-    Eq
-    EqI
-    Neq
-    Lt
-    LtI
-    Le
-    Gt
-    Ge
-    And
-    Or
-    Not
-    # BitAnd
-    # BitOr
-    # BitXor
-
-    Global
-    Self
-
-    # Function(fn)
-    CreateFunction
-    # Arguments(reg): create an arguments object and store in register <reg>
-    CreateArguments
-
-    CreateNamespace # name
-    Import # names
-    ImportNative # names
-
-    CreateClass # name
-    # self: class
-    # reg: function object
-    CreateMethod
-    CreateInstance # name
-
-    # reg: self
-    # val: name
-    # reg2: args
-    InvokeMethod
-
-    # (@ "name")
-    # val: "name"
-    PropGet
-    # (@= "name" value)
-    # val: "name"
-    # reg: value
-    PropSet
-
-    # Call(target reg, args reg)
-    Call
-    CallEnd
-
-    # name: native proc name
-    # reg: args
-    CallNative
-
-    InvokeNative
-
-    # reg: target block
-    # reg2: optional self
-    CallBlock
-
-  Instruction* = ref object
-    kind*: InstrType
-    reg*: int       # Optional: Default register
-    reg2*: int      # Optional: Second register
-    val*: GeneValue # Optional: Default immediate value
-
-  Block* = ref object
-    id*: Oid
-    name*: string
-    instructions*: seq[Instruction]
-    ## No need to return value to caller, applicable to class/namespace block etc
-    no_return*: bool
-    ## This is not needed after compilation
-    reg_mgr*: RegManager
-    scope_mgr*: ScopeManager
-
-  RegManager* = ref object
-    next*: int
-    freed*: HashSet[int]
-
-  MemberKind* = enum
-    ScopeMember
-    NamespaceMember
-    ArgumentMember # similar to scope member
-
-  Member* = ref object
-    kind*: MemberKind
-    name*: string
-    usage*: int
-    inherited*: bool # Inherited in a function or code evaluated during execution
-
-  ScopeManager* = ref object
-    parent*: ScopeManager
-    inherit_scope*: bool
-    # key: internal name = name, name%1, ...
-    # val: member object
-    members*: Table[string, Member]
-    # key: name
-    # val: stack of internal names used as key in self.members
-    reused_members*: Table[string, seq[string]]
-
   Namespace* = ref object
     parent*: Namespace
     name*: string
     members*: Table[int, GeneValue]
-    # cache*: Table[string, GeneValue]
-
-  Module* = ref object
-    id*: Oid
-    blocks*: Table[Oid, Block]
-    default*: Block
-    # TODO: support (main ...)
-    # main_block* Block
 
   Class* = ref object
     name*: string
@@ -214,10 +38,7 @@ type
     args*: seq[string]
     arg_keys*: seq[int]
     body*: seq[GeneValue]
-    body_block*: Block
     body_blk*: seq[Expr]
-    ## No need to return value to caller, applicable to class constructor etc
-    no_return*: bool
 
   Arguments* = ref object
     positional*: seq[GeneValue]
@@ -225,7 +46,6 @@ type
   GeneInternalKind* = enum
     GeneFunction
     GeneArguments
-    GeneBlock
     GeneClass
     GeneNamespace
     GeneReturn
@@ -238,8 +58,6 @@ type
       fn*: Function
     of GeneArguments:
       args*: Arguments
-    of GeneBlock:
-      blk*: Block
     of GeneClass:
       class*: Class
     of GeneNamespace:
@@ -270,7 +88,6 @@ type
     GeneGene
     GeneMap
     GeneVector
-    GeneSet
     GeneCommentLine
     GeneRegex
     GeneInternal
@@ -284,14 +101,6 @@ type
   Comment* = ref object
     placement*: CommentPlacement
     comment_lines*: seq[string]
-
-  HMapEntry* = ref HMapEntryObj
-  HMapEntryObj = tuple[key: GeneValue, value: GeneValue]
-
-  HMap* = ref HMapObj
-  HMapObj* = object
-    count*: int
-    buckets*: seq[seq[HMapEntry]]
 
   GeneValue* {.acyclic.} = ref object
     case kind*: GeneKind
@@ -326,12 +135,9 @@ type
       # Example: (a = 1) => (= a 1)
       gene_normalized*: bool
     of GeneMap:
-      # map*: HMap
       map*: Table[string, GeneValue]
     of GeneVector:
       vec*: seq[GeneValue]
-    of GeneSet:
-      set_elems*: HMap
     of GeneCommentLine:
       comment*: string
     of GeneRegex:
@@ -351,7 +157,7 @@ type
 
   native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
-  Module2* = ref object
+  Module* = ref object
     name*: string
     name_mappings*: Table[string, int]
     names*: seq[string]
@@ -383,7 +189,7 @@ type
     # ExMethod
 
   Expr* = ref object of RootObj
-    module*: Module2
+    module*: Module
     parent*: Expr
     posInParent*: int
     case kind*: ExprKind
@@ -534,8 +340,6 @@ proc `==`*(this, that: GeneValue): bool =
       return this.map == that.map
     of GeneVector:
       return this.vec == that.vec
-    of GeneSet:
-      return this.set_elems == that.set_elems
     of GeneCommentLine:
       return this.comment == that.comment
     of GeneRegex:

@@ -1,517 +1,691 @@
-import os, sequtils, tables, hashes
+import tables
 
 import ./types
 import ./parser
-import ./vm
 
 type
-  IfState = enum
-    ## Initial state
-    If
+  VM* = ref object
+    cur_frame*: Frame
+    exprs*: seq[Expr]
 
-    # TODO: is this a good idea - "if not, elif not"?
-    # ## Can be used in front of condition
-    # Not
+  Frame* = ref object
+    self*: GeneValue
+    namespace*: Namespace
+    scope*: Scope
+    stack*: seq[GeneValue]
 
-    ## Can follow if and else if
-    Truthy
+  Namespace = ref object
+    parent*: Namespace
+    name*: string
+    members*: Table[int, GeneValue]
 
-    ## Can follow if and else if
-    Falsy
+  Scope* = ref object
+    parent*: Scope
+    members*: Table[int, GeneValue]
 
-    ## elif
-    ElseIf
+  Break* = ref object of CatchableError
+    val: GeneValue
 
-    ## else
-    Else
+  Return* = ref object of CatchableError
+    val: GeneValue
+
+  ScopeManager = ref object
+    cache*: seq[Scope]
+
+var ScopeMgr* = ScopeManager(cache: @[])
 
 #################### Interfaces ##################
 
-proc eval*(self: var VM, node: GeneValue): GeneValue
-proc eval_gene*(self: var VM, node: GeneValue): GeneValue
-proc eval_if*(self: var VM, nodes: seq[GeneValue]): GeneValue
-proc eval_do*(self: var VM, node: GeneValue): GeneValue
-proc eval_loop*(self: var VM, node: GeneValue): GeneValue
-proc eval_for*(self: var VM, node: GeneValue): GeneValue
-proc eval_break*(self: var VM, node: GeneValue): GeneValue
-proc eval_fn*(self: var VM, node: GeneValue): GeneValue
-proc eval_return*(self: var VM, node: GeneValue): GeneValue
-proc eval_ns*(self: var VM, node: GeneValue): GeneValue
-proc eval_class*(self: var VM, node: GeneValue): GeneValue
-proc eval_method*(self: var VM, node: GeneValue): GeneValue
-proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue
-proc eval_new*(self: var VM, node: GeneValue): GeneValue
-proc eval_at*(self: var VM, node: GeneValue): GeneValue
-proc eval_argv*(self: var VM, node: GeneValue): GeneValue
-proc eval_import*(self: var VM, node: GeneValue): GeneValue
-proc eval_call_native*(self: var VM, node: GeneValue): GeneValue
-proc call*(self: var VM, fn: Function, args: Arguments): GeneValue
-proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue
-proc eval_module*(self: var VM, name: string)
+proc `[]`*(self: VM, key: int): GeneValue {.inline.}
+proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
+proc new_if_expr*(parent: Expr, val: GeneValue): Expr
+proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr
+proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr
+proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
+proc new_block_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
+proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
+proc new_break_expr*(parent: Expr, val: GeneValue): Expr
+proc new_while_expr*(parent: Expr, val: GeneValue): Expr
+proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
+proc new_return_expr*(parent: Expr, val: GeneValue): Expr
+proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
+proc new_class_expr*(parent: Expr, val: GeneValue): Expr
+proc new_new_expr*(parent: Expr, val: GeneValue): Expr
+# proc new_method_expr*(parent: Expr, val: GeneValue): Expr
+# proc normalize_if*(val: GeneValue): NormalizedIf
+
+#################### Module ######################
+
+proc new_module(): Module =
+  return Module(
+    name: "<unknown>",
+  )
+
+proc get_index(self: var Module, name: string): int =
+  if self.name_mappings.hasKey(name):
+    return self.name_mappings[name]
+  else:
+    result = self.names.len
+    self.names.add(name)
+    self.name_mappings[name] = result
+
+#################### Namespace ###################
+
+proc new_namespace*(): Namespace =
+  return Namespace(
+    name: "<root>",
+    members: Table[int, GeneValue](),
+  )
+
+proc new_namespace*(name: string): Namespace =
+  return Namespace(
+    name: name,
+    members: Table[int, GeneValue](),
+  )
+
+proc new_namespace*(parent: Namespace, name: string): Namespace =
+  return Namespace(
+    parent: parent,
+    name: name,
+    members: Table[int, GeneValue](),
+  )
+
+proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
+
+proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
+  self.members[key] = val
+
+#################### Scope #######################
+
+proc new_scope*(): Scope = Scope(members: Table[int, GeneValue]())
+
+proc reset*(self: var Scope) {.inline.} =
+  self.parent = nil
+  self.members.clear()
+
+proc hasKey*(self: Scope, key: int): bool {.inline.} = self.members.hasKey(key)
+
+proc `[]`*(self: Scope, key: int): GeneValue {.inline.} = self.members[key]
+
+proc `[]=`*(self: var Scope, key: int, val: GeneValue) {.inline.} =
+  self.members[key] = val
+
+#################### ScopeManager ################
+
+proc get*(self: var ScopeManager): Scope {.inline.} =
+  if self.cache.len > 0:
+    return self.cache.pop()
+  else:
+    return new_scope()
+
+proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
+  scope.reset()
+  self.cache.add(scope)
+
+#################### Function ####################
+
+converter from_gene*(node: GeneValue): Function =
+  var first = node.gene_data[0]
+  var name: string
+  if first.kind == GeneSymbol:
+    name = first.symbol
+  elif first.kind == GeneComplexSymbol:
+    name = first.csymbol.rest[^1]
+  var args: seq[string] = @[]
+  var a = node.gene_data[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  return new_fn(name, args, body)
 
 #################### Implementations #############
 
-proc eval_gene(self: var VM, node: GeneValue): GeneValue =
-  node.normalize
-  var op = node.gene_op
-  case op.kind:
-  of GeneSymbol:
-    if op.symbol == "var":
-      var name = $node.gene_data[0]
-      var value =
-        if node.gene_data.len > 1:
-          self.eval(node.gene_data[1])
-        else:
-          GeneNil
-      let key = cast[Hash](name.hash)
-      self.cur_stack.cur_scope[key] = value
-    elif op.symbol == "@":
-      return self.eval_at(node)
-    elif op.symbol == "if":
-      return self.eval_if(node.gene_data)
-    elif op.symbol == "do":
-      return self.eval_do(node)
-    elif op.symbol == "loop":
-      return self.eval_loop(node)
-    elif op.symbol == "for":
-      return self.eval_for(node)
-    elif op.symbol == "break":
-      return self.eval_break(node)
-    elif op.symbol == "fn":
-      return self.eval_fn(node)
-    elif op.symbol == "return":
-      return self.eval_return(node)
-    elif op.symbol == "ns":
-      return self.eval_ns(node)
-    elif op.symbol == "import":
-      return self.eval_import(node)
-    elif op.symbol == "class":
-      return self.eval_class(node)
-    elif op.symbol == "method":
-      return self.eval_method(node)
-    elif op.symbol == "new":
-      return self.eval_new(node)
-    elif op.symbol == "$invoke_method":
-      return self.eval_invoke_method(node)
-    elif op.symbol == "$ARGV":
-      return self.eval_argv(node)
-    elif op.symbol == "$call_native":
-      return self.eval_call_native(node)
-    elif op.symbol == "=":
-      var first = node.gene_data[0]
-      var second = node.gene_data[1]
-      case first.kind:
-      of GeneSymbol:
-        var symbol = first.symbol
-        if symbol[0] == '@':
-          var cur_self = self.cur_stack.self
-          case cur_self.kind:
-          of GeneInstance:
-            cur_self.instance.value.gene_props[symbol.substr(1)] = self.eval(second)
+proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
+  return Expr(
+    kind: ExLiteral,
+    parent: parent,
+    module: parent.module,
+    literal: v,
+  )
+
+proc new_symbol_expr*(parent: Expr, s: string): Expr =
+  var key = parent.module.get_index(s)
+  return Expr(
+    kind: ExSymbol,
+    parent: parent,
+    module: parent.module,
+    key: key,
+  )
+
+proc new_array_expr*(parent: Expr, v: GeneValue): Expr =
+  result = Expr(
+    kind: ExArray,
+    parent: parent,
+    module: parent.module,
+    array: @[],
+  )
+  for item in v.vec:
+    result.array.add(new_expr(result, item))
+
+proc new_map_expr*(parent: Expr, v: GeneValue): Expr =
+  result = Expr(
+    kind: ExMap,
+    parent: parent,
+    module: parent.module,
+    map: @[],
+  )
+  for key, val in v.map:
+    var e = new_map_key_expr(result, key, val)
+    result.map.add(e)
+
+proc new_gene_expr*(parent: Expr, v: GeneValue): Expr =
+  return Expr(
+    kind: ExGene,
+    parent: parent,
+    module: parent.module,
+    gene: v,
+  )
+
+proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
+  return Expr(
+    kind: ExUnknown,
+    parent: parent,
+    module: parent.module,
+    unknown: v,
+  )
+
+proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
+  case expr.kind:
+  of ExRoot:
+    result = self.eval(expr.root)
+  of ExLiteral:
+    result = expr.literal
+  of ExSymbol:
+    result = self[expr.key]
+  of ExBlock:
+    for e in expr.blk:
+      result = self.eval(e)
+  of ExArray:
+    result = new_gene_vec()
+    for e in expr.array:
+      result.vec.add(self.eval(e))
+  of ExMap:
+    result = new_gene_map()
+    for e in expr.map:
+      result.map[e.map_key] = self.eval(e.map_val)
+  of ExMapChild:
+    discard
+    # result = self.eval(expr.map_val)
+  of ExGene:
+    var target = self.eval(expr.gene_op)
+    if target.kind == GeneInternal and target.internal.kind == GeneFunction:
+      var fn = target.internal.fn
+      var fn_scope = ScopeMgr.get()
+      case expr.gene_blk.len:
+      of 0:
+        for i in 0..<fn.args.len:
+          fn_scope[fn.arg_keys[i]] = GeneNil
+      of 1:
+        var arg = self.eval(expr.gene_blk[0])
+        for i in 0..<fn.args.len:
+          if i == 0:
+            fn_scope[fn.arg_keys[0]] = arg
           else:
-            todo()
-        else:
-          let key = cast[Hash](first.symbol.hash) 
-          self.cur_stack.cur_scope[key] = self.eval(second)
+            fn_scope[fn.arg_keys[i]] = GeneNil
       else:
-        todo($node)
-    elif op.symbol == "+":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
-      if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_int(first.num + second.num)
-      else:
-        todo($node)
-    elif op.symbol == "-":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
-      if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_int(first.num - second.num)
-      else:
-        todo($node)
-    elif op.symbol == "==":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      return new_gene_bool(first == second)
-    elif op.symbol == "<=":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
-      if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_bool(first.num <= second.num)
-      else:
-        todo($node)
-    elif op.symbol == "<":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      var firstKind = first.kind
-      var secondKind = second.kind
-      if firstKind == GeneInt and secondKind == GeneInt:
-        return new_gene_bool(first.num < second.num)
-      else:
-        todo($node)
-    elif op.symbol == "&&":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      return new_gene_bool(first.is_truthy and second.is_truthy)
-    elif op.symbol == "||":
-      var first = self.eval(node.gene_data[0])
-      var second = self.eval(node.gene_data[1])
-      return new_gene_bool(first.is_truthy or second.is_truthy)
+        var args: seq[GeneValue] = @[]
+        for e in expr.gene_blk:
+          args.add(self.eval(e))
+        fn_scope.parent = self.cur_frame.scope
+        for i in 0..<fn.args.len:
+          fn_scope[fn.arg_keys[i]] = args[i]
+      var caller_scope = self.cur_frame.scope
+      self.cur_frame.scope = fn_scope
+      if fn.body_blk.len == 0:
+        for item in fn.body:
+          fn.body_blk.add(new_expr(expr, item))
+      try:
+        for e in fn.body_blk:
+          result = self.eval(e)
+      except Return as r:
+        result = r.val
+
+      ScopeMgr.free(fn_scope)
+      self.cur_frame.scope = caller_scope
     else:
-      var target = self.eval(op)
-      if target.kind == GeneInternal and target.internal.kind == GeneFunction:
-        var fn = target.internal.fn
-        var this = self
-        var args = node.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
-        return self.call(fn, new_args(args))
-      else:
-        todo($node)
-  else:
-    todo($node)
-
-proc eval_if(self: var VM, nodes: seq[GeneValue]): GeneValue =
-  var state = IfState.If
-  for node in nodes:
-    case state:
-    of IfState.If, IfState.ElseIf:
-      var cond = self.eval(node)
-      if cond.isTruthy:
-        state = IfState.Truthy
-      else:
-        state = IfState.Falsy
-    of IfState.Else:
-      result = self.eval(node)
-    of IfState.Truthy:
-      case node.kind:
-      of GeneSymbol:
-        if node.symbol == "elif" or node.symbol == "else":
-          break
-        else:
-          result = self.eval(node)
-      else:
-        result = self.eval(node)
-    of IfState.Falsy:
-      if node.kind == GeneSymbol:
-        if node.symbol == "elif":
-          state = IfState.ElseIf
-        elif node.symbol == "else":
-          state = IfState.Else
-
-proc eval_do(self: var VM, node: GeneValue): GeneValue =
-  for child in node.gene_data:
-    result = self.eval(child)
-
-proc eval_loop(self: var VM, node: GeneValue): GeneValue =
-  var i = 0
-  var len = node.gene_data.len
-  while true:
-    var child = node.gene_data[i]
-    var r = self.eval(child)
-    if not r.isNil and r.kind == GeneInternal and r.internal.kind == GeneBreak:
-      result = r.internal.break_val
-      break
-    i = (i + 1) mod len
-
-proc eval_for(self: var VM, node: GeneValue): GeneValue =
-  discard self.eval(node.gene_props["init"])
-  while self.eval(node.gene_props["guard"]):
-    for child in node.gene_data:
-      var r = self.eval(child)
-      if not r.isNil and r.internal.kind == GeneBreak:
-        return
-    discard self.eval(node.gene_props["update"])
-
-proc eval_break(self: var VM, node: GeneValue): GeneValue =
-  if node.gene_data.len > 0:
-    var v = self.eval(node.gene_data[0])
-    return new_gene_internal(Internal(kind: GeneBreak, break_val: v))
-  else:
-    return new_gene_internal(Internal(kind: GeneBreak))
-
-proc eval_fn(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].symbol
-  var args: seq[string] = @[]
-  var a = node.gene_data[1]
-  case a.kind:
-  of GeneSymbol:
-    args.add(a.symbol)
-  of GeneVector:
-    for item in a.vec:
-      args.add(item.symbol)
-  else:
-    not_allowed()
-  var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
-    body.add node.gene_data[i]
-
-  var fn = Function(name: name, args: args, body: body)
-  var internal = Internal(kind: GeneFunction, fn: fn)
-  result = new_gene_internal(internal)
-  let key = cast[Hash](name.hash)
-  self.cur_stack.cur_ns[key] = result
-
-proc eval_return(self: var VM, node: GeneValue): GeneValue =
-  var val = self.eval(node.gene_data[0])
-  return new_gene_internal(Internal(kind: GeneReturn, return_val: val))
-
-proc eval_ns*(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].symbol
-  var ns = new_namespace(name)
-  result = new_gene_internal(ns)
-  let key = cast[Hash](name.hash)
-  self.cur_stack.cur_ns[key] = result
-
-  var stack = self.cur_stack
-  self.cur_stack = stack.grow()
-  self.cur_stack.self = result
-  self.cur_stack.cur_ns = ns
-  for i in 1..<node.gene_data.len:
-    var child = node.gene_data[i]
-    discard self.eval child
-
-  self.cur_stack = stack
-
-proc eval_class*(self: var VM, node: GeneValue): GeneValue =
-  var name: string
-  var ns: Namespace
-  var first = node.gene_data[0]
-  case first.kind:
-  of GeneSymbol:
-    name = first.symbol
-    ns = self.cur_stack.cur_ns
-  of GeneComplexSymbol:
-    var nsName = first.csymbol.first
-    var rest = first.csymbol.rest
-    name = rest[^1]
-    if nsName == "global":
-      ns = APP.ns
+      todo($expr.gene)
+  of ExBinary:
+    var first = self.eval(expr.bin_first)
+    var second = self.eval(expr.bin_second)
+    case expr.bin_op:
+    of BinAdd: result = new_gene_int(first.num + second.num)
+    of BinSub: result = new_gene_int(first.num - second.num)
+    of BinMul: result = new_gene_int(first.num * second.num)
+    # of BinDiv: result = new_gene_int(first.num / second.num)
+    of BinEq:  result = new_gene_bool(first.num == second.num)
+    of BinNeq: result = new_gene_bool(first.num != second.num)
+    of BinLt:  result = new_gene_bool(first.num < second.num)
+    of BinLe:  result = new_gene_bool(first.num <= second.num)
+    of BinGt:  result = new_gene_bool(first.num > second.num)
+    of BinGe:  result = new_gene_bool(first.num >= second.num)
+    of BinAnd: result = new_gene_bool(first.boolVal and second.boolVal)
+    of BinOr:  result = new_gene_bool(first.boolVal or second.boolVal)
+    else: todo()
+  of ExBinImmediate:
+    var first = self.eval(expr.bini_first)
+    var second = expr.bini_second
+    case expr.bini_op:
+    of BinAdd: result = new_gene_int(first.num + second.num)
+    of BinSub: result = new_gene_int(first.num - second.num)
+    of BinMul: result = new_gene_int(first.num * second.num)
+    # of BinDiv: result = new_gene_int(first.num / second.num)
+    of BinEq:  result = new_gene_bool(first.num == second.num)
+    of BinNeq: result = new_gene_bool(first.num != second.num)
+    of BinLt:  result = new_gene_bool(first.num < second.num)
+    of BinLe:  result = new_gene_bool(first.num <= second.num)
+    of BinGt:  result = new_gene_bool(first.num > second.num)
+    of BinGe:  result = new_gene_bool(first.num >= second.num)
+    of BinAnd: result = new_gene_bool(first.boolVal and second.boolVal)
+    of BinOr:  result = new_gene_bool(first.boolVal or second.boolVal)
+    else: todo()
+  of ExVar:
+    var val = self.eval(expr.var_val)
+    self.cur_frame.scope[expr.var_key] = val
+    result = GeneNil
+  of ExAssignment:
+    var val = self.eval(expr.var_val)
+    self.cur_frame.scope[expr.var_key] = val
+    result = GeneNil
+  of ExIf:
+    var v = self.eval(expr.if_cond)
+    if v:
+      result = self.eval(expr.if_then)
     else:
-      let key = cast[Hash](nsName.hash)
-      ns = self.cur_stack.cur_ns[key].internal.ns
-    for i in 0..<rest.len - 1:
-      let key = cast[Hash](rest[i].hash)
-      ns = ns[key].internal.ns
-  else:
-    not_allowed()
-
-  var class = Class(name: name)
-  var internal = Internal(kind: GeneClass, class: class)
-  result = new_gene_internal(internal)
-  let key = cast[Hash](name.hash)
-  ns[key] = result
-
-  var stack = self.cur_stack
-  self.cur_stack = stack.grow()
-  self.cur_stack.self = result
-  for i in 1..<node.gene_data.len:
-    var child = node.gene_data[i]
-    discard self.eval child
-
-  self.cur_stack = stack
-
-proc eval_method(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].symbol
-  var args: seq[string] = @[]
-  var a = node.gene_data[1]
-  case a.kind:
-  of GeneSymbol:
-    args.add(a.symbol)
-  of GeneVector:
-    for item in a.vec:
-      args.add(item.symbol)
-  else:
-    not_allowed()
-  var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
-    body.add node.gene_data[i]
-
-  var fn = Function(name: name, args: args, body: body)
-  var internal = Internal(kind: GeneFunction, fn: fn)
-  result = new_gene_internal(internal)
-  self.cur_stack.self.internal.class.methods[name] = fn
-
-proc eval_invoke_method(self: var VM, node: GeneValue): GeneValue =
-  var instance = self.eval(node.gene_props["self"])
-  var class: Class
-  case instance.kind:
-  of GeneInstance:
-    class = instance.instance.class
-  of GeneString:
-    let key = cast[Hash]("String".hash)
-    class = APP.ns[key].internal.class
-  else:
-    todo()
-  var meth = class.methods[node.gene_props["method"].str]
-  var this = self
-  var args = node.gene_data.map(proc(item: GeneValue): GeneValue = this.eval(item))
-  return self.call_method(instance, meth, new_args(args))
-
-proc eval_new*(self: var VM, node: GeneValue): GeneValue =
-  var class = self.eval(node.gene_data[0]).internal.class
-  var instance = new_instance(class)
-  result = new_gene_instance(instance)
-
-  if class.methods.hasKey("new"):
-    var new_method = class.methods["new"]
-    var args: seq[GeneValue] = @[]
-    for i in 1..<node.gene_data.len:
-      args.add(self.eval(node.gene_data[i]))
-    discard self.call_method(result, new_method, new_args(args))
-
-proc eval_at*(self: var VM, node: GeneValue): GeneValue =
-  var target =
-    if node.gene_props["self"].isNil:
-      self.cur_stack.self
+      result = self.eval(expr.if_else)
+  of ExLoop:
+    try:
+      while true:
+        for e in expr.loop_blk:
+          discard self.eval(e)
+    except Break as b:
+      result = b.val
+  of ExBreak:
+    var val = GeneNil
+    if expr.break_val != nil:
+      val = self.eval(expr.break_val)
+    var e: Break
+    e.new
+    e.val = val
+    raise e
+  of ExWhile:
+    try:
+      var cond = self.eval(expr.while_cond)
+      while cond:
+        for e in expr.while_blk:
+          discard self.eval(e)
+        cond = self.eval(expr.while_cond)
+    except Break as b:
+      result = b.val
+  of ExFn:
+    self.cur_frame.namespace[expr.fn.internal.fn.name_key] = expr.fn
+    result = expr.fn
+  of ExReturn:
+    var val = GeneNil
+    if expr.return_val != nil:
+      val = self.eval(expr.return_val)
+    var e: Return
+    e.new
+    e.val = val
+    raise e
+  of ExUnknown:
+    var parent = expr.parent
+    case parent.kind:
+    of ExBlock:
+      var e = new_expr(parent, expr.unknown)
+      parent.blk[expr.posInParent] = e
+      result = self.eval(e)
+    of ExLoop:
+      var e = new_expr(parent, expr.unknown)
+      parent.loop_blk[expr.posInParent] = e
+      result = self.eval(e)
     else:
-      self.eval(node.gene_props["self"])
-  var name = node.gene_data[0].str
-  case target.kind:
-  of GeneInstance:
-    return target.instance.value.gene_props[name]
-  of GeneGene:
-    return target.gene_props[name]
+      todo($expr.unknown)
+  of ExClass:
+    self.cur_frame.namespace[expr.class.internal.class.name_key] = expr.class
+    result = expr.class
+  of ExNew:
+    var class = self.eval(expr.new_class)
+    var instance = new_instance(class.internal.class)
+    result = new_gene_instance(instance)
+  # else:
+  #   todo($expr.kind)
+
+#################### Frame #######################
+
+proc new_frame*(): Frame =
+  return Frame(
+    namespace: new_namespace(),
+    scope: new_scope(),
+  )
+
+#################### VM #########################
+
+proc new_vm*(): VM =
+  return VM(
+    cur_frame: new_frame(),
+  )
+
+proc `[]`*(self: VM, key: int): GeneValue {.inline.} =
+  if self.cur_frame.scope.hasKey(key):
+    return self.cur_frame.scope[key]
   else:
-    not_allowed()
+    return self.cur_frame.namespace[key]
 
-proc eval_argv*(self: var VM, node: GeneValue): GeneValue =
-  if node.gene_data.len == 1:
-    if node.gene_data[0] == new_gene_int(0):
-      return new_gene_string_move(getAppFilename())
-    else:
-      var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
-      return argv[node.gene_data[0].num - 1]
+proc prepare*(self: VM, code: string): Expr =
+  var parsed = read_all(code)
+  var root = Expr(
+    kind: ExRoot,
+    module: new_module(),
+  )
+  return new_block_expr(root, parsed)
 
-  var argv = commandLineParams().map(proc(s: string): GeneValue = new_gene_string_move(s))
-  argv.insert(new_gene_string_move(getAppFilename()))
-  return new_gene_vec(argv)
+proc eval*(self: VM, code: string): GeneValue =
+  return self.eval(self.prepare(code))
 
-proc eval_import*(self: var VM, node: GeneValue): GeneValue =
-  var module = node.gene_props["module"].str
-  var ns: Namespace
-  if not APP.namespaces.hasKey(module):
-    self.eval_module(module)
-  ns = APP.namespaces[module]
-  if ns == nil:
-    todo("Evaluate module")
-  for name in node.gene_props["names"].vec:
-    var s = name.symbol
-    let key = cast[Hash](s.hash)
-    self.cur_stack.cur_ns[key] = ns[key]
-  return GeneNil
+##################################################
 
-proc eval_call_native*(self: var VM, node: GeneValue): GeneValue =
-  var name = node.gene_data[0].str
-  case name:
-  of "str_len":
-    var arg0 = self.eval(node.gene_data[1]).str
-    return new_gene_int(len(arg0))
-  else:
-    todo()
-
-proc call*(self: var VM, fn: Function, args: Arguments): GeneValue =
-  var stack = self.cur_stack
-  self.cur_stack = stack.grow()
-  for i in 0..<fn.args.len:
-    var arg = fn.args[i]
-    var val = args[i]
-    let key = cast[Hash](arg.hash)
-    self.cur_stack.cur_scope[key] = val
-
-  try:
-    for node in fn.body:
-      result = self.eval node
-
-  finally:
-    self.cur_stack = stack
-
-proc call_method*(self: var VM, instance: GeneValue, fn: Function, args: Arguments): GeneValue =
-  var stack = self.cur_stack
-  self.cur_stack = stack.grow()
-  self.cur_stack.self = instance
-  for i in 0..<fn.args.len:
-    var arg = fn.args[i]
-    var val = args[i]
-    let key = cast[Hash](arg.hash)
-    self.cur_stack.cur_scope[key] = val
-
-  try:
-    for node in fn.body:
-      result = self.eval node
-
-  finally:
-    self.cur_stack = stack
-
-proc eval*(self: var VM, node: GeneValue): GeneValue =
+proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   case node.kind:
-  of GeneNilKind:
-    return GeneNil
-  of GeneInt:
-    return new_gene_int(node.num)
-  of GeneString:
-    return new_gene_string_move(node.str)
-  of GeneBool:
-    return new_gene_bool(node.boolVal)
+  of GeneNilKind, GeneBool, GeneInt:
+    return new_literal_expr(parent, node)
   of GeneSymbol:
-    var name = node.symbol
-    case name:
-    of "global":
-      return new_gene_internal(APP.ns)
-    of "self":
-      return self.cur_stack.self
-    else:
-      let key = cast[Hash](name.hash)
-      return self[key]
-  of GeneComplexSymbol:
-    var sym = node.csymbol
-    if sym.first == "":
-      result = new_gene_internal(self.cur_stack.cur_ns)
-    elif sym.first == "global":
-      result = new_gene_internal(APP.ns)
-    else:
-      let key = cast[Hash](sym.first.hash)
-      result = self[key]
-    for name in sym.rest:
-      let key = cast[Hash](name.hash)
-      result = result.internal.ns[key]
-    return result
+    return new_symbol_expr(parent, node.symbol)
+  of GeneVector:
+    return new_array_expr(parent, node)
+  of GeneMap:
+    return new_map_expr(parent, node)
   of GeneGene:
     node.normalize
-    return self.eval_gene(node)
-  of GeneVector:
-    return new_gene_vec(node.vec.mapIt(self.eval(it)))
-  of GeneMap:
-    var map = Table[string, GeneValue]()
-    for key in node.map.keys:
-      map[key] = self.eval(node.map[key])
-    return new_gene_map(map)
+    case node.gene_op.kind:
+    of GeneSymbol:
+      case node.gene_op.symbol:
+      of "var":
+        var name = node.gene_data[0].symbol
+        var val = GeneNil
+        if node.gene_data.len > 1:
+          val = node.gene_data[1]
+        return new_var_expr(parent, name, val)
+      of "=":
+        var name = node.gene_data[0].symbol
+        var val = node.gene_data[1]
+        return new_assignment_expr(parent, name, val)
+      of "if":
+        return new_if_expr(parent, node)
+      of "do":
+        return new_block_expr(parent, node.gene_data)
+      of "loop":
+        return new_loop_expr(parent, node)
+      of "break":
+        return new_break_expr(parent, node)
+      of "while":
+        return new_while_expr(parent, node)
+      of "fn":
+        return new_fn_expr(parent, node)
+      of "return":
+        return new_return_expr(parent, node)
+      of "class":
+        return new_class_expr(parent, node)
+      of "new":
+        return new_new_expr(parent, node)
+      # of "method":
+      #   return new_method_expr(parent, node)
+      of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
+        return new_binary_expr(parent, node.gene_op.symbol, node)
+      else:
+        discard
+    else:
+      discard
+    result = new_gene_expr(parent, node)
+    result.gene_op = new_expr(result, node.gene_op)
+    for item in node.gene_data:
+      result.gene_blk.add(new_expr(result, item))
   else:
     todo($node)
 
-proc eval*(self: var VM, nodes: seq[GeneValue]): GeneValue =
+proc new_block_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
+  result = Expr(
+    kind: ExBlock,
+    parent: parent,
+    module: parent.module,
+  )
   for node in nodes:
-    result = self.eval node
+    result.blk.add(new_unknown_expr(result, node))
 
-proc eval*(self: var VM, buffer: string): GeneValue =
-  var parsed = read_all(buffer)
-  for node in parsed:
-    result = self.eval node
+proc new_loop_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExLoop,
+    parent: parent,
+    module: parent.module,
+  )
+  for node in val.gene_data:
+    result.loop_blk.add(new_expr(result, node))
 
-proc eval_module*(self: var VM, name: string, buffer: string) =
-  var stack = self.cur_stack.grow()
-  self.cur_stack = stack
-  stack.cur_ns = new_namespace()
-  stack.cur_ns.name = name
-  APP.namespaces[name] = stack.cur_ns
+proc new_break_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExBreak,
+    parent: parent,
+    module: parent.module,
+  )
+  if val.gene_data.len > 0:
+    result.break_val = new_expr(result, val.gene_data[0])
 
-  var parsed = read_all(buffer)
-  for node in parsed:
-    discard self.eval node
+proc new_while_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExWhile,
+    parent: parent,
+    module: parent.module,
+  )
+  result.while_cond = new_expr(result, val.gene_data[0])
+  for i in 1..<val.gene_data.len:
+    var node = val.gene_data[i]
+    result.while_blk.add(new_expr(result, node))
 
-proc eval_module*(self: var VM, name: string) =
-  self.eval_module(name, readFile(name))
+proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExMapChild,
+    parent: parent,
+    module: parent.module,
+    map_key: key,
+  )
+  result.map_val = new_expr(result, val)
+
+proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr =
+  var key = parent.module.get_index(name)
+  result = Expr(
+    kind: ExVar,
+    parent: parent,
+    module: parent.module,
+    # var_name: name,
+    var_key: key,
+  )
+  result.var_val = new_expr(result, val)
+
+proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr =
+  var key = parent.module.get_index(name)
+  result = Expr(
+    kind: ExAssignment,
+    parent: parent,
+    module: parent.module,
+    # var_name: name,
+    var_key: key,
+  )
+  result.var_val = new_expr(result, val)
+
+proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExIf,
+    parent: parent,
+    module: parent.module,
+  )
+  result.if_cond = new_expr(result, val.gene_data[0])
+  result.if_then = new_expr(result, val.gene_data[1])
+  if val.gene_data.len > 3:
+    result.if_else = new_expr(result, val.gene_data[3])
+
+# proc normalize_if*(val: GeneValue): NormalizedIf =
+#   var cond: GeneValue = val.gene_data[0]
+#   result.cond = cond
+#   var then_logic: seq[GeneValue] = @[]
+#   result.then_logic = then_logic
+#   var elif_pairs: seq[(GeneValue, seq[GeneValue])] = @[]
+#   result.elif_pairs = elif_pairs
+#   var else_logic: seq[GeneValue] = @[]
+#   result.else_logic = else_logic
+
+#   var state = ThenBlock
+#   for i in 1..<val.gene_data.len:
+#     var item = val.gene_data[i]
+#     case state:
+#     of ThenBlock:
+#       if item == ELSE:
+#         state = ElseBlock
+#       elif item == ELIF:
+#         state = ElseIfCond
+#       else:
+#         then_logic.add(item)
+#     of ElseIfCond:
+#       if item in @[ELSE, ELIF, THEN]:
+#         not_allowed()
+#       else:
+#         state = ElseIfThenBlock
+#         elif_pairs.add((item, @[]))
+#     of ElseIfThenBlock:
+#       if item == ELSE:
+#         state = ElseBlock
+#       elif item == ELIF:
+#         state = ElseIfCond
+#       else:
+#         elif_pairs[^1][1].add(item)
+#     else:
+#       not_allowed()
+
+proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
+  var fn: Function = val
+  fn.name_key = parent.module.get_index(fn.name)
+  for name in fn.args:
+    fn.arg_keys.add(parent.module.get_index(name))
+  result = Expr(
+    kind: ExFn,
+    parent: parent,
+    module: parent.module,
+    fn: new_gene_internal(fn),
+  )
+
+proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExReturn,
+    parent: parent,
+    module: parent.module,
+  )
+  if val.gene_data.len > 0:
+    result.return_val = new_expr(result, val.gene_data[0])
+
+proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
+  var class = new_class(val.gene_data[0].symbol)
+  result = Expr(
+    kind: ExClass,
+    parent: parent,
+    module: parent.module,
+    class: new_gene_internal(class),
+  )
+  var body: seq[Expr] = @[]
+  for i in 1..<val.gene_data.len:
+    body.add(new_expr(parent, val.gene_data[i]))
+  result.class_body = body
+
+proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExNew,
+    parent: parent,
+    module: parent.module,
+  )
+  result.new_class = new_expr(parent, val.gene_data[0])
+
+# proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
+#   var fn: Function = val # Converter is implicitly called here
+#   for name in fn.args:
+#     fn.arg_keys.add(parent.module.get_index(name))
+#   result = Expr(
+#     kind: ExMethod,
+#     parent: parent,
+#     module: parent.module,
+#     meth: new_gene_internal(fn),
+#   )
+
+proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
+  if val.gene_data[1].is_literal:
+    result = Expr(
+      kind: ExBinImmediate,
+      parent: parent,
+      module: parent.module,
+    )
+    result.bini_first = new_expr(result, val.gene_data[0])
+    result.bini_second = val.gene_data[1]
+    case op:
+    of "+":  result.bini_op = BinAdd
+    of "-":  result.bini_op = BinSub
+    of "*":  result.bini_op = BinMul
+    of "/":  result.bini_op = BinDiv
+    of "==": result.bini_op = BinEq
+    of "!=": result.bini_op = BinNeq
+    of "<":  result.bini_op = BinLt
+    of "<=": result.bini_op = BinLe
+    of ">":  result.bini_op = BinGt
+    of ">=": result.bini_op = BinGe
+    of "&&": result.bini_op = BinAnd
+    of "||": result.bini_op = BinOr
+    else: not_allowed()
+  else:
+    result = Expr(
+      kind: ExBinary,
+      parent: parent,
+      module: parent.module,
+    )
+    result.bin_first = new_expr(result, val.gene_data[0])
+    result.bin_second = new_expr(result, val.gene_data[1])
+    case op:
+    of "+":  result.bin_op = BinAdd
+    of "-":  result.bin_op = BinSub
+    of "*":  result.bin_op = BinMul
+    of "/":  result.bin_op = BinDiv
+    of "==": result.bin_op = BinEq
+    of "!=": result.bin_op = BinNeq
+    of "<":  result.bin_op = BinLt
+    of "<=": result.bin_op = BinLe
+    of ">":  result.bin_op = BinGt
+    of ">=": result.bin_op = BinGe
+    of "&&": result.bin_op = BinAnd
+    of "||": result.bin_op = BinOr
+    else: not_allowed()
+
+when isMainModule:
+  import os, times
+
+  if commandLineParams().len == 0:
+    echo "\nUsage: interpreter2 <GENE FILE>\n"
+    quit(0)
+  var interpreter = new_vm()
+  let e = interpreter.prepare(readFile(commandLineParams()[0]))
+  let start = cpuTime()
+  let result = interpreter.eval(e)
+  echo "Time: " & $(cpuTime() - start)
+  echo result

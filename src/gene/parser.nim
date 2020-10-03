@@ -1,4 +1,4 @@
-import lexbase, streams, strutils, unicode, nre, hashes, options, tables
+import lexbase, streams, strutils, unicode, hashes, tables
 
 import ./types
 
@@ -58,26 +58,6 @@ proc is_terminating_macro(c: char): bool =
 
 proc get_macro(ch: char): MacroReader =
   result = macros[ch]
-
-## ============== HMAP TYPE AND FWD DECLS ===========
-
-proc new_hmap*(capacity: int = 16): HMap
-
-proc `[]=`*(m: HMap, key: GeneValue, val: GeneValue)
-
-proc val_at*(m: HMap, key: GeneValue, default: GeneValue = nil): GeneValue
-
-proc `[]`*(m: HMap, key: GeneValue): Option[GeneValue]
-
-proc len*(m: HMap): int = m.count
-
-iterator items*(m: HMap): HMapEntry =
-  for b in m.buckets:
-    if len(b) != 0:
-      for entry in b:
-        yield entry
-
-proc merge_maps*(m1, m2 :HMap): void
 
 ### === ERROR HANDLING UTILS ===
 
@@ -195,9 +175,6 @@ proc read_quasiquoted*(p: var Parser): GeneValue =
 
 proc read_unquoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "unquote")
-
-# proc read_deref*(p: var Parser): GeneValue =
-#   return read_quoted_internal(p, "deref")
 
 # TODO: read comment as continuous blocks, not just lines
 proc read_comment(p: var Parser): GeneValue =
@@ -617,18 +594,6 @@ proc read_vector(p: var Parser): GeneValue =
   result.vec = list_result.list
   discard maybe_add_comments(result, list_result)
 
-proc read_set(p: var Parser): GeneValue =
-  result = GeneValue(kind: GeneSet)
-  let list_result = read_delimited_list(p, ']', true)
-  var elements = list_result.list
-  discard maybe_add_comments(result, list_result)
-  var i = 0
-  # TODO: hmap_capacity(len(elements))
-  result.set_elems = new_hmap()
-  while i <= elements.high:
-    result.set_elems[elements[i]] = new_gene_bool(true)
-    inc(i)
-
 proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
   h = h !& hash(node.kind)
@@ -666,10 +631,6 @@ proc hash*(node: GeneValue): Hash =
       h = h !& hash(val)
   of GeneVector:
     h = h !& hash(node.vec)
-  of GeneSet:
-    for entry in node.set_elems:
-      h = h !& hash(entry.key)
-      h = h !& hash(entry.value)
   of GeneCommentLine:
     h = h !& hash(node.comment)
   of GeneRegex:
@@ -722,7 +683,6 @@ proc init_macro_array() =
 proc init_dispatch_macro_array() =
   dispatch_macros['!'] = read_comment
   # dispatch_macros[':'] = read_ns_map
-  dispatch_macros['['] = read_set
   # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard
   dispatch_macros['"'] = read_regex
@@ -735,73 +695,6 @@ proc init_gene_readers*(options: ParseOptions) =
   discard
 
 init_gene_readers()
-
-### === HMap: a simple hash map ====
-
-proc new_hmap(capacity: int = 16): HMap =
-  assert capacity >= 0
-  new(result)
-  result.buckets = new_seq[seq[HMapEntry]](capacity)
-  result.count = 0
-
-proc `[]=`*(m: HMap, key: GeneValue, val: GeneValue) =
-  let h = hash(key)
-  if m.count + 1 > int(0.75 * float(m.buckets.high)):
-    var
-      new_cap = if m.count == 0: 8 else: 2 * m.buckets.high
-      tmp_map = new_hmap(new_cap)
-    for b in m.buckets:
-      if b.len > 0:
-        for entry in b:
-          tmp_map[entry.key] = entry.value
-    tmp_map[key] = val
-    m[] = tmp_map[]
-  else:
-    var bucket_index = h and m.buckets.high
-    var entry = new(HMapEntry)
-    entry.key   = key
-    entry.value = val
-    if m.buckets[bucket_index].len == 0:
-      m.buckets[bucket_index] = @[entry]
-      inc(m.count)
-    else:
-      var overwritten = false
-      for item in m.buckets[bucket_index]:
-        if item.key == entry.key:
-          item.value = val
-          overwritten = true
-      if not overwritten:
-        m.buckets[bucket_index].add(entry)
-        inc(m.count)
-
-proc val_at*(m: HMap, key: GeneValue, default: GeneValue = nil): GeneValue =
-  let
-    h = hash(key)
-    bucket_index = h and m.buckets.high
-    bucket = m.buckets[bucket_index]
-  result = default
-  if bucket.len > 0:
-    for entry in bucket:
-      if entry.key == key:
-        result = entry.value
-        break
-
-
-      
-proc `[]`*(m: HMap, key: GeneValue): Option[GeneValue] =
-  let
-    default = GeneValue(kind: GeneBool, bool_val: true)
-    found = val_at(m, key, default)
-    pf = cast[pointer](found)
-    pd = cast[pointer](default)
-  if pd == pf:
-    return none(GeneValue)
-  else:
-    return some(found)
-
-proc merge_maps*(m1, m2 :HMap): void = 
-  for entry in m2:
-    m1[entry.key] = entry.value
 
 ### === TODO: name for this section ====
 

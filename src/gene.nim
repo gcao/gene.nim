@@ -7,11 +7,8 @@
 import times, strutils, logging
 
 import gene/types
-import gene/vm
 import gene/parser
 import gene/interpreter
-import gene/compiler
-import gene/cpu
 import cmdline/option_parser
 
 proc setupLogger(debugging: bool) =
@@ -58,13 +55,7 @@ proc main() =
         else:
           discard
 
-        var r: GeneValue
-        if options.running_mode == Interpreted:
-          r = vm.eval(input)
-        else:
-          var c = new_compiler()
-          var module = c.compile(input)
-          r = vm.run(module)
+        var r = vm.eval(input)
 
         # Reset input
         input = ""
@@ -88,19 +79,10 @@ proc main() =
   else:
     var vm = new_vm()
     var file = options.file
-    if options.running_mode == Interpreted:
-      let parsed = read_all(readFile(file))
-      let start = cpuTime()
-      let result = vm.eval(parsed)
-      echo "Time: " & $(cpuTime() - start)
-      echo result
-    else:
-      var c = new_compiler()
-      var module = c.compile(readFile(file))
-      let start = cpuTime()
-      let result = vm.run(module)
-      echo "Time: " & $(cpuTime() - start)
-      echo result
+    let start = cpuTime()
+    let result = vm.eval(readFile(file))
+    echo result
+    echo "Time: " & $(cpuTime() - start)
 
 when isMainModule:
   main()
