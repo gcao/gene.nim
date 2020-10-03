@@ -188,6 +188,7 @@ type
     ExClass
     ExNew
     ExMethod
+    ExInvokeMethod
     ExGetProp
     ExSetProp
 
@@ -253,6 +254,10 @@ type
       new_args*: seq[Expr]
     of ExMethod:
       meth*: GeneValue
+    of ExInvokeMethod:
+      invoke_self*: Expr
+      invoke_meth*: string
+      invoke_args*: seq[Expr]
     of ExGetProp:
       get_prop_self*: Expr
       get_prop_name*: string

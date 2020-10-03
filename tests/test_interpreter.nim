@@ -131,12 +131,21 @@ test_interpreter """
 """, proc(r: GeneValue) =
   check r.str == "Class A"
 
-# test_interpreter """
-#   (class A
-#     (method new description
-#       (@description = description)
-#     )
-#   )
-#   (new A "test")
-# """, proc(r: GeneValue) =
-#   check r.instance.value.gene_props["description"] == "test"
+test_interpreter """
+  (class A
+    (method new description
+      (@description = description)
+    )
+  )
+  (new A "test")
+""", proc(r: GeneValue) =
+  check r.instance.value.gene_props["description"] == "test"
+
+test_interpreter """
+  (class A
+    (method test []
+      "test"
+    )
+  )
+  ((new A) .test)
+""", "test"

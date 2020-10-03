@@ -52,6 +52,7 @@ proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr
+proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
@@ -346,6 +347,10 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     var meth = expr.meth
     self.cur_frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
     result = meth
+  of ExInvokeMethod:
+    var instance = self.eval(expr.invoke_self)
+    var class = instance.instance.class
+    result = self.eval_method(result, class, expr.invoke_meth, expr)
   of ExGetProp:
     var target = self.eval(expr.get_prop_self)
     var name = expr.get_prop_name
@@ -403,6 +408,8 @@ proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue 
     args_blk = expr.gene_blk
   of ExNew:
     args_blk = expr.new_args
+  of ExInvokeMethod:
+    args_blk = expr.invoke_args
   else:
     todo()
   case args_blk.len:
@@ -495,6 +502,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_new_expr(parent, node)
       of "method":
         return new_method_expr(parent, node)
+      of "$invoke_method":
+        return new_invoke_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       else:
@@ -682,6 +691,15 @@ proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
     meth: new_gene_internal(fn),
   )
   fn.expr = result
+
+proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExInvokeMethod,
+    parent: parent,
+    module: parent.module,
+    invoke_meth: val.gene_props["method"].str,
+  )
+  result.invoke_self = new_expr(result, val.gene_props["self"])
 
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
