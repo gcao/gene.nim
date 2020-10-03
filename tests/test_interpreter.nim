@@ -161,3 +161,17 @@ test_interpreter """
 
 test_interpreter "(ns test)", proc(r: GeneValue) =
   check r.internal.ns.name == "test"
+
+test_interpreter """
+  (ns n
+    (class A)
+  )
+  n/A
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "A"
+
+test_interpreter """
+  (ns n)
+  n
+""", proc(r: GeneValue) =
+  check r.internal.ns.name == "n"

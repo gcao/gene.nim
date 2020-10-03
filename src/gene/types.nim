@@ -167,6 +167,7 @@ type
     ExRoot
     ExLiteral
     ExSymbol
+    ExComplexSymbol
     ExMap
     ExMapChild
     ExArray
@@ -204,7 +205,9 @@ type
       literal*: GeneValue
     of ExSymbol:
       # symbol*: string
-      key*: int
+      symbol_key*: int
+    of ExComplexSymbol:
+      csymbol*: ComplexSymbol
     of ExUnknown:
       unknown*: GeneValue
     of ExArray:

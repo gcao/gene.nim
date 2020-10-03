@@ -164,7 +164,15 @@ proc new_symbol_expr*(parent: Expr, s: string): Expr =
     kind: ExSymbol,
     parent: parent,
     module: parent.module,
-    key: key,
+    symbol_key: key,
+  )
+
+proc new_complex_symbol_expr*(parent: Expr, node: GeneValue): Expr =
+  return Expr(
+    kind: ExComplexSymbol,
+    parent: parent,
+    module: parent.module,
+    csymbol: node.csymbol,
   )
 
 proc new_array_expr*(parent: Expr, v: GeneValue): Expr =
@@ -211,7 +219,13 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
   of ExLiteral:
     result = expr.literal
   of ExSymbol:
-    result = self[expr.key]
+    result = self[expr.symbol_key]
+  of ExComplexSymbol:
+    var key = expr.module.get_index(expr.csymbol.first)
+    result = self[key]
+    for name in expr.csymbol.rest:
+      key = expr.module.get_index(name)
+      result = result.internal.ns.members[key]
   of ExBlock:
     for e in expr.blk:
       result = self.eval(e)
@@ -330,10 +344,18 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       todo($expr.unknown)
   of ExNamespace:
     self.cur_frame.namespace[expr.ns.internal.ns.name_key] = expr.ns
-    self.cur_frame.self = expr.ns
-    for e in expr.ns_body:
-      discard self.eval(e)
-    result = expr.ns
+    var old_self = self.cur_frame.self
+    var old_ns = self.cur_frame.namespace
+    try:
+      self.cur_frame.self = expr.ns
+      self.cur_frame.namespace = expr.ns.internal.ns
+      for e in expr.ns_body:
+        discard self.eval(e)
+      result = expr.ns
+    finally:
+      self.cur_frame.self = old_self
+      self.cur_frame.namespace = old_ns
+
   of ExClass:
     self.cur_frame.namespace[expr.class.internal.class.name_key] = expr.class
     self.cur_frame.self = expr.class
@@ -459,6 +481,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
     return new_literal_expr(parent, node)
   of GeneSymbol:
     return new_symbol_expr(parent, node.symbol)
+  of GeneComplexSymbol:
+    return new_complex_symbol_expr(parent, node)
   of GeneVector:
     return new_array_expr(parent, node)
   of GeneMap:
