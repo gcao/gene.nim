@@ -6,13 +6,13 @@ import ./parser
 type
   VM* = ref object
     cur_frame*: Frame
-    exprs*: seq[Expr]
+    cur_module*: Module
+    modules*: Table[string, Namespace]
 
   Frame* = ref object
     self*: GeneValue
-    namespace*: Namespace
+    ns*: Namespace
     scope*: Scope
-    stack*: seq[GeneValue]
 
   Scope* = ref object
     parent*: Scope
@@ -27,7 +27,7 @@ type
   ScopeManager = ref object
     cache*: seq[Scope]
 
-var ScopeMgr* = ScopeManager(cache: @[])
+var ScopeMgr* = ScopeManager()
 
 #################### Interfaces ##################
 
@@ -45,6 +45,7 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
+proc new_import_expr*(parent: Expr, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr
@@ -54,47 +55,6 @@ proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue
 # proc normalize_if*(val: GeneValue): NormalizedIf
-
-#################### Module ######################
-
-proc new_module(): Module =
-  return Module(
-    name: "<unknown>",
-  )
-
-proc get_index(self: var Module, name: string): int =
-  if self.name_mappings.hasKey(name):
-    return self.name_mappings[name]
-  else:
-    result = self.names.len
-    self.names.add(name)
-    self.name_mappings[name] = result
-
-#################### Namespace ###################
-
-proc new_namespace*(): Namespace =
-  return Namespace(
-    name: "<root>",
-    members: Table[int, GeneValue](),
-  )
-
-proc new_namespace*(name: string): Namespace =
-  return Namespace(
-    name: name,
-    members: Table[int, GeneValue](),
-  )
-
-proc new_namespace*(parent: Namespace, name: string): Namespace =
-  return Namespace(
-    parent: parent,
-    name: name,
-    members: Table[int, GeneValue](),
-  )
-
-proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
-
-proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
-  self.members[key] = val
 
 #################### Scope #######################
 
@@ -319,7 +279,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     except Break as b:
       result = b.val
   of ExFn:
-    self.cur_frame.namespace[expr.fn.internal.fn.name_key] = expr.fn
+    self.cur_frame.ns[expr.fn.internal.fn.name_key] = expr.fn
     result = expr.fn
   of ExReturn:
     var val = GeneNil
@@ -343,21 +303,25 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     else:
       todo($expr.unknown)
   of ExNamespace:
-    self.cur_frame.namespace[expr.ns.internal.ns.name_key] = expr.ns
+    self.cur_frame.ns[expr.ns.internal.ns.name_key] = expr.ns
     var old_self = self.cur_frame.self
-    var old_ns = self.cur_frame.namespace
+    var old_ns = self.cur_frame.ns
     try:
       self.cur_frame.self = expr.ns
-      self.cur_frame.namespace = expr.ns.internal.ns
+      self.cur_frame.ns = expr.ns.internal.ns
       for e in expr.ns_body:
         discard self.eval(e)
       result = expr.ns
     finally:
       self.cur_frame.self = old_self
-      self.cur_frame.namespace = old_ns
-
+      self.cur_frame.ns = old_ns
+  of ExImport:
+    var ns = self.modules[expr.import_module]
+    for name in expr.import_mappings:
+      var key = expr.module.get_index(name)
+      self.cur_frame.ns.members[key] = ns[name]
   of ExClass:
-    self.cur_frame.namespace[expr.class.internal.class.name_key] = expr.class
+    self.cur_frame.ns[expr.class.internal.class.name_key] = expr.class
     self.cur_frame.self = expr.class
     for e in expr.class_body:
       discard self.eval(e)
@@ -389,35 +353,45 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
 
 #################### Frame #######################
 
-proc new_frame*(): Frame =
+proc new_frame*(vm: VM): Frame =
   return Frame(
-    namespace: new_namespace(),
+    self: GeneNil,
+    ns: vm.cur_module.root_ns,
     scope: new_scope(),
   )
 
 #################### VM #########################
 
 proc new_vm*(): VM =
-  return VM(
-    cur_frame: new_frame(),
-  )
+  result = VM()
 
 proc `[]`*(self: VM, key: int): GeneValue {.inline.} =
   if self.cur_frame.scope.hasKey(key):
     return self.cur_frame.scope[key]
   else:
-    return self.cur_frame.namespace[key]
+    return self.cur_frame.ns[key]
 
 proc prepare*(self: VM, code: string): Expr =
   var parsed = read_all(code)
   var root = Expr(
     kind: ExRoot,
-    module: new_module(),
+    module: self.cur_module,
   )
   return new_block_expr(root, parsed)
 
 proc eval*(self: VM, code: string): GeneValue =
+  self.cur_module = new_module()
+  self.cur_frame = self.new_frame()
   return self.eval(self.prepare(code))
+
+proc import_module*(self: VM, name: string, code: string): Namespace =
+  if self.modules.hasKey(name):
+    return self.modules[name]
+  self.cur_module = new_module(name)
+  self.cur_frame = self.new_frame()
+  discard self.eval(code)
+  result = self.cur_module.root_ns
+  self.modules[name] = result
 
 proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue =
   if class.methods.hasKey(method_name):
@@ -524,6 +498,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_return_expr(parent, node)
       of "ns":
         return new_ns_expr(parent, node)
+      of "import":
+        return new_import_expr(parent, node)
       of "class":
         return new_class_expr(parent, node)
       of "new":
@@ -685,7 +661,7 @@ proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
     result.return_val = new_expr(result, val.gene_data[0])
 
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
-  var ns = new_namespace(val.gene_data[0].symbol)
+  var ns = new_namespace(parent.module, val.gene_data[0].symbol)
   ns.name_key = parent.module.get_index(ns.name)
   result = Expr(
     kind: ExNamespace,
@@ -697,6 +673,16 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   for i in 1..<val.gene_data.len:
     body.add(new_expr(parent, val.gene_data[i]))
   result.ns_body = body
+
+proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExImport,
+    parent: parent,
+    module: parent.module,
+    import_module: val.gene_props["module"].str,
+  )
+  for name in val.gene_props["names"].vec:
+    result.import_mappings.add(name.symbol)
 
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var class = new_class(val.gene_data[0].symbol)

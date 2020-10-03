@@ -1,6 +1,8 @@
 import unittest, tables
 
 import gene/types
+import gene/interpreter
+
 import ./helpers
 
 test_interpreter "nil", GeneNil
@@ -175,3 +177,16 @@ test_interpreter """
   n
 """, proc(r: GeneValue) =
   check r.internal.ns.name == "n"
+
+test "Interpreter / eval: import":
+  var vm = new_vm()
+  discard vm.import_module("file1", """
+    (ns n
+      (fn f a a)
+    )
+  """)
+  var result = vm.eval """
+    (import n from "file1")
+    n/f
+  """
+  check result.internal.fn.name == "f"
