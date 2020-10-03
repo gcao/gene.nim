@@ -38,6 +38,7 @@ type
     args*: seq[string]
     arg_keys*: seq[int]
     body*: seq[GeneValue]
+    expr*: Expr # The function expression that will be the parent of body
     body_blk*: seq[Expr]
 
   Arguments* = ref object
@@ -186,7 +187,9 @@ type
     ExReturn
     ExClass
     ExNew
-    # ExMethod
+    ExMethod
+    ExGetProp
+    ExSetProp
 
   Expr* = ref object of RootObj
     module*: Module
@@ -248,8 +251,13 @@ type
     of ExNew:
       new_class*: Expr
       new_args*: seq[Expr]
-    # of ExMethod:
-    #   meth*: GeneValue
+    of ExMethod:
+      meth*: GeneValue
+    of ExGetProp:
+      get_prop_name*: string
+    of ExSetProp:
+      set_prop_name*: string
+      set_prop_val*: Expr
 
   BinOps* = enum
     BinAdd

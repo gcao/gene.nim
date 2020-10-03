@@ -7,6 +7,7 @@ test_interpreter "nil", GeneNil
 test_interpreter "1", 1
 test_interpreter "true", true
 test_interpreter "false", false
+test_interpreter "\"string\"", "string"
 
 test_interpreter "1 2 3", 3
 
@@ -110,12 +111,12 @@ test_interpreter """
 """, proc(r: GeneValue) =
   check r.instance.class.name == "A"
 
-# test_interpreter """
-#   (class A
-#     (method new []
-#       (@description = "Class A")
-#     )
-#   )
-#   (new A)
-# """, proc(r: GeneValue) =
-#   check r.instance.value.gene_props["description"] == "Class A"
+test_interpreter """
+  (class A
+    (method new []
+      (@description = "Class A")
+    )
+  )
+  (new A)
+""", proc(r: GeneValue) =
+  check r.instance.value.gene_props["description"] == "Class A"

@@ -51,7 +51,10 @@ proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
-# proc new_method_expr*(parent: Expr, val: GeneValue): Expr
+proc new_method_expr*(parent: Expr, val: GeneValue): Expr
+proc new_get_prop_expr*(parent: Expr, name: string): Expr
+proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
+proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string): GeneValue
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Module ######################
@@ -252,7 +255,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       self.cur_frame.scope = fn_scope
       if fn.body_blk.len == 0:
         for item in fn.body:
-          fn.body_blk.add(new_expr(expr, item))
+          fn.body_blk.add(new_expr(fn.expr, item))
       try:
         for e in fn.body_blk:
           result = self.eval(e)
@@ -361,11 +364,26 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       todo($expr.unknown)
   of ExClass:
     self.cur_frame.namespace[expr.class.internal.class.name_key] = expr.class
+    self.cur_frame.self = expr.class
+    for e in expr.class_body:
+      discard self.eval(e)
     result = expr.class
   of ExNew:
     var class = self.eval(expr.new_class)
     var instance = new_instance(class.internal.class)
     result = new_gene_instance(instance)
+    discard self.eval_method(result, class.internal.class, "new")
+  of ExMethod:
+    var meth = expr.meth
+    self.cur_frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
+    result = meth
+  of ExGetProp:
+    todo()
+  of ExSetProp:
+    var target = self.cur_frame.self
+    var name = expr.set_prop_name
+    result = self.eval(expr.set_prop_val)
+    target.instance.value.gene_props[name] = result
   # else:
   #   todo($expr.kind)
 
@@ -401,11 +419,21 @@ proc prepare*(self: VM, code: string): Expr =
 proc eval*(self: VM, code: string): GeneValue =
   return self.eval(self.prepare(code))
 
+proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string): GeneValue =
+  if class.methods.hasKey(method_name):
+    var meth = class.methods[method_name]
+    self.cur_frame.self = instance
+    if meth.body_blk.len == 0:
+      for item in meth.body:
+        meth.body_blk.add(new_expr(meth.expr, item))
+    for e in meth.body_blk:
+      result = self.eval(e)
+
 ##################################################
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   case node.kind:
-  of GeneNilKind, GeneBool, GeneInt:
+  of GeneNilKind, GeneBool, GeneInt, GeneString:
     return new_literal_expr(parent, node)
   of GeneSymbol:
     return new_symbol_expr(parent, node.symbol)
@@ -427,7 +455,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       of "=":
         var name = node.gene_data[0].symbol
         var val = node.gene_data[1]
-        return new_assignment_expr(parent, name, val)
+        if name[0] == '@':
+          return new_set_prop_expr(parent, name[1..^1], val)
+        else:
+          return new_assignment_expr(parent, name, val)
       of "if":
         return new_if_expr(parent, node)
       of "do":
@@ -446,8 +477,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_class_expr(parent, node)
       of "new":
         return new_new_expr(parent, node)
-      # of "method":
-      #   return new_method_expr(parent, node)
+      of "method":
+        return new_method_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       else:
@@ -589,6 +620,7 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
     module: parent.module,
     fn: new_gene_internal(fn),
   )
+  fn.expr = result
 
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
@@ -620,16 +652,34 @@ proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
   )
   result.new_class = new_expr(parent, val.gene_data[0])
 
-# proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
-#   var fn: Function = val # Converter is implicitly called here
-#   for name in fn.args:
-#     fn.arg_keys.add(parent.module.get_index(name))
-#   result = Expr(
-#     kind: ExMethod,
-#     parent: parent,
-#     module: parent.module,
-#     meth: new_gene_internal(fn),
-#   )
+proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
+  var fn: Function = val # Converter is implicitly called here
+  for name in fn.args:
+    fn.arg_keys.add(parent.module.get_index(name))
+  result = Expr(
+    kind: ExMethod,
+    parent: parent,
+    module: parent.module,
+    meth: new_gene_internal(fn),
+  )
+  fn.expr = result
+
+proc new_get_prop_expr*(parent: Expr, name: string): Expr =
+  result = Expr(
+    kind: ExGetProp,
+    parent: parent,
+    module: parent.module,
+    get_prop_name: name,
+  )
+
+proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExSetProp,
+    parent: parent,
+    module: parent.module,
+    set_prop_name: name,
+  )
+  result.set_prop_val = new_expr(result, val)
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene_data[1].is_literal:
