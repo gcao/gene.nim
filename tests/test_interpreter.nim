@@ -149,3 +149,15 @@ test_interpreter """
   )
   ((new A) .test)
 """, "test"
+
+test_interpreter """
+  (class A
+    (method test [a b]
+      (a + b)
+    )
+  )
+  ((new A) .test 1 2)
+""", 3
+
+test_interpreter "(ns test)", proc(r: GeneValue) =
+  check r.internal.ns.name == "test"

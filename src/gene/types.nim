@@ -1,6 +1,5 @@
 import strutils, tables, dynlib
 
-
 const BINARY_OPS* = [
   "+", "-", "*", "/",
   "=", "+=", "-=", "*=", "/=",
@@ -21,6 +20,7 @@ type
   Namespace* = ref object
     parent*: Namespace
     name*: string
+    name_key*: int
     members*: Table[int, GeneValue]
 
   Class* = ref object
@@ -191,6 +191,7 @@ type
     ExInvokeMethod
     ExGetProp
     ExSetProp
+    ExNamespace
 
   Expr* = ref object of RootObj
     module*: Module
@@ -264,6 +265,9 @@ type
     of ExSetProp:
       set_prop_name*: string
       set_prop_val*: Expr
+    of ExNamespace:
+      ns*: GeneValue
+      ns_body*: seq[Expr]
 
   BinOps* = enum
     BinAdd

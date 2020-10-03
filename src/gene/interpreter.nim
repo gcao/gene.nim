@@ -14,11 +14,6 @@ type
     scope*: Scope
     stack*: seq[GeneValue]
 
-  Namespace = ref object
-    parent*: Namespace
-    name*: string
-    members*: Table[int, GeneValue]
-
   Scope* = ref object
     parent*: Scope
     members*: Table[int, GeneValue]
@@ -49,6 +44,7 @@ proc new_while_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
+proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr
@@ -332,6 +328,12 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       result = self.eval(e)
     else:
       todo($expr.unknown)
+  of ExNamespace:
+    self.cur_frame.namespace[expr.ns.internal.ns.name_key] = expr.ns
+    self.cur_frame.self = expr.ns
+    for e in expr.ns_body:
+      discard self.eval(e)
+    result = expr.ns
   of ExClass:
     self.cur_frame.namespace[expr.class.internal.class.name_key] = expr.class
     self.cur_frame.self = expr.class
@@ -496,6 +498,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_fn_expr(parent, node)
       of "return":
         return new_return_expr(parent, node)
+      of "ns":
+        return new_ns_expr(parent, node)
       of "class":
         return new_class_expr(parent, node)
       of "new":
@@ -656,6 +660,20 @@ proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   if val.gene_data.len > 0:
     result.return_val = new_expr(result, val.gene_data[0])
 
+proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
+  var ns = new_namespace(val.gene_data[0].symbol)
+  ns.name_key = parent.module.get_index(ns.name)
+  result = Expr(
+    kind: ExNamespace,
+    parent: parent,
+    module: parent.module,
+    ns: new_gene_internal(ns),
+  )
+  var body: seq[Expr] = @[]
+  for i in 1..<val.gene_data.len:
+    body.add(new_expr(parent, val.gene_data[i]))
+  result.ns_body = body
+
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var class = new_class(val.gene_data[0].symbol)
   class.name_key = parent.module.get_index(class.name)
@@ -700,6 +718,8 @@ proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr =
     invoke_meth: val.gene_props["method"].str,
   )
   result.invoke_self = new_expr(result, val.gene_props["self"])
+  for item in val.gene_data:
+    result.invoke_args.add(new_expr(result, item))
 
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
