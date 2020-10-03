@@ -254,6 +254,7 @@ type
     of ExMethod:
       meth*: GeneValue
     of ExGetProp:
+      get_prop_self*: Expr
       get_prop_name*: string
     of ExSetProp:
       set_prop_name*: string
@@ -343,7 +344,7 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneKeyword:
       return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
     of GeneGene:
-      return this.gene_op == that.gene_op and this.gene_data == that.gene_data
+      return this.gene_op == that.gene_op and this.gene_data == that.gene_data and this.gene_props == that.gene_props
     of GeneMap:
       return this.map == that.map
     of GeneVector:
@@ -644,6 +645,10 @@ proc normalize*(self: GeneValue) =
       var second = self.gene_data[1]
       self.gene_data[0] = op
       self.gene_data[1] = new_gene_gene(new_gene_symbol("+"), op, second)
+    elif first.symbol == "=" and op.kind == GeneSymbol and op.symbol.startsWith("@"):
+      # (@prop = val)
+      self.gene_op = new_gene_symbol("@=")
+      self.gene_data[0] = new_gene_string(op.symbol[1..^1])
     elif first.symbol in BINARY_OPS:
       self.gene_data.delete 0
       self.gene_data.insert op, 0

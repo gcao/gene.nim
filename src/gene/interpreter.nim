@@ -52,7 +52,7 @@ proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr
-proc new_get_prop_expr*(parent: Expr, name: string): Expr
+proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string): GeneValue
 # proc normalize_if*(val: GeneValue): NormalizedIf
@@ -378,7 +378,9 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     self.cur_frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
     result = meth
   of ExGetProp:
-    todo()
+    var target = self.eval(expr.get_prop_self)
+    var name = expr.get_prop_name
+    result = target.instance.value.gene_props[name]
   of ExSetProp:
     var target = self.cur_frame.self
     var name = expr.set_prop_name
@@ -455,10 +457,13 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       of "=":
         var name = node.gene_data[0].symbol
         var val = node.gene_data[1]
-        if name[0] == '@':
-          return new_set_prop_expr(parent, name[1..^1], val)
-        else:
-          return new_assignment_expr(parent, name, val)
+        return new_assignment_expr(parent, name, val)
+      of "@":
+        return new_get_prop_expr(parent, node)
+      of "@=":
+        var name = node.gene_data[0].str
+        var val = node.gene_data[1]
+        return new_set_prop_expr(parent, name, val)
       of "if":
         return new_if_expr(parent, node)
       of "do":
@@ -664,13 +669,14 @@ proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
   )
   fn.expr = result
 
-proc new_get_prop_expr*(parent: Expr, name: string): Expr =
+proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExGetProp,
     parent: parent,
     module: parent.module,
-    get_prop_name: name,
+    get_prop_name: val.gene_data[0].str,
   )
+  result.get_prop_self = new_expr(result, val.gene_props["self"])
 
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr =
   result = Expr(

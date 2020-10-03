@@ -8,7 +8,7 @@ import gene/interpreter
 # import logging
 # addHandler(newConsoleLogger())
 
-proc cleanup(code: string): string =
+proc cleanup*(code: string): string =
   result = code
   result.stripLineEnd
   if result.contains("\n"):
