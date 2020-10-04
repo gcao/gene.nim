@@ -55,6 +55,8 @@ proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue
+proc get_member*(self: VM, name: ComplexSymbol): GeneValue
+proc set_member*(self: VM, name: GeneValue, value: GeneValue, in_ns: bool)
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
 #################### Scope #######################
@@ -182,13 +184,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
   of ExSymbol:
     result = self[expr.symbol_key]
   of ExComplexSymbol:
-    if expr.csymbol.first == "global":
-      result = new_gene_internal(APP.ns)
-    else:
-      var key = expr.module.get_index(expr.csymbol.first)
-      result = self[key]
-    for name in expr.csymbol.rest:
-      result = result.internal.ns[name]
+    result = self.get_member(expr.csymbol)
   of ExBlock:
     for e in expr.blk:
       result = self.eval(e)
@@ -326,23 +322,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       var key = expr.module.get_index(name)
       self.cur_frame.ns.members[key] = ns[name]
   of ExClass:
-    case expr.class_name.kind:
-    of GeneSymbol:
-      self.cur_frame.ns[expr.class.internal.class.name_key] = expr.class
-    of GeneComplexSymbol:
-      var ns: Namespace
-      if expr.class_name.csymbol.first == "global":
-        ns = APP.ns
-      else:
-        var key = self.cur_module.get_index(expr.class_name.csymbol.first)
-        ns = self[key].internal.ns
-      for i in 0..<(expr.class_name.csymbol.rest.len - 1):
-        var name = expr.class_name.csymbol.rest[i]
-        ns = ns[name].internal.ns
-      var key = ns.module.get_index(expr.class.internal.class.name)
-      ns[key] = expr.class
-    else:
-      not_allowed()
+    self.set_member(expr.class_name, expr.class, true)
     self.cur_frame.self = expr.class
     for e in expr.class_body:
       discard self.eval(e)
@@ -467,6 +447,39 @@ proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue 
     self.cur_frame.scope = old_scope
 
   ScopeMgr.free(fn_scope)
+
+proc get_member*(self: VM, name: ComplexSymbol): GeneValue =
+  if name.first == "global":
+    result = new_gene_internal(APP.ns)
+  else:
+    var key = self.cur_module.get_index(name.first)
+    result = self[key]
+  for name in name.rest:
+    result = result.internal.ns[name]
+
+proc set_member*(self: VM, name: GeneValue, value: GeneValue, in_ns: bool) =
+  case name.kind:
+  of GeneSymbol:
+    var key = self.cur_module.get_index(name.symbol)
+    if in_ns:
+      self.cur_frame.ns[key] = value
+    else:
+      self.cur_frame.scope[key] = value
+  of GeneComplexSymbol:
+    var ns: Namespace
+    if name.csymbol.first == "global":
+      ns = APP.ns
+    else:
+      var key = self.cur_module.get_index(name.csymbol.first)
+      ns = self[key].internal.ns
+    for i in 0..<(name.csymbol.rest.len - 1):
+      var name = name.csymbol.rest[i]
+      ns = ns[name].internal.ns
+    var base_name = name.csymbol.rest[^1]
+    var key = ns.module.get_index(base_name)
+    ns[key] = value
+  else:
+    not_allowed()
 
 ##################################################
 
