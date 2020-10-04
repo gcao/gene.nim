@@ -195,6 +195,7 @@ type
     ExGetProp
     ExSetProp
     ExNamespace
+    ExGlobal
     ExImport
 
   Expr* = ref object of RootObj
@@ -274,6 +275,8 @@ type
     of ExNamespace:
       ns*: GeneValue
       ns_body*: seq[Expr]
+    of ExGlobal:
+      discard
     of ExImport:
       import_module*: string
       import_mappings*: seq[string]
@@ -425,7 +428,11 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneRegex:
       return this.regex == that.regex
     of GeneInternal:
-      return this.internal == that.internal
+      case this.internal.kind:
+      of GeneNamespace:
+        return this.internal.ns == that.internal.ns
+      else:
+        return this.internal == that.internal
     of GeneInstance:
       return this.instance == that.instance
 
@@ -725,9 +732,9 @@ proc new_doc*(data: seq[GeneValue]): GeneDocument =
 
 #################### Application #################
 
-# var APP = Application(
-#   ns: new_namespace(new_module(), "global")
-# )
+var APP* = Application(
+  ns: new_namespace(new_module(), "global")
+)
 
 #################### Converters ##################
 

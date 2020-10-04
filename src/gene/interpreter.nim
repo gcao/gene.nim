@@ -45,6 +45,7 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
+proc new_global_expr*(parent: Expr): Expr
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
@@ -315,6 +316,8 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     finally:
       self.cur_frame.self = old_self
       self.cur_frame.ns = old_ns
+  of ExGlobal:
+    return new_gene_internal(APP.ns)
   of ExImport:
     var ns = self.modules[expr.import_module]
     for name in expr.import_mappings:
@@ -454,7 +457,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   of GeneNilKind, GeneBool, GeneInt, GeneString:
     return new_literal_expr(parent, node)
   of GeneSymbol:
-    return new_symbol_expr(parent, node.symbol)
+    if node.symbol == "global":
+      return new_global_expr(parent)
+    else:
+      return new_symbol_expr(parent, node.symbol)
   of GeneComplexSymbol:
     return new_complex_symbol_expr(parent, node)
   of GeneVector:
@@ -673,6 +679,13 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   for i in 1..<val.gene_data.len:
     body.add(new_expr(parent, val.gene_data[i]))
   result.ns_body = body
+
+proc new_global_expr*(parent: Expr): Expr =
+  result = Expr(
+    kind: ExGlobal,
+    parent: parent,
+    module: parent.module,
+  )
 
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
