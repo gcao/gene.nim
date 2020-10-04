@@ -256,6 +256,7 @@ type
       return_val*: Expr
     of ExClass:
       class*: GeneValue
+      class_name*: GeneValue # The simple name or complex name that is associated with the class
       class_body*: seq[Expr]
     of ExNew:
       new_class*: Expr

@@ -182,11 +182,13 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
   of ExSymbol:
     result = self[expr.symbol_key]
   of ExComplexSymbol:
-    var key = expr.module.get_index(expr.csymbol.first)
-    result = self[key]
+    if expr.csymbol.first == "global":
+      result = new_gene_internal(APP.ns)
+    else:
+      var key = expr.module.get_index(expr.csymbol.first)
+      result = self[key]
     for name in expr.csymbol.rest:
-      key = expr.module.get_index(name)
-      result = result.internal.ns.members[key]
+      result = result.internal.ns[name]
   of ExBlock:
     for e in expr.blk:
       result = self.eval(e)
@@ -324,7 +326,23 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       var key = expr.module.get_index(name)
       self.cur_frame.ns.members[key] = ns[name]
   of ExClass:
-    self.cur_frame.ns[expr.class.internal.class.name_key] = expr.class
+    case expr.class_name.kind:
+    of GeneSymbol:
+      self.cur_frame.ns[expr.class.internal.class.name_key] = expr.class
+    of GeneComplexSymbol:
+      var ns: Namespace
+      if expr.class_name.csymbol.first == "global":
+        ns = APP.ns
+      else:
+        var key = self.cur_module.get_index(expr.class_name.csymbol.first)
+        ns = self[key].internal.ns
+      for i in 0..<(expr.class_name.csymbol.rest.len - 1):
+        var name = expr.class_name.csymbol.rest[i]
+        ns = ns[name].internal.ns
+      var key = ns.module.get_index(expr.class.internal.class.name)
+      ns[key] = expr.class
+    else:
+      not_allowed()
     self.cur_frame.self = expr.class
     for e in expr.class_body:
       discard self.eval(e)
@@ -698,13 +716,23 @@ proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
     result.import_mappings.add(name.symbol)
 
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
-  var class = new_class(val.gene_data[0].symbol)
-  class.name_key = parent.module.get_index(class.name)
+  var name = val.gene_data[0]
+  var s: string
+  case name.kind:
+  of GeneSymbol:
+    s = name.symbol
+  of GeneComplexSymbol:
+    s = name.csymbol.rest[^1]
+  else:
+    not_allowed()
+  var class = new_class(s)
+  class.name_key = parent.module.get_index(s)
   result = Expr(
     kind: ExClass,
     parent: parent,
     module: parent.module,
     class: new_gene_internal(class),
+    class_name: name,
   )
   var body: seq[Expr] = @[]
   for i in 1..<val.gene_data.len:

@@ -180,11 +180,11 @@ test_interpreter """
 
 test_interpreter "global", new_gene_internal(APP.ns)
 
-# test_interpreter """
-#   (class global/A)
-#   global/A
-# """, proc(r: GeneValue) =
-#   check r.internal.class.name == "A"
+test_interpreter """
+  (class global/A)
+  global/A
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "A"
 
 test "Interpreter / eval: import":
   var vm = new_vm()
