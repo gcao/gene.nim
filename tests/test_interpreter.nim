@@ -198,3 +198,7 @@ test "Interpreter / eval: import":
     n/f
   """
   check result.internal.fn.name == "f"
+
+# test_interpreter """
+#   ($call_native "str_len" "test")
+# """, 4

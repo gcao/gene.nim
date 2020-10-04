@@ -56,8 +56,6 @@ type
     GeneArguments
     GeneClass
     GeneNamespace
-    GeneReturn
-    GeneBreak
     GeneNativeProc
 
   Internal* = ref object
@@ -70,12 +68,8 @@ type
       class*: Class
     of GeneNamespace:
       ns*: Namespace
-    of GeneReturn:
-      return_val*: GeneValue
-    of GeneBreak:
-      break_val*: GeneValue
     of GeneNativeProc:
-      native_proc*: native_proc
+      native_proc*: NativeProc
 
   ComplexSymbol* = ref object
     first*: string
@@ -113,7 +107,7 @@ type
   GeneValue* {.acyclic.} = ref object
     case kind*: GeneKind
     of GeneAny:
-      val: pointer
+      anyVal*: pointer
     of GeneNilKind:
       discard
     of GeneBool:
@@ -163,7 +157,7 @@ type
     path*: string
     data*: seq[GeneValue]
 
-  native_proc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
+  NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
   ExprKind* = enum
     ExRoot
@@ -296,10 +290,16 @@ type
     BinAnd
     BinOr
 
+  NativeProcsType = ref object
+    procs*: seq[NativeProc]
+    name_mappings*: Table[string, int]
+
 let
   GeneNil*   = GeneValue(kind: GeneNilKind)
   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+
+  NativeProcs* = NativeProcsType()
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:
@@ -397,7 +397,7 @@ proc `==`*(this, that: GeneValue): bool =
   else:
     case this.kind
     of GeneAny:
-      return this.val == that.val
+      return this.anyVal == that.anyVal
     of GeneNilKind:
       return that.kind == GeneNilKind
     of GeneBool:
@@ -592,7 +592,7 @@ proc new_gene_internal*(fn: Function): GeneValue =
     internal: Internal(kind: GeneFunction, fn: fn),
   )
 
-proc new_gene_internal*(value: native_proc): GeneValue =
+proc new_gene_internal*(value: NativeProc): GeneValue =
   return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
 
 proc new_gene_arguments*(): GeneValue =
@@ -788,15 +788,31 @@ converter from_gene*(node: GeneValue): Function =
 
   return new_fn(name, args, body)
 
+#################### NativeProcs #################
+
+proc add*(self: var NativeProcsType, name: string, p: NativeProc): int =
+  todo()
+
+# Remove the stored proc but leave a nil in place to not cause index changes
+# to any other procs
+proc remove*(self: var NativeProcsType, name: string) =
+  todo()
+
+proc get_index*(self: var NativeProcsType, name: string): int =
+  todo()
+
+proc get*(self: var NativeProcsType, index: int): NativeProc =
+  todo()
+
 #################### Dynamic #####################
 
-proc load_dynamic*(path:string, names: seq[string]): Table[string, native_proc] =
-  result = Table[string, native_proc]()
+proc load_dynamic*(path:string, names: seq[string]): Table[string, NativeProc] =
+  result = Table[string, NativeProc]()
   let lib = loadLib(path)
   for name in names:
     var s = name
     let p = lib.symAddr(s)
-    result[s] = cast[native_proc](p)
+    result[s] = cast[NativeProc](p)
 
 # This is not needed
 # proc call_dynamic*(p: native_proc, args: seq[GeneValue]): GeneValue =

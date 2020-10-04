@@ -7,6 +7,14 @@ import gene/parser
 
 import ./helpers
 
+test "GeneAny":
+  var s = "abc"
+  var g = GeneValue(
+    kind: GeneAny,
+    anyVal: cast[pointer](s.addr),
+  )
+  check cast[ptr string](g.anyVal)[] == s
+
 proc test_normalize(code: string, r: GeneValue) =
   var code = cleanup(code)
   test "normalize: " & code:
