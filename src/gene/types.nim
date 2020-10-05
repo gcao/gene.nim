@@ -191,6 +191,7 @@ type
     ExNamespace
     ExGlobal
     ExImport
+    ExCallNative
 
   Expr* = ref object of RootObj
     module*: Module
@@ -275,6 +276,10 @@ type
     of ExImport:
       import_module*: string
       import_mappings*: seq[string]
+    of ExCallNative:
+      native_name*: string
+      native_index*: int
+      native_args*: seq[Expr]
 
   BinOps* = enum
     BinAdd
@@ -290,7 +295,7 @@ type
     BinAnd
     BinOr
 
-  NativeProcsType = ref object
+  NativeProcsType* = ref object
     procs*: seq[NativeProc]
     name_mappings*: Table[string, int]
 
@@ -299,7 +304,7 @@ let
   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
 
-  NativeProcs* = NativeProcsType()
+var NativeProcs* = NativeProcsType()
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:
@@ -790,8 +795,10 @@ converter from_gene*(node: GeneValue): Function =
 
 #################### NativeProcs #################
 
-proc add*(self: var NativeProcsType, name: string, p: NativeProc): int =
-  todo()
+proc add_only*(self: var NativeProcsType, name: string, p: NativeProc) =
+  var index = self.procs.len
+  self.procs.add(p)
+  self.name_mappings[name] = index
 
 # Remove the stored proc but leave a nil in place to not cause index changes
 # to any other procs
@@ -799,10 +806,10 @@ proc remove*(self: var NativeProcsType, name: string) =
   todo()
 
 proc get_index*(self: var NativeProcsType, name: string): int =
-  todo()
+  return self.name_mappings[name]
 
 proc get*(self: var NativeProcsType, index: int): NativeProc =
-  todo()
+  return self.procs[index]
 
 #################### Dynamic #####################
 

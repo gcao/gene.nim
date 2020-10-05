@@ -2,6 +2,7 @@ import tables
 
 import ./types
 import ./parser
+import ./native_procs
 
 type
   VM* = ref object
@@ -29,6 +30,8 @@ type
 
 var ScopeMgr* = ScopeManager()
 
+init_native_procs()
+
 #################### Interfaces ##################
 
 proc `[]`*(self: VM, key: int): GeneValue {.inline.}
@@ -53,6 +56,7 @@ proc new_method_expr*(parent: Expr, val: GeneValue): Expr
 proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
+proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr
 proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue
 proc get_member*(self: VM, name: ComplexSymbol): GeneValue
@@ -349,6 +353,12 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     var name = expr.set_prop_name
     result = self.eval(expr.set_prop_val)
     target.instance.value.gene_props[name] = result
+  of ExCallNative:
+    var args: seq[GeneValue] = @[]
+    for item in expr.native_args:
+      args.add(self.eval(item))
+    var p = NativeProcs.get(expr.native_index)
+    result = p(args)
   # else:
   #   todo($expr.kind)
 
@@ -545,6 +555,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_method_expr(parent, node)
       of "$invoke_method":
         return new_invoke_expr(parent, node)
+      of "$call_native":
+        return new_call_native_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       else:
@@ -802,6 +814,19 @@ proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr =
     set_prop_name: name,
   )
   result.set_prop_val = new_expr(result, val)
+
+proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExCallNative,
+    parent: parent,
+    module: parent.module,
+  )
+  var name = val.gene_data[0].str
+  var index = NativeProcs.get_index(name)
+  result.native_name = name
+  result.native_index = index
+  for i in 1..<val.gene_data.len:
+    result.native_args.add(new_expr(result, val.gene_data[i]))
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene_data[1].is_literal:
