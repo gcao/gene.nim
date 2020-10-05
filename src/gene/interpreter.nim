@@ -362,6 +362,15 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       args.add(self.eval(item))
     var p = NativeProcs.get(expr.native_index)
     result = p(args)
+  of ExGetClass:
+    var val = self.eval(expr.get_class_val)
+    case val.kind:
+    of GeneString:
+      result = self.app.ns["String"]
+    of GeneInstance:
+      result = new_gene_internal(val.instance.class)
+    else:
+      todo()
   # else:
   #   todo($expr.kind)
 
@@ -574,6 +583,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_invoke_expr(parent, node)
       of "$call_native":
         return new_call_native_expr(parent, node)
+      of "$get_class":
+        result = new_expr(parent, ExGetClass)
+        result.get_class_val = new_expr(result, node.gene_data[0])
+        return result
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       else:

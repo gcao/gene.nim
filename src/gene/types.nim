@@ -193,6 +193,7 @@ type
     ExGlobal
     ExImport
     ExCallNative
+    ExGetClass
 
   Expr* = ref object of RootObj
     module*: Module
@@ -281,6 +282,8 @@ type
       native_name*: string
       native_index*: int
       native_args*: seq[Expr]
+    of ExGetClass:
+      get_class_val*: Expr
 
   BinOps* = enum
     BinAdd
