@@ -795,6 +795,13 @@ converter from_gene*(node: GeneValue): Function =
 
 #################### NativeProcs #################
 
+proc add*(self: var NativeProcsType, name: string, p: NativeProc): int =
+  result = self.procs.len
+  self.procs.add(p)
+  self.name_mappings[name] = result
+
+# This is mainly created to make the code in native_procs.nim look slightly better
+# (no discard, or `()` is required)
 proc add_only*(self: var NativeProcsType, name: string, p: NativeProc) =
   var index = self.procs.len
   self.procs.add(p)
