@@ -178,6 +178,7 @@ test_interpreter """
 """, proc(r: GeneValue) =
   check r.internal.ns.name == "n"
 
+test_interpreter "self", GeneNil
 test_interpreter "global", new_gene_internal(APP.ns)
 
 test_interpreter """

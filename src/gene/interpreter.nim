@@ -35,6 +35,7 @@ init_native_procs()
 #################### Interfaces ##################
 
 proc `[]`*(self: VM, key: int): GeneValue {.inline.}
+proc new_expr*(parent: Expr, kind: ExprKind): Expr
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
 proc new_if_expr*(parent: Expr, val: GeneValue): Expr
 proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr
@@ -48,7 +49,6 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
-proc new_global_expr*(parent: Expr): Expr
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
@@ -318,6 +318,8 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     finally:
       self.cur_frame.self = old_self
       self.cur_frame.ns = old_ns
+  of ExSelf:
+    return self.cur_frame.self
   of ExGlobal:
     return new_gene_internal(APP.ns)
   of ExImport:
@@ -493,13 +495,22 @@ proc set_member*(self: VM, name: GeneValue, value: GeneValue, in_ns: bool) =
 
 ##################################################
 
+proc new_expr*(parent: Expr, kind: ExprKind): Expr =
+  result = Expr(
+    kind: kind,
+    parent: parent,
+    module: parent.module,
+  )
+
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   case node.kind:
   of GeneNilKind, GeneBool, GeneInt, GeneString:
     return new_literal_expr(parent, node)
   of GeneSymbol:
     if node.symbol == "global":
-      return new_global_expr(parent)
+      return new_expr(parent, ExGlobal)
+    elif node.symbol == "self":
+      return new_expr(parent, ExSelf)
     else:
       return new_symbol_expr(parent, node.symbol)
   of GeneComplexSymbol:
@@ -722,13 +733,6 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   for i in 1..<val.gene_data.len:
     body.add(new_expr(parent, val.gene_data[i]))
   result.ns_body = body
-
-proc new_global_expr*(parent: Expr): Expr =
-  result = Expr(
-    kind: ExGlobal,
-    parent: parent,
-    module: parent.module,
-  )
 
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(

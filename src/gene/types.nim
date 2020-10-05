@@ -189,6 +189,7 @@ type
     ExGetProp
     ExSetProp
     ExNamespace
+    ExSelf
     ExGlobal
     ExImport
     ExCallNative
@@ -271,7 +272,7 @@ type
     of ExNamespace:
       ns*: GeneValue
       ns_body*: seq[Expr]
-    of ExGlobal:
+    of ExSelf, ExGlobal:
       discard
     of ExImport:
       import_module*: string
