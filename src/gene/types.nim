@@ -739,9 +739,12 @@ proc new_doc*(data: seq[GeneValue]): GeneDocument =
 
 #################### Application #################
 
-var APP* = Application(
-  ns: new_namespace(new_module(), "global")
-)
+proc new_app*(): Application =
+  result = Application(
+    ns: new_namespace(new_module(), "global")
+  )
+
+var APP* = new_app()
 
 #################### Converters ##################
 

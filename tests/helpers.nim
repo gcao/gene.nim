@@ -30,3 +30,18 @@ proc test_interpreter*(code: string, callback: proc(result: GeneValue)) =
   test "Interpreter / eval: " & code:
     var interpreter = new_vm()
     callback interpreter.eval(code)
+
+proc test_core*(code: string, result: GeneValue) =
+  var code = cleanup(code)
+  test "Interpreter / eval: " & code:
+    var app = new_app()
+    var interpreter = new_vm(app)
+    check interpreter.eval(code) == result
+
+proc test_core*(code: string, callback: proc(result: GeneValue)) =
+  var code = cleanup(code)
+  test "Interpreter / eval: " & code:
+    var app = new_app()
+    var interpreter = new_vm(app)
+    discard interpreter.import_module("core", readFile("src/core.gene"))
+    callback interpreter.eval(code)

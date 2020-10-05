@@ -6,6 +6,7 @@ import ./native_procs
 
 type
   VM* = ref object
+    app*: Application
     cur_frame*: Frame
     cur_module*: Module
     modules*: Table[string, Namespace]
@@ -321,7 +322,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
   of ExSelf:
     return self.cur_frame.self
   of ExGlobal:
-    return new_gene_internal(APP.ns)
+    return new_gene_internal(self.app.ns)
   of ExImport:
     var ns = self.modules[expr.import_module]
     for name in expr.import_mappings:
@@ -375,8 +376,13 @@ proc new_frame*(vm: VM): Frame =
 
 #################### VM #########################
 
+proc new_vm*(app: Application): VM =
+  result = VM(
+    app: app,
+  )
+
 proc new_vm*(): VM =
-  result = VM()
+  result = new_vm(APP)
 
 proc `[]`*(self: VM, key: int): GeneValue {.inline.} =
   if self.cur_frame.scope.hasKey(key):
@@ -462,7 +468,7 @@ proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue 
 
 proc get_member*(self: VM, name: ComplexSymbol): GeneValue =
   if name.first == "global":
-    result = new_gene_internal(APP.ns)
+    result = new_gene_internal(self.app.ns)
   else:
     var key = self.cur_module.get_index(name.first)
     result = self[key]
@@ -480,7 +486,7 @@ proc set_member*(self: VM, name: GeneValue, value: GeneValue, in_ns: bool) =
   of GeneComplexSymbol:
     var ns: Namespace
     if name.csymbol.first == "global":
-      ns = APP.ns
+      ns = self.app.ns
     else:
       var key = self.cur_module.get_index(name.csymbol.first)
       ns = self[key].internal.ns
