@@ -888,9 +888,11 @@ when isMainModule:
   import os, times
 
   if commandLineParams().len == 0:
-    echo "\nUsage: interpreter2 <GENE FILE>\n"
+    echo "\nUsage: interpreter <GENE FILE>\n"
     quit(0)
   var interpreter = new_vm()
+  interpreter.cur_module = new_module()
+  interpreter.cur_frame = interpreter.new_frame()
   let e = interpreter.prepare(readFile(commandLineParams()[0]))
   let start = cpuTime()
   let result = interpreter.eval(e)
