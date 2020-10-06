@@ -1,7 +1,6 @@
 import unittest, tables
 
 import gene/types
-import gene/interpreter
 
 import ./helpers
 
@@ -104,101 +103,7 @@ test_interpreter """
   (fib 6)
 """, 8
 
-test_interpreter "(class A)", proc(r: GeneValue) =
-  check r.internal.class.name == "A"
-
-test_interpreter """
-  (class A)
-  (new A)
-""", proc(r: GeneValue) =
-  check r.instance.class.name == "A"
-
-test_interpreter """
-  (class A
-    (method new []
-      (@description = "Class A")
-    )
-  )
-  (new A)
-""", proc(r: GeneValue) =
-  check r.instance.value.gene_props["description"] == "Class A"
-
-test_interpreter """
-  (class A
-    (method new []
-      (@description = "Class A")
-    )
-  )
-  ((new A) .@description)
-""", proc(r: GeneValue) =
-  check r.str == "Class A"
-
-test_interpreter """
-  (class A
-    (method new description
-      (@description = description)
-    )
-  )
-  (new A "test")
-""", proc(r: GeneValue) =
-  check r.instance.value.gene_props["description"] == "test"
-
-test_interpreter """
-  (class A
-    (method test []
-      "test"
-    )
-  )
-  ((new A) .test)
-""", "test"
-
-test_interpreter """
-  (class A
-    (method test [a b]
-      (a + b)
-    )
-  )
-  ((new A) .test 1 2)
-""", 3
-
-test_interpreter "(ns test)", proc(r: GeneValue) =
-  check r.internal.ns.name == "test"
-
-test_interpreter """
-  (ns n
-    (class A)
-  )
-  n/A
-""", proc(r: GeneValue) =
-  check r.internal.class.name == "A"
-
-test_interpreter """
-  (ns n)
-  n
-""", proc(r: GeneValue) =
-  check r.internal.ns.name == "n"
-
 test_interpreter "self", GeneNil
-test_interpreter "global", new_gene_internal(APP.ns)
-
-test_interpreter """
-  (class global/A)
-  global/A
-""", proc(r: GeneValue) =
-  check r.internal.class.name == "A"
-
-test "Interpreter / eval: import":
-  var vm = new_vm()
-  discard vm.import_module("file1", """
-    (ns n
-      (fn f a a)
-    )
-  """)
-  var result = vm.eval """
-    (import n from "file1")
-    n/f
-  """
-  check result.internal.fn.name == "f"
 
 test_interpreter """
   ($call_native "str_len" "test")
