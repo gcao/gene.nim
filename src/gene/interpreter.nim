@@ -61,11 +61,14 @@ init_native_procs()
 
 #################### Interfaces ##################
 
-
-proc get*(self: var ScopeManager): Scope {.inline.}
-
-proc `[]`*(self: VM, key: int): GeneValue {.inline.}
+proc `[]`*(self: Frame, key: int): GeneValue {.inline.}
+proc `[]`*(self: Scope, key: int): GeneValue {.inline.}
+proc hasKey*(self: Scope, key: int): bool {.inline.}
 proc new_expr*(parent: Expr, kind: ExprKind): Expr
+proc get*(self: var ScopeManager): Scope {.inline.}
+proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
+proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
+
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
 proc new_if_expr*(parent: Expr, val: GeneValue): Expr
 proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr
@@ -87,11 +90,9 @@ proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr
-proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
-proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue
-proc get_member*(self: VM, name: ComplexSymbol): GeneValue
-proc set_member*(self: VM, name: GeneValue, value: GeneValue, in_ns: bool)
-# proc normalize_if*(val: GeneValue): NormalizedIf
+
+proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
+proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue
 
 #################### Frame #######################
 
@@ -104,6 +105,12 @@ proc reset*(self: var Frame) {.inline.} =
   self.ns = nil
   self.scope = nil
   self.extra = nil
+
+proc `[]`*(self: Frame, key: int): GeneValue {.inline.} =
+  if self.scope.hasKey(key):
+    return self.scope[key]
+  else:
+    return self.ns[key]
 
 #################### Scope #######################
 
@@ -237,40 +244,38 @@ proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
     unknown: v,
   )
 
-proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
+proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   case expr.kind:
   of ExRoot:
-    result = self.eval(expr.root)
+    result = self.eval(frame, expr.root)
   of ExLiteral:
     result = expr.literal
   of ExSymbol:
-    echo expr.symbol
-    result = self[expr.symbol_key]
+    result = frame[expr.symbol_key]
   of ExComplexSymbol:
-    result = self.get_member(expr.csymbol)
+    result = self.get_member(frame, expr.csymbol)
   of ExBlock:
     for e in expr.blk:
-      result = self.eval(e)
+      result = self.eval(frame, e)
   of ExArray:
     result = new_gene_vec()
     for e in expr.array:
-      result.vec.add(self.eval(e))
+      result.vec.add(self.eval(frame, e))
   of ExMap:
     result = new_gene_map()
     for e in expr.map:
-      result.map[e.map_key] = self.eval(e.map_val)
+      result.map[e.map_key] = self.eval(frame, e.map_val)
   of ExMapChild:
     discard
-    # result = self.eval(expr.map_val)
   of ExGene:
-    var target = self.eval(expr.gene_op)
+    var target = self.eval(frame, expr.gene_op)
     if target.kind == GeneInternal and target.internal.kind == GeneFunction:
-      result = self.call_fn(GeneNil, target.internal.fn, expr)
+      result = self.call_fn(frame, GeneNil, target.internal.fn, expr)
     else:
       todo($expr.gene)
   of ExBinary:
-    var first = self.eval(expr.bin_first)
-    var second = self.eval(expr.bin_second)
+    var first = self.eval(frame, expr.bin_first)
+    var second = self.eval(frame, expr.bin_second)
     case expr.bin_op:
     of BinAdd: result = new_gene_int(first.num + second.num)
     of BinSub: result = new_gene_int(first.num - second.num)
@@ -286,7 +291,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     of BinOr:  result = new_gene_bool(first.boolVal or second.boolVal)
     else: todo()
   of ExBinImmediate:
-    var first = self.eval(expr.bini_first)
+    var first = self.eval(frame, expr.bini_first)
     var second = expr.bini_second
     case expr.bini_op:
     of BinAdd: result = new_gene_int(first.num + second.num)
@@ -303,50 +308,50 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     of BinOr:  result = new_gene_bool(first.boolVal or second.boolVal)
     else: todo()
   of ExVar:
-    var val = self.eval(expr.var_val)
-    self.cur_frame.scope[expr.var_key] = val
+    var val = self.eval(frame, expr.var_val)
+    frame.scope[expr.var_key] = val
     result = GeneNil
   of ExAssignment:
-    var val = self.eval(expr.var_val)
-    self.cur_frame.scope[expr.var_key] = val
+    var val = self.eval(frame, expr.var_val)
+    frame.scope[expr.var_key] = val
     result = GeneNil
   of ExIf:
-    var v = self.eval(expr.if_cond)
+    var v = self.eval(frame, expr.if_cond)
     if v:
-      result = self.eval(expr.if_then)
+      result = self.eval(frame, expr.if_then)
     else:
-      result = self.eval(expr.if_else)
+      result = self.eval(frame, expr.if_else)
   of ExLoop:
     try:
       while true:
         for e in expr.loop_blk:
-          discard self.eval(e)
+          discard self.eval(frame, e)
     except Break as b:
       result = b.val
   of ExBreak:
     var val = GeneNil
     if expr.break_val != nil:
-      val = self.eval(expr.break_val)
+      val = self.eval(frame, expr.break_val)
     var e: Break
     e.new
     e.val = val
     raise e
   of ExWhile:
     try:
-      var cond = self.eval(expr.while_cond)
+      var cond = self.eval(frame, expr.while_cond)
       while cond:
         for e in expr.while_blk:
-          discard self.eval(e)
-        cond = self.eval(expr.while_cond)
+          discard self.eval(frame, e)
+        cond = self.eval(frame, expr.while_cond)
     except Break as b:
       result = b.val
   of ExFn:
-    self.cur_frame.ns[expr.fn.internal.fn.name_key] = expr.fn
+    frame.ns[expr.fn.internal.fn.name_key] = expr.fn
     result = expr.fn
   of ExReturn:
     var val = GeneNil
     if expr.return_val != nil:
-      val = self.eval(expr.return_val)
+      val = self.eval(frame, expr.return_val)
     var e: Return
     e.new
     e.val = val
@@ -357,74 +362,74 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
     of ExBlock:
       var e = new_expr(parent, expr.unknown)
       parent.blk[expr.posInParent] = e
-      result = self.eval(e)
+      result = self.eval(frame, e)
     of ExLoop:
       var e = new_expr(parent, expr.unknown)
       parent.loop_blk[expr.posInParent] = e
-      result = self.eval(e)
+      result = self.eval(frame, e)
     else:
       todo($expr.unknown)
   of ExNamespace:
-    self.cur_frame.ns[expr.ns.internal.ns.name_key] = expr.ns
-    var old_self = self.cur_frame.self
-    var old_ns = self.cur_frame.ns
+    frame.ns[expr.ns.internal.ns.name_key] = expr.ns
+    var old_self = frame.self
+    var old_ns = frame.ns
     try:
-      self.cur_frame.self = expr.ns
-      self.cur_frame.ns = expr.ns.internal.ns
+      frame.self = expr.ns
+      frame.ns = expr.ns.internal.ns
       for e in expr.ns_body:
-        discard self.eval(e)
+        discard self.eval(frame, e)
       result = expr.ns
     finally:
-      self.cur_frame.self = old_self
-      self.cur_frame.ns = old_ns
+      frame.self = old_self
+      frame.ns = old_ns
   of ExSelf:
-    return self.cur_frame.self
+    return frame.self
   of ExGlobal:
     return new_gene_internal(self.app.ns)
   of ExImport:
     var ns = self.modules[expr.import_module]
     for name in expr.import_mappings:
       var key = expr.module.get_index(name)
-      self.cur_frame.ns.members[key] = ns[name]
+      frame.ns.members[key] = ns[name]
   of ExClass:
-    self.set_member(expr.class_name, expr.class, true)
+    self.set_member(frame, expr.class_name, expr.class, true)
     if expr.super_class != nil:
-      var super_class = self.eval(expr.super_class)
+      var super_class = self.eval(frame, expr.super_class)
       expr.class.internal.class.parent = super_class.internal.class
-    self.cur_frame.self = expr.class
+    frame.self = expr.class
     for e in expr.class_body:
-      discard self.eval(e)
+      discard self.eval(frame, e)
     result = expr.class
   of ExNew:
-    var class = self.eval(expr.new_class)
+    var class = self.eval(frame, expr.new_class)
     var instance = new_instance(class.internal.class)
     result = new_gene_instance(instance)
-    discard self.eval_method(result, class.internal.class, "new", expr)
+    discard self.eval_method(frame, result, class.internal.class, "new", expr)
   of ExMethod:
     var meth = expr.meth
-    self.cur_frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
+    frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
     result = meth
   of ExInvokeMethod:
-    var instance = self.eval(expr.invoke_self)
+    var instance = self.eval(frame, expr.invoke_self)
     var class = instance.instance.class
-    result = self.eval_method(result, class, expr.invoke_meth, expr)
+    result = self.eval_method(frame, result, class, expr.invoke_meth, expr)
   of ExGetProp:
-    var target = self.eval(expr.get_prop_self)
+    var target = self.eval(frame, expr.get_prop_self)
     var name = expr.get_prop_name
     result = target.instance.value.gene_props[name]
   of ExSetProp:
-    var target = self.cur_frame.self
+    var target = frame.self
     var name = expr.set_prop_name
-    result = self.eval(expr.set_prop_val)
+    result = self.eval(frame, expr.set_prop_val)
     target.instance.value.gene_props[name] = result
   of ExCallNative:
     var args: seq[GeneValue] = @[]
     for item in expr.native_args:
-      args.add(self.eval(item))
+      args.add(self.eval(frame, item))
     var p = NativeProcs.get(expr.native_index)
     result = p(args)
   of ExGetClass:
-    var val = self.eval(expr.get_class_val)
+    var val = self.eval(frame, expr.get_class_val)
     case val.kind:
     of GeneString:
       result = self.app.ns["String"]
@@ -445,12 +450,6 @@ proc new_vm*(app: Application): VM =
 proc new_vm*(): VM =
   result = new_vm(APP)
 
-proc `[]`*(self: VM, key: int): GeneValue {.inline.} =
-  if self.cur_frame.scope.hasKey(key):
-    return self.cur_frame.scope[key]
-  else:
-    return self.cur_frame.ns[key]
-
 proc prepare*(self: VM, code: string): Expr =
   var parsed = read_all(code)
   var root = Expr(
@@ -461,8 +460,8 @@ proc prepare*(self: VM, code: string): Expr =
 
 proc eval*(self: VM, code: string): GeneValue =
   self.cur_module = new_module()
-  self.cur_frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
-  return self.eval(self.prepare(code))
+  var frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
+  return self.eval(frame, self.prepare(code))
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
   if self.modules.hasKey(name):
@@ -473,12 +472,12 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
   result = self.cur_module.root_ns
   self.modules[name] = result
 
-proc eval_method*(self: VM, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue =
+proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue =
   if class.methods.hasKey(method_name):
     var meth = class.methods[method_name]
-    result = self.call_fn(instance, meth, expr)
+    result = self.call_fn(frame, instance, meth, expr)
 
-proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue =
+proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue =
   var fn_scope = ScopeMgr.get()
   var args_blk: seq[Expr]
   case expr.kind:
@@ -495,7 +494,7 @@ proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue 
     for i in 0..<fn.args.len:
       fn_scope[fn.arg_keys[i]] = GeneNil
   of 1:
-    var arg = self.eval(args_blk[0])
+    var arg = self.eval(frame, args_blk[0])
     for i in 0..<fn.args.len:
       if i == 0:
         fn_scope[fn.arg_keys[0]] = arg
@@ -504,53 +503,53 @@ proc call_fn*(self: VM, target: GeneValue, fn: Function, expr: Expr): GeneValue 
   else:
     var args: seq[GeneValue] = @[]
     for e in args_blk:
-      args.add(self.eval(e))
+      args.add(self.eval(frame, e))
     for i in 0..<fn.args.len:
       fn_scope[fn.arg_keys[i]] = args[i]
 
-  var old_self = self.cur_frame.self
-  var old_scope = self.cur_frame.scope
+  var old_self = frame.self
+  var old_scope = frame.scope
   try:
-    self.cur_frame.scope = fn_scope
-    self.cur_frame.self = target
+    frame.scope = fn_scope
+    frame.self = target
     if fn.body_blk.len == 0:
       for item in fn.body:
         fn.body_blk.add(new_expr(fn.expr, item))
     try:
       for e in fn.body_blk:
-        result = self.eval(e)
+        result = self.eval(frame, e)
     except Return as r:
       result = r.val
   finally:
-    self.cur_frame.self = old_self
-    self.cur_frame.scope = old_scope
+    frame.self = old_self
+    frame.scope = old_scope
 
   ScopeMgr.free(fn_scope)
 
-proc get_member*(self: VM, name: ComplexSymbol): GeneValue =
+proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   if name.first == "global":
     result = new_gene_internal(self.app.ns)
   else:
-    var key = self.cur_module.get_index(name.first)
-    result = self[key]
+    var key = frame.ns.module.get_index(name.first)
+    result = frame[key]
   for name in name.rest:
     result = result.internal.ns[name]
 
-proc set_member*(self: VM, name: GeneValue, value: GeneValue, in_ns: bool) =
+proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
   case name.kind:
   of GeneSymbol:
     var key = self.cur_module.get_index(name.symbol)
     if in_ns:
-      self.cur_frame.ns[key] = value
+      frame.ns[key] = value
     else:
-      self.cur_frame.scope[key] = value
+      frame.scope[key] = value
   of GeneComplexSymbol:
     var ns: Namespace
     if name.csymbol.first == "global":
       ns = self.app.ns
     else:
       var key = self.cur_module.get_index(name.csymbol.first)
-      ns = self[key].internal.ns
+      ns = frame[key].internal.ns
     for i in 0..<(name.csymbol.rest.len - 1):
       var name = name.csymbol.rest[i]
       ns = ns[name].internal.ns
@@ -731,43 +730,6 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
   result.if_then = new_expr(result, val.gene_data[1])
   if val.gene_data.len > 3:
     result.if_else = new_expr(result, val.gene_data[3])
-
-# proc normalize_if*(val: GeneValue): NormalizedIf =
-#   var cond: GeneValue = val.gene_data[0]
-#   result.cond = cond
-#   var then_logic: seq[GeneValue] = @[]
-#   result.then_logic = then_logic
-#   var elif_pairs: seq[(GeneValue, seq[GeneValue])] = @[]
-#   result.elif_pairs = elif_pairs
-#   var else_logic: seq[GeneValue] = @[]
-#   result.else_logic = else_logic
-
-#   var state = ThenBlock
-#   for i in 1..<val.gene_data.len:
-#     var item = val.gene_data[i]
-#     case state:
-#     of ThenBlock:
-#       if item == ELSE:
-#         state = ElseBlock
-#       elif item == ELIF:
-#         state = ElseIfCond
-#       else:
-#         then_logic.add(item)
-#     of ElseIfCond:
-#       if item in @[ELSE, ELIF, THEN]:
-#         not_allowed()
-#       else:
-#         state = ElseIfThenBlock
-#         elif_pairs.add((item, @[]))
-#     of ElseIfThenBlock:
-#       if item == ELSE:
-#         state = ElseBlock
-#       elif item == ELIF:
-#         state = ElseIfCond
-#       else:
-#         elif_pairs[^1][1].add(item)
-#     else:
-#       not_allowed()
 
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val
@@ -961,9 +923,9 @@ when isMainModule:
     quit(0)
   var interpreter = new_vm()
   interpreter.cur_module = new_module()
-  interpreter.cur_frame = FrameMgr.get(FrModule, interpreter.cur_module.root_ns, new_scope())
+  var frame = FrameMgr.get(FrModule, interpreter.cur_module.root_ns, new_scope())
   let e = interpreter.prepare(readFile(commandLineParams()[0]))
   let start = cpuTime()
-  let result = interpreter.eval(e)
+  let result = interpreter.eval(frame, e)
   echo "Time: " & $(cpuTime() - start)
   echo result
