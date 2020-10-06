@@ -11,10 +11,21 @@ type
     cur_module*: Module
     modules*: Table[string, Namespace]
 
+  FrameKind* = enum
+    FunctionCall
+    MethodCall
+    ModuleBody
+    ClassBody
+    NamespaceBody
+    EvalBody # the code passed to (eval)
+    Block # like a block passed to a method in Ruby
+
   Frame* = ref object
+    kind*: FrameKind
     self*: GeneValue
     ns*: Namespace
     scope*: Scope
+    # hierarchy*: Hierarchy # A hierarchy object that tracks where the method is in class hierarchy
 
   Scope* = ref object
     parent*: Scope
@@ -26,14 +37,21 @@ type
   Return* = ref object of CatchableError
     val: GeneValue
 
+  FrameManager = ref object
+    cache*: seq[Frame]
+
   ScopeManager = ref object
     cache*: seq[Scope]
 
+var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
 
 init_native_procs()
 
 #################### Interfaces ##################
+
+
+proc get*(self: var ScopeManager): Scope {.inline.}
 
 proc `[]`*(self: VM, key: int): GeneValue {.inline.}
 proc new_expr*(parent: Expr, kind: ExprKind): Expr
@@ -64,6 +82,17 @@ proc get_member*(self: VM, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, name: GeneValue, value: GeneValue, in_ns: bool)
 # proc normalize_if*(val: GeneValue): NormalizedIf
 
+#################### Frame #######################
+
+proc new_frame*(): Frame = Frame(
+  self: GeneNil,
+)
+
+proc reset*(self: var Frame) {.inline.} =
+  self.self = nil
+  self.ns = nil
+  self.scope = nil
+
 #################### Scope #######################
 
 proc new_scope*(): Scope = Scope(members: Table[int, GeneValue]())
@@ -90,6 +119,18 @@ proc get*(self: var ScopeManager): Scope {.inline.} =
 proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
   scope.reset()
   self.cache.add(scope)
+
+#################### FrameManager ################
+
+proc get*(self: var FrameManager): Frame {.inline.} =
+  if self.cache.len > 0:
+    return self.cache.pop()
+  else:
+    return new_frame()
+
+proc free*(self: var FrameManager, frame: var Frame) {.inline.} =
+  frame.reset()
+  self.cache.add(frame)
 
 #################### Function ####################
 
@@ -379,15 +420,6 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
   # else:
   #   todo($expr.kind)
 
-#################### Frame #######################
-
-proc new_frame*(vm: VM): Frame =
-  return Frame(
-    self: GeneNil,
-    ns: vm.cur_module.root_ns,
-    scope: new_scope(),
-  )
-
 #################### VM #########################
 
 proc new_vm*(app: Application): VM =
@@ -414,14 +446,18 @@ proc prepare*(self: VM, code: string): Expr =
 
 proc eval*(self: VM, code: string): GeneValue =
   self.cur_module = new_module()
-  self.cur_frame = self.new_frame()
+  self.cur_frame = FrameMgr.get()
+  self.cur_frame.ns = self.cur_module.root_ns
+  self.cur_frame.scope = new_scope()
   return self.eval(self.prepare(code))
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
   if self.modules.hasKey(name):
     return self.modules[name]
   self.cur_module = new_module(name)
-  self.cur_frame = self.new_frame()
+  self.cur_frame = FrameMgr.get()
+  self.cur_frame.ns = self.cur_module.root_ns
+  self.cur_frame.scope = new_scope()
   discard self.eval(code)
   result = self.cur_module.root_ns
   self.modules[name] = result
@@ -914,7 +950,9 @@ when isMainModule:
     quit(0)
   var interpreter = new_vm()
   interpreter.cur_module = new_module()
-  interpreter.cur_frame = interpreter.new_frame()
+  interpreter.cur_frame = FrameMgr.get()
+  interpreter.cur_frame.ns = interpreter.cur_module.root_ns
+  interpreter.cur_frame.scope = new_scope()
   let e = interpreter.prepare(readFile(commandLineParams()[0]))
   let start = cpuTime()
   let result = interpreter.eval(e)
