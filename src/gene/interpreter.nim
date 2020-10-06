@@ -12,20 +12,31 @@ type
     modules*: Table[string, Namespace]
 
   FrameKind* = enum
-    FunctionCall
-    MethodCall
-    ModuleBody
-    ClassBody
-    NamespaceBody
-    EvalBody # the code passed to (eval)
-    Block # like a block passed to a method in Ruby
+    FrFunction
+    FrMethod
+    FrModule
+    FrNamespace
+    FrClass
+    FrEval # the code passed to (eval)
+    FrBlock # like a block passed to a method in Ruby
+
+  FrameExtra* = ref object
+    case kind*: FrameKind
+    of FrFunction:
+      # fn_name*: string  # We may support 1-n mapping for function and names
+      fn*: Function
+    of FrMethod:
+      meth*: Function
+      meth_name*: string
+      # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
+    else:
+      discard
 
   Frame* = ref object
-    kind*: FrameKind
     self*: GeneValue
     ns*: Namespace
     scope*: Scope
-    # hierarchy*: Hierarchy # A hierarchy object that tracks where the method is in class hierarchy
+    extra*: FrameExtra
 
   Scope* = ref object
     parent*: Scope
@@ -92,6 +103,7 @@ proc reset*(self: var Frame) {.inline.} =
   self.self = nil
   self.ns = nil
   self.scope = nil
+  self.extra = nil
 
 #################### Scope #######################
 
@@ -122,11 +134,14 @@ proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
 
 #################### FrameManager ################
 
-proc get*(self: var FrameManager): Frame {.inline.} =
+proc get*(self: var FrameManager, kind: FrameKind, ns: Namespace, scope: Scope): Frame {.inline.} =
   if self.cache.len > 0:
-    return self.cache.pop()
+    result = self.cache.pop()
   else:
-    return new_frame()
+    result = new_frame()
+  result.ns = ns
+  result.scope = scope
+  result.extra = FrameExtra(kind: kind)
 
 proc free*(self: var FrameManager, frame: var Frame) {.inline.} =
   frame.reset()
@@ -446,18 +461,14 @@ proc prepare*(self: VM, code: string): Expr =
 
 proc eval*(self: VM, code: string): GeneValue =
   self.cur_module = new_module()
-  self.cur_frame = FrameMgr.get()
-  self.cur_frame.ns = self.cur_module.root_ns
-  self.cur_frame.scope = new_scope()
+  self.cur_frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
   return self.eval(self.prepare(code))
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
   if self.modules.hasKey(name):
     return self.modules[name]
   self.cur_module = new_module(name)
-  self.cur_frame = FrameMgr.get()
-  self.cur_frame.ns = self.cur_module.root_ns
-  self.cur_frame.scope = new_scope()
+  self.cur_frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
   discard self.eval(code)
   result = self.cur_module.root_ns
   self.modules[name] = result
@@ -950,9 +961,7 @@ when isMainModule:
     quit(0)
   var interpreter = new_vm()
   interpreter.cur_module = new_module()
-  interpreter.cur_frame = FrameMgr.get()
-  interpreter.cur_frame.ns = interpreter.cur_module.root_ns
-  interpreter.cur_frame.scope = new_scope()
+  interpreter.cur_frame = FrameMgr.get(FrModule, interpreter.cur_module.root_ns, new_scope())
   let e = interpreter.prepare(readFile(commandLineParams()[0]))
   let start = cpuTime()
   let result = interpreter.eval(e)
