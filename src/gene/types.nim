@@ -31,6 +31,7 @@ type
     members*: Table[int, GeneValue]
 
   Class* = ref object
+    parent*: Class
     name*: string
     name_key*: int
     methods*: Table[string, Function]
@@ -205,7 +206,7 @@ type
     of ExLiteral:
       literal*: GeneValue
     of ExSymbol:
-      # symbol*: string
+      symbol*: string
       symbol_key*: int
     of ExComplexSymbol:
       csymbol*: ComplexSymbol
@@ -252,6 +253,7 @@ type
     of ExReturn:
       return_val*: Expr
     of ExClass:
+      super_class*: Expr
       class*: GeneValue
       class_name*: GeneValue # The simple name or complex name that is associated with the class
       class_body*: seq[Expr]

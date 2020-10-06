@@ -77,4 +77,4 @@ test_interpreter """
 #   (class B < A
 #   )
 #   ((new B) .test)
-# """, "A.test" 
+# """, "A.test"

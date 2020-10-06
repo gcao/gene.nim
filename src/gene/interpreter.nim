@@ -132,6 +132,7 @@ proc new_symbol_expr*(parent: Expr, s: string): Expr =
     kind: ExSymbol,
     parent: parent,
     module: parent.module,
+    symbol: s,
     symbol_key: key,
   )
 
@@ -187,6 +188,7 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
   of ExLiteral:
     result = expr.literal
   of ExSymbol:
+    echo expr.symbol
     result = self[expr.symbol_key]
   of ExComplexSymbol:
     result = self.get_member(expr.csymbol)
@@ -330,6 +332,9 @@ proc eval*(self: VM, expr: Expr): GeneValue {.inline.} =
       self.cur_frame.ns.members[key] = ns[name]
   of ExClass:
     self.set_member(expr.class_name, expr.class, true)
+    if expr.super_class != nil:
+      var super_class = self.eval(expr.super_class)
+      expr.class.internal.class.parent = super_class.internal.class
     self.cur_frame.self = expr.class
     for e in expr.class_body:
       discard self.eval(e)
@@ -782,8 +787,12 @@ proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
     class: new_gene_internal(class),
     class_name: name,
   )
+  var body_start = 1
+  if val.gene_data.len > 2 and val.gene_data[1] == new_gene_symbol("<"):
+    body_start = 3
+    result.super_class = new_expr(result, val.gene_data[2])
   var body: seq[Expr] = @[]
-  for i in 1..<val.gene_data.len:
+  for i in body_start..<val.gene_data.len:
     body.add(new_expr(parent, val.gene_data[i]))
   result.class_body = body
 
