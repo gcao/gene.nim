@@ -575,14 +575,14 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
   try:
     frame.scope = mac_scope
     frame.self = target
-    # if mac.body_blk.len == 0:
-    #   for item in mac.body:
-    #     mac.body_blk.add(new_expr(mac.expr, item))
-    # try:
-    #   for e in mac.body_blk:
-    #     result = self.eval(frame, e)
-    # except Return as r:
-    #   result = r.val
+    var blk: seq[Expr] = @[]
+    for item in mac.body:
+      blk.add(new_expr(mac.expr, item))
+    try:
+      for e in blk:
+        result = self.eval(frame, e)
+    except Return as r:
+      result = r.val
   finally:
     frame.self = old_self
     frame.scope = old_scope
