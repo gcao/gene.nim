@@ -49,11 +49,20 @@ type
     expr*: Expr # The function expression that will be the parent of body
     body_blk*: seq[Expr]
 
+  Macro* = ref object
+    name*: string
+    name_key*: int
+    args*: seq[string]
+    arg_keys*: seq[int]
+    body*: seq[GeneValue]
+    expr*: Expr # The function expression that will be the parent of body
+
   Arguments* = ref object
     positional*: seq[GeneValue]
 
   GeneInternalKind* = enum
     GeneFunction
+    GeneMacro
     GeneArguments
     GeneClass
     GeneNamespace
@@ -63,6 +72,8 @@ type
     case kind*: GeneInternalKind
     of GeneFunction:
       fn*: Function
+    of GeneMacro:
+      mac*: Macro
     of GeneArguments:
       args*: Arguments
     of GeneClass:
@@ -182,6 +193,7 @@ type
     ExBreak
     ExWhile
     ExFn
+    ExMacro
     ExReturn
     ExClass
     ExNew
@@ -250,6 +262,8 @@ type
       while_blk*: seq[Expr]
     of ExFn:
       fn*: GeneValue
+    of ExMacro:
+      mac*: GeneValue
     of ExReturn:
       return_val*: Expr
     of ExClass:
@@ -375,6 +389,11 @@ proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
 
 proc new_fn*(name: string, args: seq[string], body: seq[GeneValue]): Function =
   return Function(name: name, args: args, body: body)
+
+#################### Macro #######################
+
+proc new_macro*(name: string, args: seq[string], body: seq[GeneValue]): Macro =
+  return Macro(name: name, args: args, body: body)
 
 #################### Arguments ###################
 
@@ -611,6 +630,12 @@ proc new_gene_internal*(fn: Function): GeneValue =
     internal: Internal(kind: GeneFunction, fn: fn),
   )
 
+proc new_gene_internal*(mac: Macro): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneMacro, mac: mac),
+  )
+
 proc new_gene_internal*(value: NativeProc): GeneValue =
   return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
 
@@ -770,7 +795,7 @@ converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
 # Below converter causes problem with the hash function
 # converter to_gene*(v: seq[GeneValue]): GeneValue           = new_gene_vec(v)
 
-converter from_gene*(v: GeneValue): bool =
+converter to_bool*(v: GeneValue): bool =
   if v.isNil:
     return false
   case v.kind:
@@ -787,7 +812,7 @@ converter from_gene*(v: GeneValue): bool =
   else:
     true
 
-converter from_gene*(node: GeneValue): Function =
+converter to_function*(node: GeneValue): Function =
   var first = node.gene_data[0]
   var name: string
   if first.kind == GeneSymbol:
@@ -809,6 +834,29 @@ converter from_gene*(node: GeneValue): Function =
     body.add node.gene_data[i]
 
   return new_fn(name, args, body)
+
+converter to_macro*(node: GeneValue): Macro =
+  var first = node.gene_data[0]
+  var name: string
+  if first.kind == GeneSymbol:
+    name = first.symbol
+  elif first.kind == GeneComplexSymbol:
+    name = first.csymbol.rest[^1]
+  var args: seq[string] = @[]
+  var a = node.gene_data[1]
+  case a.kind:
+  of GeneSymbol:
+    args.add(a.symbol)
+  of GeneVector:
+    for item in a.vec:
+      args.add(item.symbol)
+  else:
+    not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  return new_macro(name, args, body)
 
 #################### NativeProcs #################
 

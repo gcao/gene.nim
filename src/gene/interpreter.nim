@@ -80,6 +80,7 @@ proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_break_expr*(parent: Expr, val: GeneValue): Expr
 proc new_while_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
+proc new_macro_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
@@ -94,6 +95,7 @@ proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr
 
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue
+proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 
 #################### Frame #######################
 
@@ -272,6 +274,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var target = self.eval(frame, expr.gene_op)
     if target.kind == GeneInternal and target.internal.kind == GeneFunction:
       result = self.call_fn(frame, GeneNil, target.internal.fn, expr)
+    elif target.kind == GeneInternal and target.internal.kind == GeneMacro:
+      result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
     else:
       todo($expr.gene)
   of ExBinary:
@@ -349,6 +353,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExFn:
     frame.ns[expr.fn.internal.fn.name_key] = expr.fn
     result = expr.fn
+  of ExMacro:
+    frame.ns[expr.mac.internal.mac.name_key] = expr.mac
+    result = expr.mac
   of ExReturn:
     var val = GeneNil
     if expr.return_val != nil:
@@ -533,6 +540,55 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
 
   ScopeMgr.free(fn_scope)
 
+proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue =
+  var mac_scope = ScopeMgr.get()
+  var args_blk: seq[Expr]
+  case expr.kind:
+  of ExGene:
+    args_blk = expr.gene_blk
+  of ExNew:
+    args_blk = expr.new_args
+  of ExInvokeMethod:
+    args_blk = expr.invoke_args
+  else:
+    todo()
+  case args_blk.len:
+  of 0:
+    for i in 0..<mac.args.len:
+      mac_scope[mac.arg_keys[i]] = GeneNil
+  of 1:
+    var arg = self.eval(frame, args_blk[0])
+    for i in 0..<mac.args.len:
+      if i == 0:
+        mac_scope[mac.arg_keys[0]] = arg
+      else:
+        mac_scope[mac.arg_keys[i]] = GeneNil
+  else:
+    var args: seq[GeneValue] = @[]
+    for e in args_blk:
+      args.add(self.eval(frame, e))
+    for i in 0..<mac.args.len:
+      mac_scope[mac.arg_keys[i]] = args[i]
+
+  var old_self = frame.self
+  var old_scope = frame.scope
+  try:
+    frame.scope = mac_scope
+    frame.self = target
+    # if mac.body_blk.len == 0:
+    #   for item in mac.body:
+    #     mac.body_blk.add(new_expr(mac.expr, item))
+    # try:
+    #   for e in mac.body_blk:
+    #     result = self.eval(frame, e)
+    # except Return as r:
+    #   result = r.val
+  finally:
+    frame.self = old_self
+    frame.scope = old_scope
+
+  ScopeMgr.free(mac_scope)
+
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   if name.first == "global":
     result = new_gene_internal(self.app.ns)
@@ -625,6 +681,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_while_expr(parent, node)
       of "fn":
         return new_fn_expr(parent, node)
+      of "macro":
+        return new_macro_expr(parent, node)
       of "return":
         return new_return_expr(parent, node)
       of "ns":
@@ -750,6 +808,19 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
     fn: new_gene_internal(fn),
   )
   fn.expr = result
+
+proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
+  var mac: Macro = val
+  mac.name_key = parent.module.get_index(mac.name)
+  for name in mac.args:
+    mac.arg_keys.add(parent.module.get_index(name))
+  result = Expr(
+    kind: ExMacro,
+    parent: parent,
+    module: parent.module,
+    mac: new_gene_internal(mac),
+  )
+  mac.expr = result
 
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(

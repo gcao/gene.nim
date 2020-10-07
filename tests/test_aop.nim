@@ -12,3 +12,7 @@
 # * Can skip run
 # * Can trigger retry
 # * ...
+#
+# * AOP for OOP
+# * AOP for functions
+#
