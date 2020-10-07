@@ -19,7 +19,7 @@ test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
 test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
 
 test_parser("{}", Table[string, GeneValue]())
-test_parser("{:a 1}", {"a": new_gene_int(1)}.toTable)
+test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)
 
 test "Parser":
   var node: GeneValue
@@ -38,17 +38,17 @@ test "Parser":
   check node.kind == GeneGene
   check node.gene_data.len == 2
 
-  node = read("(1 :a 1 2 3)")
+  node = read("(1 ^a 1 2 3)")
   check node.kind == GeneGene
   check node.gene_props == {"a": new_gene_int(1)}.toTable
   check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
 
-  node = read("(1 ::a 2 3)")
+  node = read("(1 ^^a 2 3)")
   check node.kind == GeneGene
   check node.gene_props == {"a": GeneTrue}.toTable
   check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
 
-  node = read("(1 :!a 2 3)")
+  node = read("(1 ^!a 2 3)")
   check node.kind == GeneGene
   check node.gene_props == {"a": GeneFalse}.toTable
   check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
@@ -61,7 +61,7 @@ test "Parser":
   check node.kind == GeneGene
 
   node = read("""
-    {::x :!y ::z}
+    {^^x ^!y ^^z}
   """)
   check node.kind == GeneMap
   check node.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
@@ -114,11 +114,11 @@ test "Parser":
   check node.kind == GeneMap
   check node.map.len == 0
 
-  node = read("{:A 1 :B 2}")
+  node = read("{^A 1 ^B 2}")
   check node.kind == GeneMap
   check node.map.len == 2
 
-  node = read("{:A 1, :B 2}")
+  node = read("{^A 1, ^B 2}")
   check node.kind == GeneMap
   check node.map.len == 2
 
@@ -138,7 +138,7 @@ test "Parser":
   check node.kind == GeneRatio
   check node.rnum == (BiggestInt(1), BiggestInt(2))
 
-  node = read("{:ratio -1/2}")
+  node = read("{^ratio -1/2}")
   check node.kind == GeneMap
   check node.map["ratio"] == new_gene_ratio(-1, 2)
 
@@ -151,7 +151,7 @@ test "Parser":
   opts1.suppress_read = false
 
   try:
-    node = read("{:ratio 1/-2}")
+    node = read("{^ratio 1/-2}")
     check node.kind == GeneMap
   except ParseError:
     discard

@@ -531,9 +531,9 @@ proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
       continue
     case state:
     of Key:
-      if ch == ':':
+      if ch == '^':
         p.bufPos.inc
-        if p.buf[p.bufPos] == ':':
+        if p.buf[p.bufPos] == '^':
           p.bufPos.inc
           key = read_token(p, false)
           result[key] = GeneTrue
@@ -554,7 +554,7 @@ proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
       else:
         raise new_exception(ParseError, "Expect key at " & $p.bufpos & " but found " & p.buf[p.bufpos])
     of PropState.Value:
-      if ch == ':':
+      if ch == '^':
         raise new_exception(ParseError, "Expect value for " & key)
       elif part_of_gene:
         if ch == ')':
@@ -576,7 +576,7 @@ proc read_gene(p: var Parser): GeneValue =
   add_line_col(p, result)
   result.gene_op = read_gene_op(p)
   skip_ws(p)
-  if p.buf[p.bufpos] == ':':
+  if p.buf[p.bufpos] == '^':
     let props = read_map(p, true)
     result.gene_props = props
   var result_list = read_delimited_list(p, ')', true)

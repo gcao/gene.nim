@@ -25,5 +25,5 @@ proc test_normalize(code: string, r: GeneValue) =
 test_normalize("(1 + 2)", read("(+ 1 2)"))
 
 test_normalize("(.@test)", read("(@ \"test\")"))
-test_normalize("(self .@test)", read("(@ :self self \"test\")"))
+test_normalize("(self .@test)", read("(@ ^self self \"test\")"))
 test_normalize("(@test = 1)", read("(@= \"test\" 1)"))

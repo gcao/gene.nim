@@ -15,3 +15,12 @@ test_interpreter """
   )
   (m 1 2)
 """, 3
+
+# test_interpreter """
+#   (var a 1)
+#   (var b 1)
+#   (macro m []
+#     (:a + :b)
+#   )
+#   (m)
+# """, 3
