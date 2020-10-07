@@ -392,6 +392,14 @@ proc `[]=`*(self: Arguments, i: int, val: GeneValue) =
     self.positional.add(GeneNil)
   self.positional[i] = val
 
+#################### Class #######################
+
+proc get_method*(self: Class, name: string): Function =
+  if self.methods.hasKey(name):
+    return self.methods[name]
+  elif self.parent != nil:
+    return self.parent.get_method(name)
+
 #################### ComplexSymbol ###############
 
 proc `==`*(this, that: ComplexSymbol): bool =

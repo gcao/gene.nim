@@ -26,6 +26,7 @@ type
       # fn_name*: string  # We may support 1-n mapping for function and names
       fn*: Function
     of FrMethod:
+      class*: Class
       meth*: Function
       meth_name*: string
       # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
@@ -473,9 +474,15 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
   self.modules[name] = result
 
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue =
-  if class.methods.hasKey(method_name):
-    var meth = class.methods[method_name]
+  var meth = class.get_method(method_name)
+  if meth != nil:
     result = self.call_fn(frame, instance, meth, expr)
+  else:
+    case method_name:
+    of "new": # No implementation is required for `new` method
+      discard
+    else:
+      todo()
 
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue =
   var fn_scope = ScopeMgr.get()

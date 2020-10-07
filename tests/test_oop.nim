@@ -68,13 +68,13 @@ test_interpreter """
   ((new A) .test 1 2)
 """, 3
 
-# test_interpreter """
-#   (class A
-#     (method test []
-#       "A.test"
-#     )
-#   )
-#   (class B < A
-#   )
-#   ((new B) .test)
-# """, "A.test"
+test_interpreter """
+  (class A
+    (method test []
+      "A.test"
+    )
+  )
+  (class B < A
+  )
+  ((new B) .test)
+""", "A.test"
