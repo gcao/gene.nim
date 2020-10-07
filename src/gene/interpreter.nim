@@ -1,4 +1,4 @@
-import tables
+import tables, strutils
 
 import ./types
 import ./parser
@@ -640,6 +640,11 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       return new_expr(parent, ExGlobal)
     elif node.symbol == "self":
       return new_expr(parent, ExSelf)
+    elif node.symbol.startsWith(":"):
+      if node.symbol.len == 1: # ":"
+        return new_symbol_expr(parent, node.symbol)
+      else:
+        return new_literal_expr(parent, new_gene_symbol(node.symbol[1..^1]))
     else:
       return new_symbol_expr(parent, node.symbol)
   of GeneComplexSymbol:
