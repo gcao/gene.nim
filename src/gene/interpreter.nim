@@ -570,18 +570,14 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
     for i in 0..<mac.args.len:
       mac_scope[mac.arg_keys[i]] = GeneNil
   of 1:
-    var arg = self.eval(frame, args_blk[0])
     for i in 0..<mac.args.len:
       if i == 0:
-        mac_scope[mac.arg_keys[0]] = arg
+        mac_scope[mac.arg_keys[0]] = expr.gene.gene_data[i]
       else:
         mac_scope[mac.arg_keys[i]] = GeneNil
   else:
-    var args: seq[GeneValue] = @[]
-    for e in args_blk:
-      args.add(self.eval(frame, e))
     for i in 0..<mac.args.len:
-      mac_scope[mac.arg_keys[i]] = args[i]
+      mac_scope[mac.arg_keys[i]] = expr.gene.gene_data[i]
 
   var blk: seq[Expr] = @[]
   for item in mac.body:
