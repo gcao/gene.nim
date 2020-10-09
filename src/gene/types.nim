@@ -265,6 +265,7 @@ type
       fn_ns*: Namespace
       fn*: GeneValue
     of ExMacro:
+      mac_ns*: Namespace
       mac*: GeneValue
     of ExReturn:
       return_val*: Expr
@@ -277,6 +278,7 @@ type
       new_class*: Expr
       new_args*: seq[Expr]
     of ExMethod:
+      meth_ns*: Namespace
       meth*: GeneValue
     of ExInvokeMethod:
       invoke_self*: Expr

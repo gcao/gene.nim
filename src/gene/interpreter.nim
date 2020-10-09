@@ -418,6 +418,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = new_gene_instance(instance)
     discard self.eval_method(frame, result, class.internal.class, "new", expr)
   of ExMethod:
+    expr.meth_ns = frame.ns
     var meth = expr.meth
     frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
     result = meth
@@ -450,9 +451,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else:
       todo()
   of ExCallerEval:
-    todo()
-    # for e in expr.caller_eval_args:
-    #   result = self.eval(frame, new_expr(expr, self.eval(frame, e)))
+    var caller_frame = frame.parent
+    for e in expr.caller_eval_args:
+      result = self.eval(caller_frame, new_expr(expr, self.eval(frame, e)))
   # else:
   #   todo($expr.kind)
 
@@ -501,7 +502,15 @@ proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
 
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue =
   var fn_scope = ScopeMgr.get()
-  var new_frame = FrameMgr.get(FrFunction, fn.expr.fn_ns, fn_scope)
+  var ns: Namespace
+  case fn.expr.kind:
+  of ExFn:
+    ns = fn.expr.fn_ns
+  of ExMethod:
+    ns = fn.expr.meth_ns
+  else:
+    todo()
+  var new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
   new_frame.parent = frame
   new_frame.self = target
 
@@ -546,14 +555,14 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
 
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue =
   var mac_scope = ScopeMgr.get()
+  var new_frame = FrameMgr.get(FrFunction, mac.expr.mac_ns, mac_scope)
+  new_frame.parent = frame
+  new_frame.self = target
+
   var args_blk: seq[Expr]
   case expr.kind:
   of ExGene:
     args_blk = expr.gene_blk
-  of ExNew:
-    args_blk = expr.new_args
-  of ExInvokeMethod:
-    args_blk = expr.invoke_args
   else:
     todo()
   case args_blk.len:
@@ -574,22 +583,14 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
     for i in 0..<mac.args.len:
       mac_scope[mac.arg_keys[i]] = args[i]
 
-  var old_self = frame.self
-  var old_scope = frame.scope
+  var blk: seq[Expr] = @[]
+  for item in mac.body:
+    blk.add(new_expr(mac.expr, item))
   try:
-    frame.scope = mac_scope
-    frame.self = target
-    var blk: seq[Expr] = @[]
-    for item in mac.body:
-      blk.add(new_expr(mac.expr, item))
-    try:
-      for e in blk:
-        result = self.eval(frame, e)
-    except Return as r:
-      result = r.val
-  finally:
-    frame.self = old_self
-    frame.scope = old_scope
+    for e in blk:
+      result = self.eval(new_frame, e)
+  except Return as r:
+    result = r.val
 
   ScopeMgr.free(mac_scope)
 
