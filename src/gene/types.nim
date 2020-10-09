@@ -207,6 +207,7 @@ type
     ExImport
     ExCallNative
     ExGetClass
+    ExCallerEval
 
   Expr* = ref object of RootObj
     module*: Module
@@ -261,6 +262,7 @@ type
       while_cond*: Expr
       while_blk*: seq[Expr]
     of ExFn:
+      fn_ns*: Namespace
       fn*: GeneValue
     of ExMacro:
       mac*: GeneValue
@@ -300,6 +302,8 @@ type
       native_args*: seq[Expr]
     of ExGetClass:
       get_class_val*: Expr
+    of ExCallerEval:
+      caller_eval_args*: seq[Expr]
 
   BinOps* = enum
     BinAdd

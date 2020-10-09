@@ -34,6 +34,7 @@ type
       discard
 
   Frame* = ref object
+    parent*: Frame
     self*: GeneValue
     ns*: Namespace
     scope*: Scope
@@ -92,6 +93,7 @@ proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr
+proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue
@@ -149,6 +151,7 @@ proc get*(self: var FrameManager, kind: FrameKind, ns: Namespace, scope: Scope):
     result = self.cache.pop()
   else:
     result = new_frame()
+  result.parent = nil
   result.ns = ns
   result.scope = scope
   result.extra = FrameExtra(kind: kind)
@@ -351,6 +354,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     except Break as b:
       result = b.val
   of ExFn:
+    expr.fn_ns = frame.ns
     frame.ns[expr.fn.internal.fn.name_key] = expr.fn
     result = expr.fn
   of ExMacro:
@@ -445,6 +449,10 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       result = new_gene_internal(val.instance.class)
     else:
       todo()
+  of ExCallerEval:
+    todo()
+    # for e in expr.caller_eval_args:
+    #   result = self.eval(frame, new_expr(expr, self.eval(frame, e)))
   # else:
   #   todo($expr.kind)
 
@@ -493,6 +501,10 @@ proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
 
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue =
   var fn_scope = ScopeMgr.get()
+  var new_frame = FrameMgr.get(FrFunction, fn.expr.fn_ns, fn_scope)
+  new_frame.parent = frame
+  new_frame.self = target
+
   var args_blk: seq[Expr]
   case expr.kind:
   of ExGene:
@@ -521,22 +533,14 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
     for i in 0..<fn.args.len:
       fn_scope[fn.arg_keys[i]] = args[i]
 
-  var old_self = frame.self
-  var old_scope = frame.scope
+  if fn.body_blk.len == 0:
+    for item in fn.body:
+      fn.body_blk.add(new_expr(fn.expr, item))
   try:
-    frame.scope = fn_scope
-    frame.self = target
-    if fn.body_blk.len == 0:
-      for item in fn.body:
-        fn.body_blk.add(new_expr(fn.expr, item))
-    try:
-      for e in fn.body_blk:
-        result = self.eval(frame, e)
-    except Return as r:
-      result = r.val
-  finally:
-    frame.self = old_self
-    frame.scope = old_scope
+    for e in fn.body_blk:
+      result = self.eval(new_frame, e)
+  except Return as r:
+    result = r.val
 
   ScopeMgr.free(fn_scope)
 
@@ -708,6 +712,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         result = new_expr(parent, ExGetClass)
         result.get_class_val = new_expr(result, node.gene_data[0])
         return result
+      of "$caller_eval":
+        return new_caller_eval_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       else:
@@ -951,6 +957,15 @@ proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr =
   result.native_index = index
   for i in 1..<val.gene_data.len:
     result.native_args.add(new_expr(result, val.gene_data[i]))
+
+proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExCallerEval,
+    parent: parent,
+    module: parent.module,
+  )
+  for i in 0..<val.gene_data.len:
+    result.caller_eval_args.add(new_expr(result, val.gene_data[i]))
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene_data[1].is_literal:
