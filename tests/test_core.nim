@@ -12,5 +12,5 @@ test_core """
 """, proc(r: GeneValue) =
   check r.internal.class.name == "String"
 
-# test_core "('' .class)", proc(r: GeneValue) =
-#   check r.internal.class.name == "String"
+test_core "(\"\" .class)", proc(r: GeneValue) =
+  check r.internal.class.name == "String"

@@ -161,31 +161,6 @@ proc free*(self: var FrameManager, frame: var Frame) {.inline.} =
   frame.reset()
   self.cache.add(frame)
 
-#################### Function ####################
-
-converter from_gene*(node: GeneValue): Function =
-  var first = node.gene_data[0]
-  var name: string
-  if first.kind == GeneSymbol:
-    name = first.symbol
-  elif first.kind == GeneComplexSymbol:
-    name = first.csymbol.rest[^1]
-  var args: seq[string] = @[]
-  var a = node.gene_data[1]
-  case a.kind:
-  of GeneSymbol:
-    args.add(a.symbol)
-  of GeneVector:
-    for item in a.vec:
-      args.add(item.symbol)
-  else:
-    not_allowed()
-  var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
-    body.add node.gene_data[i]
-
-  return new_fn(name, args, body)
-
 #################### Implementations #############
 
 proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
@@ -406,9 +381,13 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       frame.ns.members[key] = ns[name]
   of ExClass:
     self.set_member(frame, expr.class_name, expr.class, true)
-    if expr.super_class != nil:
-      var super_class = self.eval(frame, expr.super_class)
-      expr.class.internal.class.parent = super_class.internal.class
+    var super_class: Class
+    if expr.super_class == nil:
+      if self.app.ns.hasKey("Object"):
+        super_class = self.app.ns["Object"].internal.class
+    else:
+      super_class = self.eval(frame, expr.super_class).internal.class
+    expr.class.internal.class.parent = super_class
     frame.self = expr.class
     for e in expr.class_body:
       discard self.eval(frame, e)

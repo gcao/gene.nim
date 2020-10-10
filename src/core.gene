@@ -1,3 +1,9 @@
+(class global/Object
+  (method class []
+    ($get_class self)
+  )
+)
+
 (class global/String
   (method len []
     ($call_native "str_len" self)

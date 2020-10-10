@@ -383,10 +383,13 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
     members: Table[int, GeneValue](),
   )
 
+proc hasKey*(self: Namespace, key: string): bool {.inline.} =
+  return self.members.hasKey(self.module.get_index(key))
+
 proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
 
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
-  self[self.module.get_index(key)]
+  return self[self.module.get_index(key)]
 
 proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
   self.members[key] = val
@@ -829,7 +832,8 @@ converter to_function*(node: GeneValue): Function =
   var a = node.gene_data[1]
   case a.kind:
   of GeneSymbol:
-    args.add(a.symbol)
+    if a.symbol != "_":
+      args.add(a.symbol)
   of GeneVector:
     for item in a.vec:
       args.add(item.symbol)
