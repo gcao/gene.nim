@@ -13,6 +13,7 @@ test_parser("+5.0E5", +5.0E5)
 test_parser("true", true)
 test_parser("false", false)
 test_parser("\"test\"", "test")
+# test_parser("'test'", "test")
 
 test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))

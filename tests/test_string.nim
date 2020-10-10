@@ -5,4 +5,4 @@ import gene/interpreter
 
 import ./helpers
 
-# test_interpreter "('abc' .len)", 3
+test_core "(\"abc\" .len)", 3

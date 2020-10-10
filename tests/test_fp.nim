@@ -37,3 +37,10 @@ test_interpreter """
   )
   (fib 6)
 """, 8
+
+test_interpreter """
+  (fn f []
+    (fn g a a)
+  )
+  ((f) 1)
+""", 1

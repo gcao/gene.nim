@@ -68,6 +68,7 @@ proc `[]`*(self: Scope, key: int): GeneValue {.inline.}
 proc hasKey*(self: Scope, key: int): bool {.inline.}
 proc new_expr*(parent: Expr, kind: ExprKind): Expr
 proc get*(self: var ScopeManager): Scope {.inline.}
+proc get_class*(self: VM, val: GeneValue): Class
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
 
@@ -424,8 +425,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = meth
   of ExInvokeMethod:
     var instance = self.eval(frame, expr.invoke_self)
-    var class = instance.instance.class
-    result = self.eval_method(frame, result, class, expr.invoke_meth, expr)
+    var class = self.get_class(instance)
+    result = self.eval_method(frame, instance, class, expr.invoke_meth, expr)
   of ExGetProp:
     var target = self.eval(frame, expr.get_prop_self)
     var name = expr.get_prop_name
@@ -479,6 +480,15 @@ proc eval*(self: VM, code: string): GeneValue =
   self.cur_module = new_module()
   var frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
   return self.eval(frame, self.prepare(code))
+
+proc get_class*(self: VM, val: GeneValue): Class =
+  case val.kind:
+  of GeneInstance:
+    return val.instance.class
+  of GeneString:
+    return self.app.ns["String"].internal.class
+  else:
+    todo()
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
   if self.modules.hasKey(name):
