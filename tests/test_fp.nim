@@ -47,3 +47,33 @@ test_interpreter """
   )
   ((f) 1)
 """, 1
+
+# test_interpreter """
+#   (fn g ret
+#     (ret 1)
+#   )
+#   (fn f []
+#     # return can be assigned and will remember which function
+#     # to return from
+#     (var r return)
+#     (loop
+#       (g r)
+#     )
+#   )
+#   (f 1)
+# """, 1
+#
+# test_interpreter """
+#   (fn f []
+#     # return can be assigned and will remember which function
+#     # to return from
+#     (var r return)
+#     (fn g []
+#       (r 1) # r is from f's scope
+#     )
+#     (loop
+#       (g)
+#     )
+#   )
+#   (f 1)
+# """, 1
