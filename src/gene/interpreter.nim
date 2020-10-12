@@ -68,6 +68,10 @@ proc `[]`*(self: Scope, key: int): GeneValue {.inline.}
 proc hasKey*(self: Scope, key: int): bool {.inline.}
 proc new_expr*(parent: Expr, kind: ExprKind): Expr
 proc get*(self: var ScopeManager): Scope {.inline.}
+proc import_module*(self: VM, name: string, code: string): Namespace
+proc load_core_module*(self: VM)
+proc load_gene_module*(self: VM)
+proc load_genex_module*(self: VM)
 proc get_class*(self: VM, val: GeneValue): Class
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
@@ -401,8 +405,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     self.set_member(frame, expr.class_name, expr.class, true)
     var super_class: Class
     if expr.super_class == nil:
-      if self.app.ns.hasKey("Object"):
-        super_class = self.app.ns["Object"].internal.class
+      if GENE_NS != nil and GENE_NS.internal.ns.hasKey("Object"):
+        super_class = GENE_NS.internal.ns["Object"].internal.class
     else:
       super_class = self.eval(frame, expr.super_class).internal.class
     expr.class.internal.class.parent = super_class
@@ -441,13 +445,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = p(args)
   of ExGetClass:
     var val = self.eval(frame, expr.get_class_val)
-    case val.kind:
-    of GeneString:
-      result = self.app.ns["String"]
-    of GeneInstance:
-      result = new_gene_internal(val.instance.class)
-    else:
-      todo()
+    result = new_gene_internal(self.get_class(val))
   of ExCallerEval:
     var caller_frame = frame.parent
     for e in expr.caller_eval_args:
@@ -480,12 +478,23 @@ proc eval*(self: VM, code: string): GeneValue =
   var frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
   return self.eval(frame, self.prepare(code))
 
+proc load_core_module*(self: VM) =
+  discard self.import_module("gene", readFile("src/core.gene"))
+
+proc load_gene_module*(self: VM) =
+  var ns = self.import_module("gene", readFile("src/gene.gene"))
+  GENE_NS = ns["gene"]
+
+proc load_genex_module*(self: VM) =
+  var ns = self.import_module("genex", readFile("src/genex.gene"))
+  GENEX_NS = ns["genex"]
+
 proc get_class*(self: VM, val: GeneValue): Class =
   case val.kind:
   of GeneInstance:
     return val.instance.class
   of GeneString:
-    return self.app.ns["String"].internal.class
+    return GENE_NS.internal.ns["String"].internal.class
   else:
     todo()
 
@@ -601,7 +610,9 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
 
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   if name.first == "global":
-    result = new_gene_internal(self.app.ns)
+    result = GLOBAL_NS
+  elif name.first == "gene":
+    result = GENE_NS
   else:
     var key = frame.ns.module.get_index(name.first)
     result = frame[key]
@@ -619,7 +630,9 @@ proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
   of GeneComplexSymbol:
     var ns: Namespace
     if name.csymbol.first == "global":
-      ns = self.app.ns
+      ns = GLOBAL_NS.internal.ns
+    elif name.csymbol.first == "gene":
+      ns = GENE_NS.internal.ns
     else:
       var key = self.cur_module.get_index(name.csymbol.first)
       ns = frame[key].internal.ns

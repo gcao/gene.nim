@@ -1,0 +1,13 @@
+(ns gene
+  (class Object
+    (method class []
+      ($get_class self)
+    )
+  )
+
+  (class String
+    (method len []
+      ($call_native "str_len" self)
+    )
+  )
+)
