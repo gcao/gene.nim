@@ -928,7 +928,7 @@ converter to_block*(node: GeneValue): Block =
     else:
       not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
+  for i in 0..<node.gene_data.len:
     body.add node.gene_data[i]
 
   return new_block(args, body)

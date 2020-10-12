@@ -37,6 +37,11 @@ test_interpreter """
 """, proc(r: GeneValue) =
   check r.internal.kind == GeneBlock
 
+test_interpreter """
+  (var b (-> 1))
+  (b)
+""", 1
+
 # test_interpreter """
 #   (fn f b
 #     (b 1)

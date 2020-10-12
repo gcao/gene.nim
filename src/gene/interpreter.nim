@@ -106,6 +106,7 @@ proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
+proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
 #################### Frame #######################
 
@@ -273,6 +274,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       of GeneMacro:
         processed = true
         result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
+      of GeneBlock:
+        processed = true
+        result = self.call_block(frame, GeneNil, target.internal.blk, expr)
       else:
         discard
     else:
@@ -610,6 +614,43 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
     result = r.val
 
   ScopeMgr.free(mac_scope)
+
+proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue =
+  var blk_scope = ScopeMgr.get()
+  var new_frame = FrameMgr.get(FrBlock, blk.expr.blk_ns, blk_scope)
+  new_frame.parent = frame
+  new_frame.self = target
+
+  var args_blk: seq[Expr]
+  case expr.kind:
+  of ExGene:
+    args_blk = expr.gene_blk
+  else:
+    todo()
+  case args_blk.len:
+  of 0:
+    for i in 0..<blk.args.len:
+      blk_scope[blk.arg_keys[i]] = GeneNil
+  of 1:
+    for i in 0..<blk.args.len:
+      if i == 0:
+        blk_scope[blk.arg_keys[0]] = expr.gene.gene_data[i]
+      else:
+        blk_scope[blk.arg_keys[i]] = GeneNil
+  else:
+    for i in 0..<blk.args.len:
+      blk_scope[blk.arg_keys[i]] = expr.gene.gene_data[i]
+
+  var blk2: seq[Expr] = @[]
+  for item in blk.body:
+    blk2.add(new_expr(blk.expr, item))
+  try:
+    for e in blk2:
+      result = self.eval(new_frame, e)
+  except Return as r:
+    result = r.val
+
+  ScopeMgr.free(blk_scope)
 
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   if name.first == "global":
