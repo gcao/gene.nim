@@ -253,11 +253,27 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     discard
   of ExGene:
     var target = self.eval(frame, expr.gene_op)
-    if target.kind == GeneInternal and target.internal.kind == GeneFunction:
-      result = self.call_fn(frame, GeneNil, target.internal.fn, expr)
-    elif target.kind == GeneInternal and target.internal.kind == GeneMacro:
-      result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
+    var processed = false
+    case target.kind:
+    of GeneSymbol:
+      processed = true
+      result = new_gene_gene(target)
+      for e in expr.gene_blk:
+        result.gene_data.add(self.eval(frame, e))
+    of GeneInternal:
+      case target.internal.kind:
+      of GeneFunction:
+        processed = true
+        result = self.call_fn(frame, GeneNil, target.internal.fn, expr)
+      of GeneMacro:
+        processed = true
+        result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
+      else:
+        discard
     else:
+      discard
+
+    if not processed:
       todo($expr.gene)
   of ExBinary:
     var first = self.eval(frame, expr.bin_first)
@@ -626,6 +642,14 @@ proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: Ma
       frame.scope[key] = val.gene_data[0]
     else:
       frame.scope[key] = val
+  of GeneVector:
+    for i in 0..<pattern.vec.len:
+      var name = pattern.vec[i].symbol
+      var key = frame.ns.module.get_index(name)
+      if i < val.gene_data.len:
+        frame.scope[key] = val.gene_data[i]
+      else:
+        frame.scope[key] = GeneNil
   else:
     todo()
 

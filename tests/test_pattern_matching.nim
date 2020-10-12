@@ -29,3 +29,15 @@ test_interpreter """
   (match a 1)
   a
 """, 1
+
+test_interpreter """
+  (var x (:test 1 2))
+  (match [a b] x)
+  (a + b)
+""", 3
+
+test_interpreter """
+  (var x (:test 1))
+  (match [a b] x)
+  b
+""", GeneNil
