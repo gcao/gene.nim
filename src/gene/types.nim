@@ -104,6 +104,7 @@ type
     GeneVector
     GeneCommentLine
     GeneRegex
+    GenePlaceholderKind
     GeneInternal
     GeneInstance
 
@@ -120,7 +121,7 @@ type
     case kind*: GeneKind
     of GeneAny:
       anyVal*: pointer
-    of GeneNilKind:
+    of GeneNilKind, GenePlaceholderKind:
       discard
     of GeneBool:
       boolVal*: bool
@@ -337,6 +338,7 @@ let
   GeneNil*   = GeneValue(kind: GeneNilKind)
   GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+  GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
 
 var NativeProcs* = NativeProcsType()
 
@@ -453,8 +455,8 @@ proc `==`*(this, that: GeneValue): bool =
     case this.kind
     of GeneAny:
       return this.anyVal == that.anyVal
-    of GeneNilKind:
-      return that.kind == GeneNilKind
+    of GeneNilKind, GenePlaceholderKind:
+      return true
     of GeneBool:
       return this.boolVal == that.boolVal
     of GeneChar:

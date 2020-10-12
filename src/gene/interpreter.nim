@@ -684,6 +684,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       return new_expr(parent, ExGlobal)
     elif node.symbol == "self":
       return new_expr(parent, ExSelf)
+    elif node.symbol == "_":
+      return new_literal_expr(parent, GenePlaceholder)
     elif node.symbol.startsWith(":"):
       if node.symbol.len == 1: # ":"
         return new_symbol_expr(parent, node.symbol)

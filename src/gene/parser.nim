@@ -600,8 +600,8 @@ proc hash*(node: GeneValue): Hash =
   case node.kind
   of GeneAny:
     todo()
-  of GeneNilKind:
-    h = h !& hash(0)
+  of GeneNilKind, GenePlaceholderKind:
+    discard
   of GeneBool:
     h = h !& hash(node.bool_val)
   of GeneChar:
