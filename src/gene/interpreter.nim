@@ -71,6 +71,7 @@ proc get*(self: var ScopeManager): Scope {.inline.}
 proc get_class*(self: VM, val: GeneValue): Class
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
+proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: MatchMode): GeneValue
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
 proc new_if_expr*(parent: Expr, val: GeneValue): Expr
@@ -95,6 +96,7 @@ proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr
 proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
+proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue
@@ -434,6 +436,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var caller_frame = frame.parent
     for e in expr.caller_eval_args:
       result = self.eval(caller_frame, new_expr(expr, self.eval(frame, e)))
+  of ExMatch:
+    result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
   # else:
   #   todo($expr.kind)
 
@@ -612,6 +616,19 @@ proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
   else:
     not_allowed()
 
+proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: MatchMode): GeneValue =
+  case pattern.kind:
+  of GeneSymbol:
+    var name = pattern.symbol
+    var key = frame.ns.module.get_index(name)
+    case mode:
+    of MatchArgs:
+      frame.scope[key] = val.gene_data[0]
+    else:
+      frame.scope[key] = val
+  else:
+    todo()
+
 ##################################################
 
 proc new_expr*(parent: Expr, kind: ExprKind): Expr =
@@ -700,6 +717,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return result
       of "$caller_eval":
         return new_caller_eval_expr(parent, node)
+      of "match":
+        return new_match_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       else:
@@ -952,6 +971,15 @@ proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr =
   )
   for i in 0..<val.gene_data.len:
     result.caller_eval_args.add(new_expr(result, val.gene_data[i]))
+
+proc new_match_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExMatch,
+    parent: parent,
+    module: parent.module,
+    match_pattern: val.gene_data[0],
+  )
+  result.match_val = new_expr(result, val.gene_data[1])
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene_data[1].is_literal:

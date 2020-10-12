@@ -208,6 +208,7 @@ type
     ExCallNative
     ExGetClass
     ExCallerEval
+    ExMatch
 
   Expr* = ref object of RootObj
     module*: Module
@@ -306,6 +307,9 @@ type
       get_class_val*: Expr
     of ExCallerEval:
       caller_eval_args*: seq[Expr]
+    of ExMatch:
+      match_pattern*: GeneValue
+      match_val*: Expr
 
   BinOps* = enum
     BinAdd
@@ -320,6 +324,10 @@ type
     BinGe
     BinAnd
     BinOr
+
+  MatchMode* = enum
+    MatchDefault
+    MatchArgs
 
   NativeProcsType* = ref object
     procs*: seq[NativeProc]
