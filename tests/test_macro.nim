@@ -26,7 +26,7 @@ test_interpreter """
 test_interpreter """
   (var a 1)
   (macro m []
-    ($caller_eval :a)
+    (caller_eval :a)
   )
   (m)
 """, 1
@@ -34,7 +34,7 @@ test_interpreter """
 test_interpreter """
   (var a 1)
   (macro m b
-    ($caller_eval b)
+    (caller_eval b)
   )
   (m a)
 """, 1

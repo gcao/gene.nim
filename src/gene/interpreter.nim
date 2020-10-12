@@ -748,13 +748,13 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_method_expr(parent, node)
       of "$invoke_method":
         return new_invoke_expr(parent, node)
-      of "$call_native":
+      of "call_native":
         return new_call_native_expr(parent, node)
       of "$get_class":
         result = new_expr(parent, ExGetClass)
         result.get_class_val = new_expr(result, node.gene_data[0])
         return result
-      of "$caller_eval":
+      of "caller_eval":
         return new_caller_eval_expr(parent, node)
       of "match":
         return new_match_expr(parent, node)

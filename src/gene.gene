@@ -5,9 +5,12 @@
     )
   )
 
+  (class Class
+  )
+
   (class String
     (method len []
-      ($call_native "str_len" self)
+      (call_native "str_len" self)
     )
   )
 )

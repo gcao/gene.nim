@@ -88,5 +88,5 @@ test_interpreter """
 test_interpreter "self", GeneNil
 
 test_interpreter """
-  ($call_native "str_len" "test")
+  (call_native "str_len" "test")
 """, 4
