@@ -49,6 +49,13 @@ type
     expr*: Expr # The function expression that will be the parent of body
     body_blk*: seq[Expr]
 
+  Block* = ref object
+    args*: seq[string]
+    arg_keys*: seq[int]
+    body*: seq[GeneValue]
+    expr*: Expr # The function expression that will be the parent of body
+    body_blk*: seq[Expr]
+
   Macro* = ref object
     name*: string
     name_key*: int
@@ -63,6 +70,7 @@ type
   GeneInternalKind* = enum
     GeneFunction
     GeneMacro
+    GeneBlock
     GeneArguments
     GeneClass
     GeneNamespace
@@ -74,6 +82,8 @@ type
       fn*: Function
     of GeneMacro:
       mac*: Macro
+    of GeneBlock:
+      blk*: Block
     of GeneArguments:
       args*: Arguments
     of GeneClass:
@@ -181,7 +191,7 @@ type
     ExMapChild
     ExArray
     ExGene
-    ExBlock
+    ExGroup
     ExVar
     ExAssignment
     ExBinary
@@ -195,6 +205,7 @@ type
     ExWhile
     ExFn
     ExMacro
+    ExBlock
     ExReturn
     ExClass
     ExNew
@@ -238,8 +249,8 @@ type
       gene*: GeneValue
       gene_op*: Expr
       gene_blk*: seq[Expr]
-    of ExBlock:
-      blk*: seq[Expr]
+    of ExGroup:
+      group*: seq[Expr]
     of ExVar, ExAssignment:
       # var_name*: string
       var_key*: int
@@ -266,6 +277,9 @@ type
     of ExFn:
       fn_ns*: Namespace
       fn*: GeneValue
+    of ExBlock:
+      blk_ns*: Namespace
+      blk*: GeneValue
     of ExMacro:
       mac_ns*: Namespace
       mac*: GeneValue
@@ -413,6 +427,11 @@ proc new_fn*(name: string, args: seq[string], body: seq[GeneValue]): Function =
 
 proc new_macro*(name: string, args: seq[string], body: seq[GeneValue]): Macro =
   return Macro(name: name, args: args, body: body)
+
+#################### Block #######################
+
+proc new_block*(args: seq[string], body: seq[GeneValue]): Block =
+  return Block(args: args, body: body)
 
 #################### Arguments ###################
 
@@ -655,6 +674,12 @@ proc new_gene_internal*(mac: Macro): GeneValue =
     internal: Internal(kind: GeneMacro, mac: mac),
   )
 
+proc new_gene_internal*(blk: Block): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneBlock, blk: blk),
+  )
+
 proc new_gene_internal*(value: NativeProc): GeneValue =
   return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
 
@@ -749,6 +774,8 @@ proc normalize*(self: GeneValue) =
       self.gene_props["names"] = new_gene_vec(names)
       self.gene_props["module"] = module
       return
+    elif op.symbol == "->":
+      return
     elif op.symbol.startsWith("for"):
       self.gene_props["init"]   = self.gene_data[0]
       self.gene_props["guard"]  = self.gene_data[1]
@@ -788,6 +815,10 @@ proc normalize*(self: GeneValue) =
       self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
       self.gene_data.delete 0
       self.gene_op = new_gene_symbol("$invoke_method")
+    elif first.symbol == "->":
+      self.gene_props["args"] = self.gene_op
+      self.gene_op = self.gene_data[0]
+      self.gene_data.delete 0
 
 #################### Document ####################
 
@@ -883,6 +914,24 @@ converter to_macro*(node: GeneValue): Macro =
     body.add node.gene_data[i]
 
   return new_macro(name, args, body)
+
+converter to_block*(node: GeneValue): Block =
+  var args: seq[string] = @[]
+  if node.gene_props.hasKey("args"):
+    var a = node.gene_props["args"]
+    case a.kind:
+    of GeneSymbol:
+      args.add(a.symbol)
+    of GeneVector:
+      for item in a.vec:
+        args.add(item.symbol)
+    else:
+      not_allowed()
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene_data.len:
+    body.add node.gene_data[i]
+
+  return new_block(args, body)
 
 #################### NativeProcs #################
 

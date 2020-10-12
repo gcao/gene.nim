@@ -27,6 +27,16 @@ import ./helpers
 # it like regular function
 #
 
+test_interpreter """
+  (->)
+""", proc(r: GeneValue) =
+  check r.internal.kind == GeneBlock
+
+test_interpreter """
+  (a -> a)
+""", proc(r: GeneValue) =
+  check r.internal.kind == GeneBlock
+
 # test_interpreter """
 #   (fn f b
 #     (b 1)

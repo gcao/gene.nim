@@ -82,12 +82,13 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr
 proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
-proc new_block_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
+proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_break_expr*(parent: Expr, val: GeneValue): Expr
 proc new_while_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr
+proc new_block_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
@@ -242,8 +243,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = frame[expr.symbol_key]
   of ExComplexSymbol:
     result = self.get_member(frame, expr.csymbol)
-  of ExBlock:
-    for e in expr.blk:
+  of ExGroup:
+    for e in expr.group:
       result = self.eval(frame, e)
   of ExArray:
     result = new_gene_vec()
@@ -358,6 +359,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExMacro:
     frame.ns[expr.mac.internal.mac.name_key] = expr.mac
     result = expr.mac
+  of ExBlock:
+    result = expr.blk
   of ExReturn:
     var val = GeneNil
     if expr.return_val != nil:
@@ -369,9 +372,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
-    of ExBlock:
+    of ExGroup:
       var e = new_expr(parent, expr.unknown)
-      parent.blk[expr.posInParent] = e
+      parent.group[expr.posInParent] = e
       result = self.eval(frame, e)
     of ExLoop:
       var e = new_expr(parent, expr.unknown)
@@ -471,7 +474,7 @@ proc prepare*(self: VM, code: string): Expr =
     kind: ExRoot,
     module: self.cur_module,
   )
-  return new_block_expr(root, parsed)
+  return new_group_expr(root, parsed)
 
 proc eval*(self: VM, code: string): GeneValue =
   self.cur_module = new_module()
@@ -723,7 +726,7 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       of "if":
         return new_if_expr(parent, node)
       of "do":
-        return new_block_expr(parent, node.gene_data)
+        return new_group_expr(parent, node.gene_data)
       of "loop":
         return new_loop_expr(parent, node)
       of "break":
@@ -760,6 +763,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_match_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
+      of "->":
+        return new_block_expr(parent, node)
       else:
         discard
     else:
@@ -771,14 +776,14 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   else:
     todo($node)
 
-proc new_block_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
+proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
   result = Expr(
-    kind: ExBlock,
+    kind: ExGroup,
     parent: parent,
     module: parent.module,
   )
   for node in nodes:
-    result.blk.add(new_unknown_expr(result, node))
+    result.group.add(new_unknown_expr(result, node))
 
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
@@ -876,6 +881,18 @@ proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
     mac: new_gene_internal(mac),
   )
   mac.expr = result
+
+proc new_block_expr*(parent: Expr, val: GeneValue): Expr =
+  var blk: Block = val
+  for name in blk.args:
+    blk.arg_keys.add(parent.module.get_index(name))
+  result = Expr(
+    kind: ExBlock,
+    parent: parent,
+    module: parent.module,
+    blk: new_gene_internal(blk),
+  )
+  blk.expr = result
 
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
