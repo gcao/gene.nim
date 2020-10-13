@@ -347,12 +347,12 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     frame.ns[expr.fn.internal.fn.name_key] = expr.fn
     result = expr.fn
   of ExMacro:
-    expr.mac_ns = frame.ns
+    expr.mac.internal.mac.ns = frame.ns
     frame.ns[expr.mac.internal.mac.name_key] = expr.mac
     result = expr.mac
   of ExBlock:
-    expr.blk_ns = frame.ns
-    expr.blk_scope = frame.scope
+    expr.blk.internal.blk.ns = frame.ns
+    expr.blk.internal.blk.parent_scope = frame.scope
     result = expr.blk
   of ExReturn:
     var val = GeneNil
@@ -571,7 +571,7 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
 
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue =
   var mac_scope = ScopeMgr.get()
-  var new_frame = FrameMgr.get(FrFunction, mac.expr.mac_ns, mac_scope)
+  var new_frame = FrameMgr.get(FrFunction, mac.ns, mac_scope)
   new_frame.parent = frame
   new_frame.self = target
 
@@ -608,7 +608,9 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
 
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue =
   var blk_scope = ScopeMgr.get()
-  var new_frame = FrameMgr.get(FrBlock, blk.expr.blk_ns, blk_scope)
+  blk_scope.parent = blk.parent_scope
+  blk_scope.parent.usage += 1
+  var new_frame = FrameMgr.get(FrBlock, blk.ns, blk_scope)
   new_frame.parent = frame
   new_frame.self = target
 

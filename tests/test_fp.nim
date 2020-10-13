@@ -62,6 +62,7 @@ test_interpreter """
 #   (fn f []
 #     # return can be assigned and will remember which function
 #     # to return from
+#     # Caution: "r" should only be used in nested functions/blocks inside "f"
 #     (var r return)
 #     (loop
 #       (g r)

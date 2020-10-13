@@ -57,6 +57,8 @@ type
     body_blk*: seq[Expr]
 
   Block* = ref object
+    ns*: Namespace
+    parent_scope*: Scope
     args*: seq[string]
     arg_keys*: seq[int]
     body*: seq[GeneValue]
@@ -64,6 +66,7 @@ type
     body_blk*: seq[Expr]
 
   Macro* = ref object
+    ns*: Namespace
     name*: string
     name_key*: int
     args*: seq[string]
@@ -283,15 +286,10 @@ type
       while_blk*: seq[Expr]
     of ExFn:
       fn*: GeneValue
-      # fn_ns*: Namespace
-      # fn_scope*: Scope
     of ExBlock:
       blk*: GeneValue
-      blk_ns*: Namespace
-      blk_scope*: Scope
     of ExMacro:
       mac*: GeneValue
-      mac_ns*: Namespace
     of ExReturn:
       return_val*: Expr
     of ExClass:
