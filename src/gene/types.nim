@@ -30,6 +30,11 @@ type
     name_key*: int
     members*: Table[int, GeneValue]
 
+  Scope* = ref object
+    parent*: Scope
+    members*: Table[int, GeneValue]
+    usage*: int
+
   Class* = ref object
     parent*: Class
     name*: string
@@ -41,6 +46,8 @@ type
     value*: GeneValue
 
   Function* = ref object
+    ns*: Namespace
+    parent_scope*: Scope
     name*: string
     name_key*: int
     args*: seq[string]
@@ -275,14 +282,16 @@ type
       while_cond*: Expr
       while_blk*: seq[Expr]
     of ExFn:
-      fn_ns*: Namespace
       fn*: GeneValue
+      # fn_ns*: Namespace
+      # fn_scope*: Scope
     of ExBlock:
-      blk_ns*: Namespace
       blk*: GeneValue
+      blk_ns*: Namespace
+      blk_scope*: Scope
     of ExMacro:
-      mac_ns*: Namespace
       mac*: GeneValue
+      mac_ns*: Namespace
     of ExReturn:
       return_val*: Expr
     of ExClass:
@@ -360,6 +369,15 @@ var GeneInts: array[111, GeneValue]
 for i in 0..110:
   GeneInts[i] = GeneValue(kind: GeneInt, num: i - 10)
 
+proc todo*() =
+  raise newException(Exception, "TODO")
+
+proc todo*(message: string) =
+  raise newException(Exception, "TODO: " & message)
+
+proc not_allowed*() =
+  raise newException(Exception, "Error: should not arrive here.")
+
 #################### Interfaces ##################
 
 proc new_namespace*(module: Module): Namespace
@@ -410,6 +428,9 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
 proc hasKey*(self: Namespace, key: string): bool {.inline.} =
   return self.members.hasKey(self.module.get_index(key))
 
+# proc def_member*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
+#   self.members[key] = val
+
 proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
 
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
@@ -418,10 +439,48 @@ proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
 proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
   self.members[key] = val
 
+#################### Scope #######################
+
+proc new_scope*(): Scope = Scope(
+  members: Table[int, GeneValue](),
+  usage: 1,
+)
+
+proc reset*(self: var Scope) {.inline.} =
+  self.parent = nil
+  self.members.clear()
+
+proc hasKey*(self: Scope, key: int): bool {.inline.} =
+  if self.members.hasKey(key):
+    return true
+  elif self.parent != nil:
+    return self.parent.hasKey(key)
+
+proc def_member*(self: var Scope, key: int, val: GeneValue) {.inline.} =
+  self.members[key] = val
+
+proc `[]`*(self: Scope, key: int): GeneValue {.inline.} =
+  if self.members.hasKey(key):
+    return self.members[key]
+  elif self.parent != nil:
+    return self.parent[key]
+
+proc `[]=`*(self: var Scope, key: int, val: GeneValue) {.inline.} =
+  if self.members.hasKey(key):
+    self.members[key] = val
+  elif self.parent != nil:
+    self.parent[key] = val
+  else:
+    not_allowed()
+
 #################### Function ####################
 
 proc new_fn*(name: string, args: seq[string], body: seq[GeneValue]): Function =
-  return Function(name: name, args: args, body: body)
+  return Function(
+    name: name,
+    args: args,
+    body: body,
+  )
 
 #################### Macro #######################
 
@@ -724,15 +783,6 @@ let
   LineKw*: GeneValue   = new_gene_keyword("gene.nim", "line")
   ColumnKw*: GeneValue   = new_gene_keyword("gene.nim", "column")
   SplicedQKw*: GeneValue = new_gene_keyword("gene.nim", "spliced?")
-
-proc todo*() =
-  raise newException(Exception, "TODO")
-
-proc todo*(message: string) =
-  raise newException(Exception, "TODO: " & message)
-
-proc not_allowed*() =
-  raise newException(Exception, "Error: should not arrive here.")
 
 #################### GeneValue ###################
 

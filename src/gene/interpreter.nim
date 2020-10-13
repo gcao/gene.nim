@@ -40,10 +40,6 @@ type
     scope*: Scope
     extra*: FrameExtra
 
-  Scope* = ref object
-    parent*: Scope
-    members*: Table[int, GeneValue]
-
   Break* = ref object of CatchableError
     val: GeneValue
 
@@ -64,8 +60,6 @@ init_native_procs()
 #################### Interfaces ##################
 
 proc `[]`*(self: Frame, key: int): GeneValue {.inline.}
-proc `[]`*(self: Scope, key: int): GeneValue {.inline.}
-proc hasKey*(self: Scope, key: int): bool {.inline.}
 proc new_expr*(parent: Expr, kind: ExprKind): Expr
 proc get*(self: var ScopeManager): Scope {.inline.}
 proc import_module*(self: VM, name: string, code: string): Namespace
@@ -126,32 +120,22 @@ proc `[]`*(self: Frame, key: int): GeneValue {.inline.} =
   else:
     return self.ns[key]
 
-#################### Scope #######################
-
-proc new_scope*(): Scope = Scope(members: Table[int, GeneValue]())
-
-proc reset*(self: var Scope) {.inline.} =
-  self.parent = nil
-  self.members.clear()
-
-proc hasKey*(self: Scope, key: int): bool {.inline.} = self.members.hasKey(key)
-
-proc `[]`*(self: Scope, key: int): GeneValue {.inline.} = self.members[key]
-
-proc `[]=`*(self: var Scope, key: int, val: GeneValue) {.inline.} =
-  self.members[key] = val
-
 #################### ScopeManager ################
 
 proc get*(self: var ScopeManager): Scope {.inline.} =
   if self.cache.len > 0:
-    return self.cache.pop()
+    result = self.cache.pop()
+    result.usage = 1
   else:
     return new_scope()
 
 proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
-  scope.reset()
-  self.cache.add(scope)
+  scope.usage -= 1
+  if scope.usage == 0:
+    if scope.parent != nil:
+      self.free(scope.parent)
+    scope.reset()
+    self.cache.add(scope)
 
 #################### FrameManager ################
 
@@ -320,7 +304,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else: todo()
   of ExVar:
     var val = self.eval(frame, expr.var_val)
-    frame.scope[expr.var_key] = val
+    frame.scope.def_member(expr.var_key, val)
     result = GeneNil
   of ExAssignment:
     var val = self.eval(frame, expr.var_val)
@@ -357,13 +341,17 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     except Break as b:
       result = b.val
   of ExFn:
-    expr.fn_ns = frame.ns
+    expr.fn.internal.fn.ns = frame.ns
+    expr.fn.internal.fn.parent_scope = frame.scope
     frame.ns[expr.fn.internal.fn.name_key] = expr.fn
     result = expr.fn
   of ExMacro:
+    expr.mac_ns = frame.ns
     frame.ns[expr.mac.internal.mac.name_key] = expr.mac
     result = expr.mac
   of ExBlock:
+    expr.blk_ns = frame.ns
+    expr.blk_scope = frame.scope
     result = expr.blk
   of ExReturn:
     var val = GeneNil
@@ -530,7 +518,9 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
   var ns: Namespace
   case fn.expr.kind:
   of ExFn:
-    ns = fn.expr.fn_ns
+    ns = fn.ns
+    fn_scope.parent = fn.parent_scope
+    fn_scope.parent.usage += 1
   of ExMethod:
     ns = fn.expr.meth_ns
   else:
@@ -552,20 +542,20 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
   case args_blk.len:
   of 0:
     for i in 0..<fn.args.len:
-      fn_scope[fn.arg_keys[i]] = GeneNil
+      fn_scope.def_member(fn.arg_keys[i], GeneNil)
   of 1:
     var arg = self.eval(frame, args_blk[0])
     for i in 0..<fn.args.len:
       if i == 0:
-        fn_scope[fn.arg_keys[0]] = arg
+        fn_scope.def_member(fn.arg_keys[0], arg)
       else:
-        fn_scope[fn.arg_keys[i]] = GeneNil
+        fn_scope.def_member(fn.arg_keys[i], GeneNil)
   else:
     var args: seq[GeneValue] = @[]
     for e in args_blk:
       args.add(self.eval(frame, e))
     for i in 0..<fn.args.len:
-      fn_scope[fn.arg_keys[i]] = args[i]
+      fn_scope.def_member(fn.arg_keys[i], args[i])
 
   if fn.body_blk.len == 0:
     for item in fn.body:
@@ -593,16 +583,16 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
   case args_blk.len:
   of 0:
     for i in 0..<mac.args.len:
-      mac_scope[mac.arg_keys[i]] = GeneNil
+      mac_scope.def_member(mac.arg_keys[i], GeneNil)
   of 1:
     for i in 0..<mac.args.len:
       if i == 0:
-        mac_scope[mac.arg_keys[0]] = expr.gene.gene_data[i]
+        mac_scope.def_member(mac.arg_keys[0], expr.gene.gene_data[i])
       else:
-        mac_scope[mac.arg_keys[i]] = GeneNil
+        mac_scope.def_member(mac.arg_keys[i], GeneNil)
   else:
     for i in 0..<mac.args.len:
-      mac_scope[mac.arg_keys[i]] = expr.gene.gene_data[i]
+      mac_scope.def_member(mac.arg_keys[i], expr.gene.gene_data[i])
 
   var blk: seq[Expr] = @[]
   for item in mac.body:
@@ -630,16 +620,16 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   case args_blk.len:
   of 0:
     for i in 0..<blk.args.len:
-      blk_scope[blk.arg_keys[i]] = GeneNil
+      blk_scope.def_member(blk.arg_keys[i], GeneNil)
   of 1:
     for i in 0..<blk.args.len:
       if i == 0:
-        blk_scope[blk.arg_keys[0]] = expr.gene.gene_data[i]
+        blk_scope.def_member(blk.arg_keys[0], expr.gene.gene_data[i])
       else:
-        blk_scope[blk.arg_keys[i]] = GeneNil
+        blk_scope.def_member(blk.arg_keys[i], GeneNil)
   else:
     for i in 0..<blk.args.len:
-      blk_scope[blk.arg_keys[i]] = expr.gene.gene_data[i]
+      blk_scope.def_member(blk.arg_keys[i], expr.gene.gene_data[i])
 
   var blk2: seq[Expr] = @[]
   for item in blk.body:
@@ -696,17 +686,17 @@ proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: Ma
     var key = frame.ns.module.get_index(name)
     case mode:
     of MatchArgs:
-      frame.scope[key] = val.gene_data[0]
+      frame.scope.def_member(key, val.gene_data[0])
     else:
-      frame.scope[key] = val
+      frame.scope.def_member(key, val)
   of GeneVector:
     for i in 0..<pattern.vec.len:
       var name = pattern.vec[i].symbol
       var key = frame.ns.module.get_index(name)
       if i < val.gene_data.len:
-        frame.scope[key] = val.gene_data[i]
+        frame.scope.def_member(key, val.gene_data[i])
       else:
-        frame.scope[key] = GeneNil
+        frame.scope.def_member(key, GeneNil)
   else:
     todo()
 
