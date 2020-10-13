@@ -427,12 +427,12 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExGetProp:
     var target = self.eval(frame, expr.get_prop_self)
     var name = expr.get_prop_name
-    result = target.instance.value.gene_props[name]
+    result = target.internal.instance.value.gene_props[name]
   of ExSetProp:
     var target = frame.self
     var name = expr.set_prop_name
     result = self.eval(frame, expr.set_prop_val)
-    target.instance.value.gene_props[name] = result
+    target.internal.instance.value.gene_props[name] = result
   of ExCallNative:
     var args: seq[GeneValue] = @[]
     for item in expr.native_args:
@@ -487,8 +487,12 @@ proc load_genex_module*(self: VM) =
 
 proc get_class*(self: VM, val: GeneValue): Class =
   case val.kind:
-  of GeneInstance:
-    return val.instance.class
+  of GeneInternal:
+    case val.internal.kind:
+    of GeneInstance:
+      return val.internal.instance.class
+    else:
+      todo()
   of GeneString:
     return GENE_NS.internal.ns["String"].internal.class
   else:

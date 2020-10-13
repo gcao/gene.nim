@@ -83,6 +83,7 @@ type
     GeneBlock
     GeneArguments
     GeneClass
+    GeneInstance
     GeneNamespace
     GeneNativeProc
 
@@ -98,6 +99,8 @@ type
       args*: Arguments
     of GeneClass:
       class*: Class
+    of GeneInstance:
+      instance*: Instance
     of GeneNamespace:
       ns*: Namespace
     of GeneNativeProc:
@@ -108,25 +111,23 @@ type
     rest*: seq[string]
 
   GeneKind* = enum
-    GeneAny
     GeneNilKind
+    GenePlaceholderKind
     GeneBool
-    GeneChar
     GeneInt
     GeneRatio
     GeneFloat
+    GeneChar
     GeneString
     GeneSymbol
     GeneComplexSymbol
-    GeneKeyword
-    GeneGene
+    GeneRegex
     GeneMap
     GeneVector
-    GeneCommentLine
-    GeneRegex
-    GenePlaceholderKind
+    GeneGene
     GeneInternal
-    GeneInstance
+    GeneAny
+    GeneCommentLine
 
   CommentPlacement* = enum
     Before
@@ -139,29 +140,30 @@ type
 
   GeneValue* {.acyclic.} = ref object
     case kind*: GeneKind
-    of GeneAny:
-      anyVal*: pointer
     of GeneNilKind, GenePlaceholderKind:
       discard
     of GeneBool:
       boolVal*: bool
-    of GeneChar:
-      character*: char
     of GeneInt:
       num*: BiggestInt
     of GeneRatio:
       rnum*: tuple[numerator, denominator: BiggestInt]
     of GeneFloat:
       fnum*: float
+    of GeneChar:
+      character*: char
     of GeneString:
       str*: string
     of GeneSymbol:
       symbol*: string
     of GeneComplexSymbol:
       csymbol*: ComplexSymbol
-    of GeneKeyword:
-      keyword*: tuple[ns, name: string]
-      is_namespaced*: bool
+    of GeneRegex:
+      regex*: string
+    of GeneMap:
+      map*: Table[string, GeneValue]
+    of GeneVector:
+      vec*: seq[GeneValue]
     of GeneGene:
       gene_op*: GeneValue
       gene_props*: Table[string, GeneValue]
@@ -169,18 +171,12 @@ type
       # A gene can be normalized to match expected format
       # Example: (a = 1) => (= a 1)
       gene_normalized*: bool
-    of GeneMap:
-      map*: Table[string, GeneValue]
-    of GeneVector:
-      vec*: seq[GeneValue]
-    of GeneCommentLine:
-      comment*: string
-    of GeneRegex:
-      regex*: string
     of GeneInternal:
       internal*: Internal
-    of GeneInstance:
-      instance*: Instance
+    of GeneAny:
+      anyVal*: pointer
+    of GeneCommentLine:
+      comment*: string
     # line*: int
     # column*: int
     # comments*: seq[Comment]
@@ -549,8 +545,6 @@ proc `==`*(this, that: GeneValue): bool =
       return this.symbol == that.symbol
     of GeneComplexSymbol:
       return this.csymbol == that.csymbol
-    of GeneKeyword:
-      return this.keyword == that.keyword and this.is_namespaced == that.is_namespaced
     of GeneGene:
       return this.gene_op == that.gene_op and this.gene_data == that.gene_data and this.gene_props == that.gene_props
     of GeneMap:
@@ -567,8 +561,6 @@ proc `==`*(this, that: GeneValue): bool =
         return this.internal.ns == that.internal.ns
       else:
         return this.internal == that.internal
-    of GeneInstance:
-      return this.instance == that.instance
 
 proc is_literal*(self: GeneValue): bool =
   case self.kind:
@@ -589,13 +581,6 @@ proc `$`*(node: GeneValue): string =
     result = $(node.num)
   of GeneString:
     result = "\"" & node.str.replace("\"", "\\\"") & "\""
-  of GeneKeyword:
-    if node.is_namespaced:
-      result = "::" & node.keyword.name
-    elif node.keyword.ns == "":
-      result = ":" & node.keyword.name
-    else:
-      result = ":" & node.keyword.ns & "/" & node.keyword.name
   of GeneSymbol:
     result = node.symbol
   of GeneComplexSymbol:
@@ -668,12 +653,6 @@ proc new_gene_symbol*(name: string): GeneValue =
 
 proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
   return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
-
-proc new_gene_keyword*(ns, name: string): GeneValue =
-  return GeneValue(kind: GeneKeyword, keyword: (ns, name))
-
-proc new_gene_keyword*(name: string): GeneValue =
-  return GeneValue(kind: GeneKeyword, keyword: ("", name))
 
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
   return GeneValue(
@@ -760,8 +739,8 @@ proc new_gene_internal*(class: Class): GeneValue =
 
 proc new_gene_instance*(instance: Instance): GeneValue =
   return GeneValue(
-    kind: GeneInstance,
-    instance: instance,
+    kind: GeneInternal,
+    internal: Internal(kind: GeneInstance, instance: instance),
   )
 
 proc new_gene_internal*(ns: Namespace): GeneValue =
@@ -769,18 +748,6 @@ proc new_gene_internal*(ns: Namespace): GeneValue =
     kind: GeneInternal,
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
-
-### === VALS ===
-
-let
-  KeyTag*: GeneValue   = new_gene_keyword("", "tag")
-  CljTag*: GeneValue   = new_gene_keyword("", "clj")
-  CljsTag*: GeneValue  = new_gene_keyword("", "cljs")
-  DefaultTag*: GeneValue = new_gene_keyword("", "default")
-
-  LineKw*: GeneValue   = new_gene_keyword("gene.nim", "line")
-  ColumnKw*: GeneValue   = new_gene_keyword("gene.nim", "column")
-  SplicedQKw*: GeneValue = new_gene_keyword("gene.nim", "spliced?")
 
 #################### GeneValue ###################
 
