@@ -4,54 +4,6 @@ import ./types
 import ./parser
 import ./native_procs
 
-type
-  VM* = ref object
-    app*: Application
-    cur_frame*: Frame
-    cur_module*: Module
-    modules*: Table[string, Namespace]
-
-  FrameKind* = enum
-    FrFunction
-    FrMethod
-    FrModule
-    FrNamespace
-    FrClass
-    FrEval # the code passed to (eval)
-    FrBlock # like a block passed to a method in Ruby
-
-  FrameExtra* = ref object
-    case kind*: FrameKind
-    of FrFunction:
-      # fn_name*: string  # We may support 1-n mapping for function and names
-      fn*: Function
-    of FrMethod:
-      class*: Class
-      meth*: Function
-      meth_name*: string
-      # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
-    else:
-      discard
-
-  Frame* = ref object
-    parent*: Frame
-    self*: GeneValue
-    ns*: Namespace
-    scope*: Scope
-    extra*: FrameExtra
-
-  Break* = ref object of CatchableError
-    val: GeneValue
-
-  Return* = ref object of CatchableError
-    val: GeneValue
-
-  FrameManager = ref object
-    cache*: seq[Frame]
-
-  ScopeManager = ref object
-    cache*: seq[Scope]
-
 var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
 
@@ -225,6 +177,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = self.eval(frame, expr.root)
   of ExLiteral:
     result = expr.literal
+    if result.kind == GeneInternal and result.internal.kind == GeneReturn:
+      result.internal.ret.frame = frame
   of ExSymbol:
     result = frame[expr.symbol_key]
   of ExComplexSymbol:
@@ -262,6 +216,23 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       of GeneBlock:
         processed = true
         result = self.call_block(frame, GeneNil, target.internal.blk, expr)
+      of GeneReturn:
+        processed = true
+        var val = GeneNil
+        if expr.gene_blk.len == 0:
+          discard
+        elif expr.gene_blk.len == 1:
+          val = self.eval(frame, expr.gene_blk[0])
+        else:
+          not_allowed()
+        # var e = new_return()
+        # e.frame = target.internal.ret.frame
+        # e.val = val
+        # raise e
+        raise Return(
+          frame: target.internal.ret.frame,
+          val: val,
+        )
       else:
         discard
     else:
@@ -358,10 +329,11 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var val = GeneNil
     if expr.return_val != nil:
       val = self.eval(frame, expr.return_val)
-    var e: Return
-    e.new
-    e.val = val
-    raise e
+    # var e: Return
+    # e.new
+    # e.val = val
+    # raise e
+    raise Return(val: val)
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -725,6 +697,9 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       return new_expr(parent, ExGlobal)
     elif node.symbol == "self":
       return new_expr(parent, ExSelf)
+    elif node.symbol == "return":
+      var v = new_gene_internal(new_return())
+      return new_literal_expr(parent, v)
     elif node.symbol == "_":
       return new_literal_expr(parent, GenePlaceholder)
     elif node.symbol.startsWith(":"):

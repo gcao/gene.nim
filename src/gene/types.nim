@@ -81,6 +81,7 @@ type
     GeneFunction
     GeneMacro
     GeneBlock
+    GeneReturn
     GeneArguments
     GeneClass
     GeneInstance
@@ -95,6 +96,8 @@ type
       mac*: Macro
     of GeneBlock:
       blk*: Block
+    of GeneReturn:
+      ret*: Return
     of GeneArguments:
       args*: Arguments
     of GeneClass:
@@ -329,6 +332,54 @@ type
       match_pattern*: GeneValue
       match_val*: Expr
 
+  VM* = ref object
+    app*: Application
+    cur_frame*: Frame
+    cur_module*: Module
+    modules*: Table[string, Namespace]
+
+  FrameManager* = ref object
+    cache*: seq[Frame]
+
+  ScopeManager* = ref object
+    cache*: seq[Scope]
+
+  FrameKind* = enum
+    FrFunction
+    FrMethod
+    FrModule
+    FrNamespace
+    FrClass
+    FrEval # the code passed to (eval)
+    FrBlock # like a block passed to a method in Ruby
+
+  FrameExtra* = ref object
+    case kind*: FrameKind
+    of FrFunction:
+      # fn_name*: string  # We may support 1-n mapping for function and names
+      fn*: Function
+    of FrMethod:
+      class*: Class
+      meth*: Function
+      meth_name*: string
+      # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
+    else:
+      discard
+
+  Frame* = ref object
+    parent*: Frame
+    self*: GeneValue
+    ns*: Namespace
+    scope*: Scope
+    extra*: FrameExtra
+
+  Break* = ref object of CatchableError
+    val*: GeneValue
+
+  Return* = ref object of CatchableError
+    frame*: Frame
+    val*: GeneValue
+
   BinOps* = enum
     BinAdd
     BinSub
@@ -369,8 +420,11 @@ proc todo*() =
 proc todo*(message: string) =
   raise newException(Exception, "TODO: " & message)
 
+proc not_allowed*(message: string) =
+  raise newException(Exception, message)
+
 proc not_allowed*() =
-  raise newException(Exception, "Error: should not arrive here.")
+  not_allowed("Error: should not arrive here.")
 
 #################### Interfaces ##################
 
@@ -485,6 +539,11 @@ proc new_macro*(name: string, args: seq[string], body: seq[GeneValue]): Macro =
 
 proc new_block*(args: seq[string], body: seq[GeneValue]): Block =
   return Block(args: args, body: body)
+
+#################### Return ######################
+
+proc new_return*(): Return =
+  return Return()
 
 #################### Arguments ###################
 
@@ -714,6 +773,12 @@ proc new_gene_internal*(blk: Block): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneBlock, blk: blk),
+  )
+
+proc new_gene_internal*(ret: Return): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneReturn, ret: ret),
   )
 
 proc new_gene_internal*(value: NativeProc): GeneValue =

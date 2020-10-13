@@ -55,6 +55,15 @@ test_interpreter """
   ((f 1))
 """, 1
 
+test_interpreter """
+  (fn f _
+    (var r return)
+    (r 1)
+    2
+  )
+  (f)
+""", 1
+
 # test_interpreter """
 #   (fn g ret
 #     (ret 1)
