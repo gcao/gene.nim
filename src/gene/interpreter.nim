@@ -225,10 +225,6 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
           val = self.eval(frame, expr.gene_blk[0])
         else:
           not_allowed()
-        # var e = new_return()
-        # e.frame = target.internal.ret.frame
-        # e.val = val
-        # raise e
         raise Return(
           frame: target.internal.ret.frame,
           val: val,
@@ -542,6 +538,10 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
       result = self.eval(new_frame, e)
   except Return as r:
     result = r.val
+    # if r.frame != nil and r.frame != frame:
+    #   raise
+    # else:
+    #   result = r.val
 
   ScopeMgr.free(fn_scope)
 
