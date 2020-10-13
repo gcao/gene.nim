@@ -130,12 +130,13 @@ proc get*(self: var ScopeManager): Scope {.inline.} =
     return new_scope()
 
 proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
-  scope.usage -= 1
-  if scope.usage == 0:
-    if scope.parent != nil:
-      self.free(scope.parent)
-    scope.reset()
-    self.cache.add(scope)
+  discard
+  # scope.usage -= 1
+  # if scope.usage == 0:
+  #   if scope.parent != nil:
+  #     self.free(scope.parent)
+  #   scope.reset()
+  #   self.cache.add(scope)
 
 #################### FrameManager ################
 

@@ -48,12 +48,12 @@ test_interpreter """
   ((f) 1)
 """, 1
 
-# test_interpreter """
-#   (fn f a
-#     (fn g _ a)
-#   )
-#   ((f) 1)
-# """, 1
+test_interpreter """
+  (fn f a
+    (fn g _ a)
+  )
+  ((f 1))
+""", 1
 
 # test_interpreter """
 #   (fn g ret
