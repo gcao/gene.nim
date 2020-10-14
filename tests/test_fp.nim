@@ -23,7 +23,7 @@ test_interpreter "(fn f [] 1) (f)", 1
 test_interpreter "(fn f a (a + 1)) (f 1)", 2
 
 test_interpreter """
-  (fn f []
+  (fn f _
     (return 1)
     2
   )
@@ -42,7 +42,7 @@ test_interpreter """
 """, 8
 
 test_interpreter """
-  (fn f []
+  (fn f _
     (fn g a a)
   )
   ((f) 1)
@@ -71,26 +71,26 @@ test_interpreter """
   (fn g ret
     (ret 1)
   )
-  (fn f []
+  (fn f _
     (var r return)
     (loop
       (g r)
     )
   )
-  (f 1)
+  (f)
 """, 1
 
-# # return can be assigned and will remember which function
-# # to return from
-# test_interpreter """
-#   (fn f []
-#     (var r return)
-#     (fn g []
-#       (r 1)
-#     )
-#     (loop
-#       (g)
-#     )
-#   )
-#   (f 1)
-# """, 1
+# return can be assigned and will remember which function
+# to return from
+test_interpreter """
+  (fn f _
+    (var r return)
+    (fn g _
+      (r 1)
+    )
+    (loop
+      (g)
+    )
+  )
+  (f)
+""", 1

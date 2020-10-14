@@ -177,8 +177,6 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = self.eval(frame, expr.root)
   of ExLiteral:
     result = expr.literal
-    if result.kind == GeneInternal and result.internal.kind == GeneReturn:
-      result.internal.ret.frame = frame
   of ExSymbol:
     result = frame[expr.symbol_key]
   of ExComplexSymbol:
@@ -325,11 +323,12 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var val = GeneNil
     if expr.return_val != nil:
       val = self.eval(frame, expr.return_val)
-    # var e: Return
-    # e.new
-    # e.val = val
-    # raise e
-    raise Return(val: val)
+    raise Return(
+      frame: frame,
+      val: val,
+    )
+  of ExReturnRef:
+    result = new_gene_internal(Return(frame: frame))
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -537,11 +536,11 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
     for e in fn.body_blk:
       result = self.eval(new_frame, e)
   except Return as r:
-    result = r.val
-    # if r.frame != nil and r.frame != frame:
-    #   raise
-    # else:
-    #   result = r.val
+    # return's frame is the same as new_frame(current function's frame)
+    if r.frame == new_frame:
+      result = r.val
+    else:
+      raise
 
   ScopeMgr.free(fn_scope)
 
@@ -613,11 +612,8 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   var blk2: seq[Expr] = @[]
   for item in blk.body:
     blk2.add(new_expr(blk.expr, item))
-  try:
-    for e in blk2:
-      result = self.eval(new_frame, e)
-  except Return as r:
-    result = r.val
+  for e in blk2:
+    result = self.eval(new_frame, e)
 
   ScopeMgr.free(blk_scope)
 
@@ -698,8 +694,7 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
     elif node.symbol == "self":
       return new_expr(parent, ExSelf)
     elif node.symbol == "return":
-      var v = new_gene_internal(new_return())
-      return new_literal_expr(parent, v)
+      return new_expr(parent, ExReturnRef)
     elif node.symbol == "_":
       return new_literal_expr(parent, GenePlaceholder)
     elif node.symbol.startsWith(":"):

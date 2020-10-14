@@ -216,6 +216,7 @@ type
     ExMacro
     ExBlock
     ExReturn
+    ExReturnRef
     ExClass
     ExNew
     ExMethod
@@ -291,6 +292,8 @@ type
       mac*: GeneValue
     of ExReturn:
       return_val*: Expr
+    of ExReturnRef:
+      discard
     of ExClass:
       super_class*: Expr
       class*: GeneValue
