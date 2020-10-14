@@ -1,6 +1,6 @@
 # To run these tests, simply execute `nimble test` or `nim c -r tests/test_parser.nim`
 
-import unittest, options, tables
+import unittest, options, tables, unicode
 
 import gene/types
 import gene/parser
@@ -16,6 +16,7 @@ test_parser("\"test\"", "test")
 test_parser("'t", 't')
 test_parser("'\\t", '\t')
 test_parser("'\\tab", '\t')
+test_parser("'中", "中".runeAt(0))
 
 test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))

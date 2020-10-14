@@ -256,6 +256,10 @@ proc read_character(p: var Parser): GeneValue =
   elif token.startsWith("\\u"):
     # TODO: impl unicode char reading
     raise new_exception(ParseError, "Not implemented: reading unicode chars")
+  elif token.runeLen == 1:
+    result.rune = token.runeAt(0)
+  else:
+    raise new_exception(ParseError, "Unknown character: " & token)
 
 proc skip_ws(p: var Parser) =
   # commas are whitespace in gene collections

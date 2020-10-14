@@ -1,4 +1,4 @@
-import strutils, tables, dynlib
+import strutils, tables, dynlib, unicode
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -155,6 +155,7 @@ type
       float*: float
     of GeneChar:
       char*: char
+      rune*: Rune
     of GeneString:
       str*: string
     of GeneSymbol:
@@ -717,6 +718,9 @@ proc new_gene_bool*(s: string): GeneValue =
 proc new_gene_char*(c: char): GeneValue =
   return GeneValue(kind: GeneChar, char: c)
 
+proc new_gene_char*(c: Rune): GeneValue =
+  return GeneValue(kind: GeneChar, rune: c)
+
 proc new_gene_symbol*(name: string): GeneValue =
   return GeneValue(kind: GeneSymbol, symbol: name)
 
@@ -937,6 +941,7 @@ converter to_gene*(v: bool): GeneValue                     = new_gene_bool(v)
 converter to_gene*(v: float): GeneValue                    = new_gene_float(v)
 converter to_gene*(v: string): GeneValue                   = new_gene_string(v)
 converter to_gene*(v: char): GeneValue                     = new_gene_char(v)
+converter to_gene*(v: Rune): GeneValue                     = new_gene_char(v)
 converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
 
 # Below converter causes problem with the hash function
