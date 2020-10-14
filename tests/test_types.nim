@@ -11,9 +11,9 @@ test "GeneAny":
   var s = "abc"
   var g = GeneValue(
     kind: GeneAny,
-    anyVal: cast[pointer](s.addr),
+    any: cast[pointer](s.addr),
   )
-  check cast[ptr string](g.anyVal)[] == s
+  check cast[ptr string](g.any)[] == s
 
 proc test_normalize(code: string, r: GeneValue) =
   var code = cleanup(code)

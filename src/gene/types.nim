@@ -146,13 +146,13 @@ type
     of GeneNilKind, GenePlaceholderKind:
       discard
     of GeneBool:
-      boolVal*: bool
+      bool*: bool
     of GeneInt:
-      num*: BiggestInt
+      int*: BiggestInt
     of GeneRatio:
-      rnum*: tuple[numerator, denominator: BiggestInt]
+      ratio*: tuple[numerator, denominator: BiggestInt]
     of GeneFloat:
-      fnum*: float
+      float*: float
     of GeneChar:
       char*: char
     of GeneString:
@@ -177,7 +177,7 @@ type
     of GeneInternal:
       internal*: Internal
     of GeneAny:
-      anyVal*: pointer
+      any*: pointer
     of GeneCommentLine:
       comment*: string
     # line*: int
@@ -411,15 +411,15 @@ type
 
 let
   GeneNil*   = GeneValue(kind: GeneNilKind)
-  GeneTrue*  = GeneValue(kind: GeneBool, bool_val: true)
-  GeneFalse* = GeneValue(kind: GeneBool, bool_val: false)
+  GeneTrue*  = GeneValue(kind: GeneBool, bool: true)
+  GeneFalse* = GeneValue(kind: GeneBool, bool: false)
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
 
 var NativeProcs* = NativeProcsType()
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:
-  GeneInts[i] = GeneValue(kind: GeneInt, num: i - 10)
+  GeneInts[i] = GeneValue(kind: GeneInt, int: i - 10)
 
 proc todo*() =
   raise newException(Exception, "TODO")
@@ -592,19 +592,19 @@ proc `==`*(this, that: GeneValue): bool =
   else:
     case this.kind
     of GeneAny:
-      return this.anyVal == that.anyVal
+      return this.any == that.any
     of GeneNilKind, GenePlaceholderKind:
       return true
     of GeneBool:
-      return this.boolVal == that.boolVal
+      return this.bool == that.bool
     of GeneChar:
       return this.char == that.char
     of GeneInt:
-      return this.num == that.num
+      return this.int == that.int
     of GeneRatio:
-      return this.rnum == that.rnum
+      return this.ratio == that.ratio
     of GeneFloat:
-      return this.fnum == that.fnum
+      return this.float == that.float
     of GeneString:
       return this.str == that.str
     of GeneSymbol:
@@ -642,9 +642,9 @@ proc `$`*(node: GeneValue): string =
   of GeneNilKind:
     result = "nil"
   of GeneBool:
-    result = $(node.boolVal)
+    result = $(node.bool)
   of GeneInt:
-    result = $(node.num)
+    result = $(node.int)
   of GeneString:
     result = "\"" & node.str.replace("\"", "\\\"") & "\""
   of GeneSymbol:
@@ -685,23 +685,23 @@ proc new_gene_string_move*(s: string): GeneValue =
   shallowCopy(result.str, s)
 
 proc new_gene_int*(s: string): GeneValue =
-  return GeneValue(kind: GeneInt, num: parseBiggestInt(s))
+  return GeneValue(kind: GeneInt, int: parseBiggestInt(s))
 
 proc new_gene_int*(val: BiggestInt): GeneValue =
-  # return GeneValue(kind: GeneInt, num: val)
+  # return GeneValue(kind: GeneInt, int: val)
   if val > 100 or val < -10:
-    return GeneValue(kind: GeneInt, num: val)
+    return GeneValue(kind: GeneInt, int: val)
   else:
     return GeneInts[val + 10]
 
 proc new_gene_ratio*(nom, denom: BiggestInt): GeneValue =
-  return GeneValue(kind: GeneRatio, rnum: (nom, denom))
+  return GeneValue(kind: GeneRatio, ratio: (nom, denom))
 
 proc new_gene_float*(s: string): GeneValue =
-  return GeneValue(kind: GeneFloat, fnum: parseFloat(s))
+  return GeneValue(kind: GeneFloat, float: parseFloat(s))
 
 proc new_gene_float*(val: float): GeneValue =
-  return GeneValue(kind: GeneFloat, fnum: val)
+  return GeneValue(kind: GeneFloat, float: val)
 
 proc new_gene_bool*(val: bool): GeneValue =
   case val
@@ -829,7 +829,7 @@ proc new_gene_internal*(ns: Namespace): GeneValue =
 proc is_truthy*(self: GeneValue): bool =
   case self.kind:
   of GeneBool:
-    return self.boolVal
+    return self.bool
   of GeneNilKind:
     return false
   else:
@@ -947,11 +947,11 @@ converter to_bool*(v: GeneValue): bool =
     return false
   case v.kind:
   of GeneBool:
-    return v.boolVal
+    return v.bool
   of GeneInt:
-    return v.num != 0
+    return v.int != 0
   of GeneFloat:
-    return v.fnum != 0
+    return v.float != 0
   of GeneString:
     return v.str.len != 0
   of GeneVector:

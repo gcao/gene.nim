@@ -30,12 +30,12 @@ test "Parser":
 
   nodes = read_all("10 11")
   check nodes.len == 2
-  check nodes[0].num == 10
-  check nodes[1].num == 11
+  check nodes[0].int == 10
+  check nodes[1].int == 11
 
   node = read("1 2 3")
   check node.kind == GeneInt
-  check node.num == 1
+  check node.int == 1
 
   node = read("(1 2 3)")
   check node.kind == GeneGene
@@ -71,11 +71,11 @@ test "Parser":
 
   node = read("1")
   check node.kind == GeneInt
-  check node.num == 1
+  check node.int == 1
 
   node = read("-1")
   check node.kind == GeneInt
-  check node.num == -1
+  check node.int == -1
 
   node = read("()")
   check node.gene_op == nil
@@ -83,7 +83,7 @@ test "Parser":
   check node.gene_data.len == 0
 
   node = read("(1)")
-  check node.gene_op == GeneValue(kind: GeneInt, num: 1)
+  check node.gene_op == GeneValue(kind: GeneInt, int: 1)
   check node.kind == GeneGene
   check node.gene_data.len == 0
 
@@ -139,7 +139,7 @@ test "Parser":
 
   node = read("1/2")
   check node.kind == GeneRatio
-  check node.rnum == (BiggestInt(1), BiggestInt(2))
+  check node.ratio == (BiggestInt(1), BiggestInt(2))
 
   node = read("{^ratio -1/2}")
   check node.kind == GeneMap

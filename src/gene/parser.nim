@@ -556,15 +556,15 @@ proc hash*(node: GeneValue): Hash =
   of GeneNilKind, GenePlaceholderKind:
     discard
   of GeneBool:
-    h = h !& hash(node.bool_val)
+    h = h !& hash(node.bool)
   of GeneChar:
     h = h !& hash(node.char)
   of GeneInt:
-    h = h !& hash(node.num)
+    h = h !& hash(node.int)
   of GeneRatio:
-    h = h !& hash(node.rnum)
+    h = h !& hash(node.ratio)
   of GeneFloat:
-    h = h !& hash(node.fnum)
+    h = h !& hash(node.float)
   of GeneString:
     h = h !& hash(node.str)
   of GeneSymbol:
@@ -721,7 +721,7 @@ proc read_num(p: var Parser): GeneValue =
       var denom_tok = parse_number(p)
       if denom_tok == tkInt:
         var denom = new_gene_int(p.a)
-        result = new_gene_ratio(numerator.num, denom.num)
+        result = new_gene_ratio(numerator.int, denom.int)
       else:
         raise new_exception(ParseError, "error reading a ratio: " & p.a)
     else:
