@@ -7,21 +7,25 @@ import gene/parser
 import ./helpers
 
 test_parser("nil", GeneNil)
+test_parser("true", true)
+test_parser("false", false)
+
 test_parser("10", 10)
 test_parser("10e10", 10e10)
 test_parser("+5.0E5", +5.0E5)
-test_parser("true", true)
-test_parser("false", false)
-test_parser("\"test\"", "test")
+
 test_parser("'t", 't')
 test_parser("'\\t", '\t')
 test_parser("'\\tab", '\t')
 test_parser("'中", "中".runeAt(0))
 
+test_parser("\"test\"", "test")
+
+test_parser("a", new_gene_symbol("a"))
 test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
 test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
-# test_parser(":true", new_gene_symbol("true")) # Should this be parsed into a symbol or quoted boolean true?
+test_parser("\\true", new_gene_symbol("true"))
 
 test_parser("{}", Table[string, GeneValue]())
 test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)

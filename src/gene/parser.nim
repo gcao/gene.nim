@@ -280,6 +280,9 @@ proc skip_ws(p: var Parser) =
   p.bufpos = pos
 
 proc match_symbol(s: string): GeneValue =
+  var s = s
+  if s.startsWith("\\"):
+    s = s[1..^1]
   let split_sym = s.split('/')
   if split_sym.len > 1:
     return new_gene_complex_symbol(split_sym[0], split_sym[1..^1])
@@ -287,22 +290,17 @@ proc match_symbol(s: string): GeneValue =
     return new_gene_symbol(s)
 
 proc interpret_token(token: string): GeneValue =
-  result = nil
   case token
   of "nil":
-    # result = new_gene_nil()
-    result = GeneNil
+    return GeneNil
   of "true":
-    result = new_gene_bool(token)
+    return new_gene_bool(token)
   of "false":
-    result = new_gene_bool(token)
+    return new_gene_bool(token)
   else:
-    result = nil
-
-  if result == nil:
     result = match_symbol(token)
-  if result == nil:
-    raise new_exception(ParseError, "Invalid token: " & token)
+    if result == nil:
+      raise new_exception(ParseError, "Invalid token: " & token)
 
 
 proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement: CommentPlacement): void =
