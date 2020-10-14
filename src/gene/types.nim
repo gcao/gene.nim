@@ -154,7 +154,7 @@ type
     of GeneFloat:
       fnum*: float
     of GeneChar:
-      character*: char
+      char*: char
     of GeneString:
       str*: string
     of GeneSymbol:
@@ -598,7 +598,7 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneBool:
       return this.boolVal == that.boolVal
     of GeneChar:
-      return this.character == that.character
+      return this.char == that.char
     of GeneInt:
       return this.num == that.num
     of GeneRatio:
@@ -713,6 +713,9 @@ proc new_gene_bool*(val: bool): GeneValue =
 proc new_gene_bool*(s: string): GeneValue =
   let parsed: bool = parseBool(s)
   return new_gene_bool(parsed)
+
+proc new_gene_char*(c: char): GeneValue =
+  return GeneValue(kind: GeneChar, char: c)
 
 proc new_gene_symbol*(name: string): GeneValue =
   return GeneValue(kind: GeneSymbol, symbol: name)
@@ -933,6 +936,7 @@ converter to_gene*(v: int): GeneValue                      = new_gene_int(v)
 converter to_gene*(v: bool): GeneValue                     = new_gene_bool(v)
 converter to_gene*(v: float): GeneValue                    = new_gene_float(v)
 converter to_gene*(v: string): GeneValue                   = new_gene_string(v)
+converter to_gene*(v: char): GeneValue                     = new_gene_char(v)
 converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
 
 # Below converter causes problem with the hash function

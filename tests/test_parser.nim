@@ -13,7 +13,9 @@ test_parser("+5.0E5", +5.0E5)
 test_parser("true", true)
 test_parser("false", false)
 test_parser("\"test\"", "test")
-# test_parser("'test'", "test")
+test_parser("'t", 't')
+test_parser("'\\t", '\t')
+test_parser("'\\tab", '\t')
 
 test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
@@ -107,9 +109,9 @@ test "Parser":
   # check node.kind == GeneComplexSymbol
   # check node.csymbol == ("moo", "bar")
 
-  node = read("'foo") # -> (quote foo)
-  check node.kind == GeneGene
-  check node.gene_op == new_gene_symbol("quote")
+  # node = read("'foo") # -> (quote foo)
+  # check node.kind == GeneGene
+  # check node.gene_op == new_gene_symbol("quote")
 
   node = read("{}")
   check node.kind == GeneMap

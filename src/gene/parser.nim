@@ -233,7 +233,6 @@ proc read_token(p: var Parser, lead_constituent: bool): string =
 
 proc read_character(p: var Parser): GeneValue =
   var pos = p.bufpos
-  #var buf = p.buf
   let ch = p.buf[pos]
   if ch == EndOfFile:
     raise new_exception(ParseError, "EOF while reading character")
@@ -241,23 +240,20 @@ proc read_character(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneChar)
   let token = read_token(p, false)
   if token.len == 1:
-    result.character = token[0]
-  elif token == "newline":
-    result.character = '\c'
-  elif token == "space":
-    result.character = ' '
-  elif token == "tab":
-    result.character = '\t'
-  elif token == "backspace":
-    result.character = '\b'
-  elif token == "formfeed":
-    result.character = '\f'
-  elif token == "return":
-    result.character = '\r'
-  elif token.startsWith("u"):
-    # TODO: impl unicode char reading
-    raise new_exception(ParseError, "Not implemented: reading unicode chars")
-  elif token.startsWith("o"):
+    result.char = token[0]
+  elif token == "\\n" or token == "\\newline":
+    result.char = '\c'
+  elif token == "\\s" or token == "\\space":
+    result.char = ' '
+  elif token == "\\t" or token == "\\tab":
+    result.char = '\t'
+  elif token == "\\b" or token == "\\backspace":
+    result.char = '\b'
+  elif token == "\\f" or token == "\\formfeed":
+    result.char = '\f'
+  elif token == "\\r" or token == "\\return":
+    result.char = '\r'
+  elif token.startsWith("\\u"):
     # TODO: impl unicode char reading
     raise new_exception(ParseError, "Not implemented: reading unicode chars")
 
@@ -562,7 +558,7 @@ proc hash*(node: GeneValue): Hash =
   of GeneBool:
     h = h !& hash(node.bool_val)
   of GeneChar:
-    h = h !& hash(node.character)
+    h = h !& hash(node.char)
   of GeneInt:
     h = h !& hash(node.num)
   of GeneRatio:
@@ -618,13 +614,14 @@ proc read_dispatch(p: var Parser): GeneValue =
 
 proc init_macro_array() =
   macros['"'] = read_string
-  macros['\''] = read_quoted
+  # macros['\''] = read_quoted
+  macros['\''] = read_character
   macros['`'] = read_quasi_quoted
   macros[';'] = read_comment
   macros['~'] = read_unquoted
   # macros['@'] = read_deref
   macros['#'] = read_dispatch
-  macros['\\'] = read_character
+  # macros['\\'] = read_character
   macros['('] = read_gene
   macros['{'] = read_map
   macros['['] = read_vector
