@@ -618,7 +618,7 @@ proc read_dispatch(p: var Parser): GeneValue =
 
 proc init_macro_array() =
   macros['"'] = read_string
-  # macros['\''] = read_quoted
+  macros[':'] = read_quoted
   macros['\''] = read_character
   macros['`'] = read_quasi_quoted
   macros[';'] = read_comment

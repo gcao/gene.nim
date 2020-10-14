@@ -230,6 +230,7 @@ type
     ExImport
     ExCallNative
     ExGetClass
+    ExQuote
     ExEval
     ExCallerEval
     ExMatch
@@ -332,6 +333,8 @@ type
       native_args*: seq[Expr]
     of ExGetClass:
       get_class_val*: Expr
+    of ExQuote:
+      quote_val*: GeneValue
     of ExEval:
       eval_args*: seq[Expr]
     of ExCallerEval:

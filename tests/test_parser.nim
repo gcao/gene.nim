@@ -21,6 +21,7 @@ test_parser("'中", "中".runeAt(0))
 test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
 test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
+# test_parser(":true", new_gene_symbol("true")) # Should this be parsed into a symbol or quoted boolean true?
 
 test_parser("{}", Table[string, GeneValue]())
 test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)
@@ -110,9 +111,9 @@ test "Parser":
   # check node.kind == GeneComplexSymbol
   # check node.csymbol == ("moo", "bar")
 
-  # node = read("'foo") # -> (quote foo)
-  # check node.kind == GeneGene
-  # check node.gene_op == new_gene_symbol("quote")
+  node = read(":foo") # -> (quote foo)
+  check node.kind == GeneGene
+  check node.gene_op == new_gene_symbol("quote")
 
   node = read("{}")
   check node.kind == GeneMap

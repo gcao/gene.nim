@@ -1,4 +1,4 @@
-import tables, strutils
+import tables
 
 import ./types
 import ./parser
@@ -49,6 +49,7 @@ proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr
 proc new_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_match_expr*(parent: Expr, val: GeneValue): Expr
+proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
 
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue
@@ -421,6 +422,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       result = self.eval(caller_frame, new_expr(expr, self.eval(frame, e)))
   of ExMatch:
     result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
+  of ExQuote:
+    result = expr.quote_val
   # else:
   #   todo($expr.kind)
 
@@ -703,11 +706,6 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       return new_expr(parent, ExReturnRef)
     elif node.symbol == "_":
       return new_literal_expr(parent, GenePlaceholder)
-    elif node.symbol.startsWith(":"):
-      if node.symbol.len == 1: # ":"
-        return new_symbol_expr(parent, node.symbol)
-      else:
-        return new_literal_expr(parent, new_gene_symbol(node.symbol[1..^1]))
     else:
       return new_symbol_expr(parent, node.symbol)
   of GeneComplexSymbol:
@@ -777,6 +775,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_caller_eval_expr(parent, node)
       of "match":
         return new_match_expr(parent, node)
+      of "quote":
+        return new_quote_expr(parent, node)
       of "+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||":
         return new_binary_expr(parent, node.gene_op.symbol, node)
       of "->":
@@ -1063,6 +1063,14 @@ proc new_match_expr*(parent: Expr, val: GeneValue): Expr =
     match_pattern: val.gene_data[0],
   )
   result.match_val = new_expr(result, val.gene_data[1])
+
+proc new_quote_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExQuote,
+    parent: parent,
+    module: parent.module,
+  )
+  result.quote_val = val.gene_data[0]
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene_data[1].is_literal:

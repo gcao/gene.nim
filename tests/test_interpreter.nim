@@ -10,7 +10,6 @@ test_interpreter "true", true
 test_interpreter "false", false
 test_interpreter "\"string\"", "string"
 test_interpreter ":a", new_gene_symbol("a")
-test_interpreter ":nil", new_gene_symbol("nil")
 
 test_interpreter "1 2 3", 3
 
