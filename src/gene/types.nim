@@ -258,7 +258,8 @@ type
     of ExGene:
       gene*: GeneValue
       gene_op*: Expr
-      gene_blk*: seq[Expr]
+      gene_props*: seq[Expr]
+      gene_data*: seq[Expr]
     of ExGroup:
       group*: seq[Expr]
     of ExVar, ExAssignment:

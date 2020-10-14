@@ -201,7 +201,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     of GeneSymbol:
       processed = true
       result = new_gene_gene(target)
-      for e in expr.gene_blk:
+      for e in expr.gene_props:
+        result.gene_props[e.map_key] = self.eval(frame, e.map_val)
+      for e in expr.gene_data:
         result.gene_data.add(self.eval(frame, e))
     of GeneInternal:
       case target.internal.kind:
@@ -217,10 +219,10 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       of GeneReturn:
         processed = true
         var val = GeneNil
-        if expr.gene_blk.len == 0:
+        if expr.gene_data.len == 0:
           discard
-        elif expr.gene_blk.len == 1:
-          val = self.eval(frame, expr.gene_blk[0])
+        elif expr.gene_data.len == 1:
+          val = self.eval(frame, expr.gene_data[0])
         else:
           not_allowed()
         raise Return(
@@ -504,7 +506,7 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
   var args_blk: seq[Expr]
   case expr.kind:
   of ExGene:
-    args_blk = expr.gene_blk
+    args_blk = expr.gene_data
   of ExNew:
     args_blk = expr.new_args
   of ExInvokeMethod:
@@ -553,7 +555,7 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
   var args_blk: seq[Expr]
   case expr.kind:
   of ExGene:
-    args_blk = expr.gene_blk
+    args_blk = expr.gene_data
   else:
     todo()
   case args_blk.len:
@@ -592,7 +594,7 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   var args_blk: seq[Expr]
   case expr.kind:
   of ExGene:
-    args_blk = expr.gene_blk
+    args_blk = expr.gene_data
   else:
     todo()
   case args_blk.len:
@@ -779,8 +781,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       discard
     result = new_gene_expr(parent, node)
     result.gene_op = new_expr(result, node.gene_op)
+    for k, v in node.gene_props:
+      result.gene_props.add(new_map_key_expr(result, k, v))
     for item in node.gene_data:
-      result.gene_blk.add(new_expr(result, item))
+      result.gene_data.add(new_expr(result, item))
   else:
     todo($node)
 
