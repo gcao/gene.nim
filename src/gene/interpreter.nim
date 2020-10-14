@@ -46,6 +46,7 @@ proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
 proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr
+proc new_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 
@@ -411,6 +412,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExGetClass:
     var val = self.eval(frame, expr.get_class_val)
     result = new_gene_internal(self.get_class(val))
+  of ExEval:
+    for e in expr.eval_args:
+      result = self.eval(frame, new_expr(expr, self.eval(frame, e)))
   of ExCallerEval:
     var caller_frame = frame.parent
     for e in expr.caller_eval_args:
@@ -767,6 +771,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         result = new_expr(parent, ExGetClass)
         result.get_class_val = new_expr(result, node.gene_data[0])
         return result
+      of "eval":
+        return new_eval_expr(parent, node)
       of "caller_eval":
         return new_caller_eval_expr(parent, node)
       of "match":
@@ -1030,6 +1036,15 @@ proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr =
   result.native_index = index
   for i in 1..<val.gene_data.len:
     result.native_args.add(new_expr(result, val.gene_data[i]))
+
+proc new_eval_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExEval,
+    parent: parent,
+    module: parent.module,
+  )
+  for i in 0..<val.gene_data.len:
+    result.eval_args.add(new_expr(result, val.gene_data[i]))
 
 proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(

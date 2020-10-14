@@ -229,6 +229,7 @@ type
     ExImport
     ExCallNative
     ExGetClass
+    ExEval
     ExCallerEval
     ExMatch
 
@@ -330,6 +331,8 @@ type
       native_args*: seq[Expr]
     of ExGetClass:
       get_class_val*: Expr
+    of ExEval:
+      eval_args*: seq[Expr]
     of ExCallerEval:
       caller_eval_args*: seq[Expr]
     of ExMatch:

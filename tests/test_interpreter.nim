@@ -114,3 +114,9 @@ test_interpreter "self", GeneNil
 test_interpreter """
   (call_native "str_len" "test")
 """, 4
+
+test_interpreter """
+  (var a 1)
+  (var b 2)
+  (eval :a :b)
+""", 2
