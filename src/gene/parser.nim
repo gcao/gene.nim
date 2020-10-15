@@ -633,6 +633,7 @@ proc init_macro_array() =
 
 proc init_dispatch_macro_array() =
   dispatch_macros['!'] = read_comment
+  dispatch_macros[' '] = read_comment
   # dispatch_macros[':'] = read_ns_map
   # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard

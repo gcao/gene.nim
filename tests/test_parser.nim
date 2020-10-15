@@ -4,6 +4,7 @@ import unittest, options, tables, unicode
 
 import gene/types
 import gene/parser
+
 import ./helpers
 
 test_parser("nil", GeneNil)
@@ -29,6 +30,13 @@ test_parser("\\true", new_gene_symbol("true"))
 
 test_parser("{}", Table[string, GeneValue]())
 test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)
+
+test_read_all """
+  1 # comment
+  2
+""", proc(r: seq[GeneValue]) =
+  check r[0] == 1
+  check r[1] == 2
 
 test "Parser":
   var node: GeneValue

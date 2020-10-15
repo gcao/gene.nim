@@ -10,6 +10,7 @@ import ./helpers
 # * private / protected / public methods
 # * method_missing - can only be defined in classes
 # * Mixin: all stuff in mixin are copied to the target class/mixin
+# * Properties: just a shortcut for defining .prop/.prop= methods
 
 test_interpreter "(class A)", proc(r: GeneValue) =
   check r.internal.class.name == "A"

@@ -9,8 +9,25 @@
   )
 
   (class String
-    (method len []
+    # Support: size, substr, split, index, rindex, trim, startsWith, endsWith
+    (method size _
       (call_native "str_len" self)
+    )
+
+    (method substr [start end]
+      (if (start == nil)
+        (if (end == nil)
+          (not_allowed "Both start and end index are not given")
+        else
+          (call_native "str_substr" self 0 end)
+        )
+      else
+        (if (end == nil)
+          (call_native "str_substr" self start)
+        else
+          (call_native "str_substr" self start end)
+        )
+      )
     )
   )
 )

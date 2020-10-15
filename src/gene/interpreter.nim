@@ -177,6 +177,16 @@ proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
 
 proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   case expr.kind:
+  of ExTodo:
+    if expr.todo != nil:
+      todo(self.eval(frame, expr.todo).str)
+    else:
+      todo()
+  of ExNotAllowed:
+    if expr.not_allowed != nil:
+      not_allowed(self.eval(frame, expr.not_allowed).str)
+    else:
+      not_allowed()
   of ExRoot:
     result = self.eval(frame, expr.root)
   of ExLiteral:
@@ -720,6 +730,7 @@ proc new_expr*(parent: Expr, kind: ExprKind): Expr =
   )
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
+  node.strip_comments
   case node.kind:
   of GeneNilKind, GeneBool, GeneInt, GeneString:
     return new_literal_expr(parent, node)
@@ -811,6 +822,14 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_binary_expr(parent, node.gene_op.symbol, node)
       of "->":
         return new_block_expr(parent, node)
+      of "todo":
+        result = new_expr(parent, ExTodo)
+        result.todo = new_expr(result, node.gene_data[0])
+        return result
+      of "not_allowed":
+        result = new_expr(parent, ExNotAllowed)
+        result.not_allowed = new_expr(result, node.gene_data[0])
+        return result
       else:
         discard
     else:

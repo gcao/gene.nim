@@ -201,6 +201,8 @@ type
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
   ExprKind* = enum
+    ExTodo
+    ExNotAllowed
     ExRoot
     ExLiteral
     ExSymbol
@@ -250,6 +252,10 @@ type
     parent*: Expr
     posInParent*: int
     case kind*: ExprKind
+    of ExTodo:
+      todo*: Expr
+    of ExNotAllowed:
+      not_allowed*: Expr
     of ExRoot:
       root*: Expr
     of ExLiteral:
@@ -942,6 +948,29 @@ proc normalize*(self: GeneValue) =
       self.gene_props["args"] = self.gene_op
       self.gene_op = self.gene_data[0]
       self.gene_data.delete 0
+
+proc strip_comments*(node: GeneValue) =
+  case node.kind:
+  of GeneVector:
+    var has_comments = false
+    var vec: seq[GeneValue] = @[]
+    for item in node.vec:
+      if item.kind != GeneCommentLine:
+        has_comments = true
+        vec.add(item)
+    if has_comments:
+      node.vec = vec
+  of GeneGene:
+    var has_comments = false
+    var vec: seq[GeneValue] = @[]
+    for item in node.gene_data:
+      if item.kind != GeneCommentLine:
+        has_comments = true
+        vec.add(item)
+    if has_comments:
+      node.gene_data = vec
+  else:
+    discard
 
 #################### Document ####################
 
