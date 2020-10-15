@@ -29,7 +29,7 @@ test_interpreter """
   )
   (new A)
 """, proc(r: GeneValue) =
-  check r.internal.instance.value.gene_props["description"] == "Class A"
+  check r.internal.instance.value.gene.props["description"] == "Class A"
 
 test_interpreter """
   (class A
@@ -49,7 +49,7 @@ test_interpreter """
   )
   (new A "test")
 """, proc(r: GeneValue) =
-  check r.internal.instance.value.gene_props["description"] == "test"
+  check r.internal.instance.value.gene.props["description"] == "test"
 
 test_interpreter """
   (class A

@@ -121,6 +121,22 @@ type
     first*: string
     rest*: seq[string]
 
+  # applicable to numbers, characters
+  Range* = ref object
+    first*: GeneValue
+    last*: GeneValue
+    step*: GeneValue # default to 1 if first is greater than last
+    # include_first*: bool # always true
+    include_last*: bool # default to false
+
+  Gene* {.acyclic.} = ref object
+    op*: GeneValue
+    props*: Table[string, GeneValue]
+    data*: seq[GeneValue]
+    # A gene can be normalized to match expected format
+    # Example: (a = 1) => (= a 1)
+    normalized*: bool
+
   GeneKind* = enum
     GeneNilKind
     GenePlaceholderKind
@@ -177,12 +193,7 @@ type
     of GeneVector:
       vec*: seq[GeneValue]
     of GeneGene:
-      gene_op*: GeneValue
-      gene_props*: Table[string, GeneValue]
-      gene_data*: seq[GeneValue]
-      # A gene can be normalized to match expected format
-      # Example: (a = 1) => (= a 1)
-      gene_normalized*: bool
+      gene*: Gene
     of GeneInternal:
       internal*: Internal
     of GeneAny:
@@ -639,7 +650,7 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneComplexSymbol:
       return this.csymbol == that.csymbol
     of GeneGene:
-      return this.gene_op == that.gene_op and this.gene_data == that.gene_data and this.gene_props == that.gene_props
+      return this.gene.op == that.gene.op and this.gene.data == that.gene.data and this.gene.props == that.gene.props
     of GeneMap:
       return this.map == that.map
     of GeneVector:
@@ -687,11 +698,11 @@ proc `$`*(node: GeneValue): string =
     result &= "]"
   # of GeneGene:
   #   result = "("
-  #   if node.gene_op.isNil:
+  #   if node.gene.op.isNil:
   #     result &= "nil "
   #   else:
-  #     result &= $node.gene_op & " "
-  #   # result &= node.gene_data.join(" ")
+  #     result &= $node.gene.op & " "
+  #   # result &= node.gene.data.join(" ")
   #   result &= ")"
   of GeneInternal:
     case node.internal.kind:
@@ -782,16 +793,13 @@ proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
 proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
-    gene_op: op,
-    gene_data: @data,
+    gene: Gene(op: op, data: @data),
   )
 
 proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
-    gene_op: op,
-    gene_props: props,
-    gene_data: @data,
+    gene: Gene(op: op, props: props, data: @data),
   )
 
 proc new_gene_internal*(value: Internal): GeneValue =
@@ -875,79 +883,79 @@ proc is_truthy*(self: GeneValue): bool =
     return true
 
 proc normalize*(self: GeneValue) =
-  if self.gene_normalized:
+  if self.gene.normalized:
     return
-  self.gene_normalized = true
+  self.gene.normalized = true
 
-  var op = self.gene_op
+  var op = self.gene.op
   if op.kind == GeneSymbol:
     if op.symbol.startsWith(".@"):
       if op.symbol.endsWith("="):
         var name = op.symbol.substr(2, op.symbol.len-2)
-        self.gene_op = new_gene_symbol("@=")
-        self.gene_data.insert(new_gene_string_move(name), 0)
+        self.gene.op = new_gene_symbol("@=")
+        self.gene.data.insert(new_gene_string_move(name), 0)
       else:
-        self.gene_op = new_gene_symbol("@")
-        self.gene_data = @[new_gene_string_move(op.symbol.substr(2))]
+        self.gene.op = new_gene_symbol("@")
+        self.gene.data = @[new_gene_string_move(op.symbol.substr(2))]
     elif op.symbol == "import" or op.symbol == "import_native":
       var names: seq[GeneValue] = @[]
       var module: GeneValue
       var expect_module = false
-      for val in self.gene_data:
+      for val in self.gene.data:
         if expect_module:
           module = val
         elif val.kind == GeneSymbol and val.symbol == "from":
           expect_module = true
         else:
           names.add(val)
-      self.gene_props["names"] = new_gene_vec(names)
-      self.gene_props["module"] = module
+      self.gene.props["names"] = new_gene_vec(names)
+      self.gene.props["module"] = module
       return
     elif op.symbol == "->":
       return
     elif op.symbol.startsWith("for"):
-      self.gene_props["init"]   = self.gene_data[0]
-      self.gene_props["guard"]  = self.gene_data[1]
-      self.gene_props["update"] = self.gene_data[2]
+      self.gene.props["init"]   = self.gene.data[0]
+      self.gene.props["guard"]  = self.gene.data[1]
+      self.gene.props["update"] = self.gene.data[2]
       var body: seq[GeneValue] = @[]
-      for i in 3..<self.gene_data.len:
-        body.add(self.gene_data[i])
-      self.gene_data = body
+      for i in 3..<self.gene.data.len:
+        body.add(self.gene.data[i])
+      self.gene.data = body
 
-  if self.gene_data.len == 0:
+  if self.gene.data.len == 0:
     return
 
-  var first = self.gene_data[0]
+  var first = self.gene.data[0]
   if first.kind == GeneSymbol:
     if first.symbol == "+=":
-      self.gene_op = new_gene_symbol("=")
-      var second = self.gene_data[1]
-      self.gene_data[0] = op
-      self.gene_data[1] = new_gene_gene(new_gene_symbol("+"), op, second)
+      self.gene.op = new_gene_symbol("=")
+      var second = self.gene.data[1]
+      self.gene.data[0] = op
+      self.gene.data[1] = new_gene_gene(new_gene_symbol("+"), op, second)
     elif first.symbol == "=" and op.kind == GeneSymbol and op.symbol.startsWith("@"):
       # (@prop = val)
-      self.gene_op = new_gene_symbol("@=")
-      self.gene_data[0] = new_gene_string(op.symbol[1..^1])
+      self.gene.op = new_gene_symbol("@=")
+      self.gene.data[0] = new_gene_string(op.symbol[1..^1])
     elif first.symbol in BINARY_OPS:
-      self.gene_data.delete 0
-      self.gene_data.insert op, 0
-      self.gene_op = first
+      self.gene.data.delete 0
+      self.gene.data.insert op, 0
+      self.gene.op = first
     elif first.symbol.startsWith(".@"):
       if first.symbol.endsWith("="):
         todo()
       else:
-        self.gene_op = new_gene_symbol("@")
-        self.gene_data[0] = new_gene_string_move(first.symbol.substr(2))
-        self.gene_props["self"] = op
+        self.gene.op = new_gene_symbol("@")
+        self.gene.data[0] = new_gene_string_move(first.symbol.substr(2))
+        self.gene.props["self"] = op
     elif first.symbol[0] == '.':
-      self.gene_props["self"] = op
-      self.gene_props["method"] = new_gene_string_move(first.symbol.substr(1))
-      self.gene_data.delete 0
-      self.gene_op = new_gene_symbol("$invoke_method")
+      self.gene.props["self"] = op
+      self.gene.props["method"] = new_gene_string_move(first.symbol.substr(1))
+      self.gene.data.delete 0
+      self.gene.op = new_gene_symbol("$invoke_method")
     elif first.symbol == "->":
-      self.gene_props["args"] = self.gene_op
-      self.gene_op = self.gene_data[0]
-      self.gene_data.delete 0
+      self.gene.props["args"] = self.gene.op
+      self.gene.op = self.gene.data[0]
+      self.gene.data.delete 0
 
 proc strip_comments*(node: GeneValue) =
   case node.kind:
@@ -963,12 +971,12 @@ proc strip_comments*(node: GeneValue) =
   of GeneGene:
     var has_comments = false
     var vec: seq[GeneValue] = @[]
-    for item in node.gene_data:
+    for item in node.gene.data:
       if item.kind != GeneCommentLine:
         has_comments = true
         vec.add(item)
     if has_comments:
-      node.gene_data = vec
+      node.gene.data = vec
   else:
     discard
 
@@ -1023,14 +1031,14 @@ converter to_bool*(v: GeneValue): bool =
     true
 
 converter to_function*(node: GeneValue): Function =
-  var first = node.gene_data[0]
+  var first = node.gene.data[0]
   var name: string
   if first.kind == GeneSymbol:
     name = first.symbol
   elif first.kind == GeneComplexSymbol:
     name = first.csymbol.rest[^1]
   var args: seq[string] = @[]
-  var a = node.gene_data[1]
+  var a = node.gene.data[1]
   case a.kind:
   of GeneSymbol:
     if a.symbol != "_":
@@ -1041,20 +1049,20 @@ converter to_function*(node: GeneValue): Function =
   else:
     not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
-    body.add node.gene_data[i]
+  for i in 2..<node.gene.data.len:
+    body.add node.gene.data[i]
 
   return new_fn(name, args, body)
 
 converter to_macro*(node: GeneValue): Macro =
-  var first = node.gene_data[0]
+  var first = node.gene.data[0]
   var name: string
   if first.kind == GeneSymbol:
     name = first.symbol
   elif first.kind == GeneComplexSymbol:
     name = first.csymbol.rest[^1]
   var args: seq[string] = @[]
-  var a = node.gene_data[1]
+  var a = node.gene.data[1]
   case a.kind:
   of GeneSymbol:
     args.add(a.symbol)
@@ -1064,15 +1072,15 @@ converter to_macro*(node: GeneValue): Macro =
   else:
     not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene_data.len:
-    body.add node.gene_data[i]
+  for i in 2..<node.gene.data.len:
+    body.add node.gene.data[i]
 
   return new_macro(name, args, body)
 
 converter to_block*(node: GeneValue): Block =
   var args: seq[string] = @[]
-  if node.gene_props.hasKey("args"):
-    var a = node.gene_props["args"]
+  if node.gene.props.hasKey("args"):
+    var a = node.gene.props["args"]
     case a.kind:
     of GeneSymbol:
       args.add(a.symbol)
@@ -1082,8 +1090,8 @@ converter to_block*(node: GeneValue): Block =
     else:
       not_allowed()
   var body: seq[GeneValue] = @[]
-  for i in 0..<node.gene_data.len:
-    body.add node.gene_data[i]
+  for i in 0..<node.gene.data.len:
+    body.add node.gene.data[i]
 
   return new_block(args, body)
 

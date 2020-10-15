@@ -53,22 +53,22 @@ test "Parser":
 
   node = read("(1 2 3)")
   check node.kind == GeneGene
-  check node.gene_data.len == 2
+  check node.gene.data.len == 2
 
   node = read("(1 ^a 1 2 3)")
   check node.kind == GeneGene
-  check node.gene_props == {"a": new_gene_int(1)}.toTable
-  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+  check node.gene.props == {"a": new_gene_int(1)}.toTable
+  check node.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
   node = read("(1 ^^a 2 3)")
   check node.kind == GeneGene
-  check node.gene_props == {"a": GeneTrue}.toTable
-  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+  check node.gene.props == {"a": GeneTrue}.toTable
+  check node.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
   node = read("(1 ^!a 2 3)")
   check node.kind == GeneGene
-  check node.gene_props == {"a": GeneFalse}.toTable
-  check node.gene_data == @[new_gene_int(2), new_gene_int(3)]
+  check node.gene.props == {"a": GeneFalse}.toTable
+  check node.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
   node = read("""
     (
@@ -92,20 +92,20 @@ test "Parser":
   check node.int == -1
 
   node = read("()")
-  check node.gene_op == nil
+  check node.gene.op == nil
   check node.kind == GeneGene
-  check node.gene_data.len == 0
+  check node.gene.data.len == 0
 
   node = read("(1)")
-  check node.gene_op == GeneValue(kind: GeneInt, int: 1)
+  check node.gene.op == GeneValue(kind: GeneInt, int: 1)
   check node.kind == GeneGene
-  check node.gene_data.len == 0
+  check node.gene.data.len == 0
 
   node = read("(())")
   check node.kind == GeneGene
-  check node.gene_data.len == 0
-  check node.gene_op.kind == GeneGene
-  check node.gene_op.gene_data.len == 0
+  check node.gene.data.len == 0
+  check node.gene.op.kind == GeneGene
+  check node.gene.op.gene.data.len == 0
 
   node = read("nil")
   check node.kind == GeneNilKind
@@ -125,7 +125,7 @@ test "Parser":
 
   node = read(":foo") # -> (quote foo)
   check node.kind == GeneGene
-  check node.gene_op == new_gene_symbol("quote")
+  check node.gene.op == new_gene_symbol("quote")
 
   node = read("{}")
   check node.kind == GeneMap

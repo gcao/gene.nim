@@ -20,9 +20,9 @@ test_interpreter "{}", Table[string, GeneValue]()
 test_interpreter "{^a 1}", {"a": new_gene_int(1)}.toTable
 
 test_interpreter "(:test 1 2)", proc(r: GeneValue) =
-  check r.gene_op == new_gene_symbol("test")
-  check r.gene_data[0] == 1
-  check r.gene_data[1] == 2
+  check r.gene.op == new_gene_symbol("test")
+  check r.gene.data[0] == 1
+  check r.gene.data[1] == 2
 
 test_interpreter "(1 + 2)", 3
 test_interpreter "(1 - 2)", -1
@@ -66,8 +66,8 @@ test_interpreter """
   (var b 2)
   (:test ^a a b)
 """, proc(r: GeneValue) =
-  check r.gene_props["a"] == 1
-  check r.gene_data[0] == 2
+  check r.gene.props["a"] == 1
+  check r.gene.data[0] == 2
 
 test_interpreter "(if true 1)", 1
 test_interpreter "(if false 1 else 2)", 2

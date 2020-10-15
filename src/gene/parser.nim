@@ -163,9 +163,9 @@ proc read_string(p: var Parser): GeneValue =
 
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
-  result = GeneValue(kind: GeneGene)
-  result.gene_op = new_gene_symbol(quote_name)
-  result.gene_data = @[quoted]
+  result = GeneValue(kind: GeneGene, gene: Gene())
+  result.gene.op = new_gene_symbol(quote_name)
+  result.gene.data = @[quoted]
 
 proc read_quoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "quote")
@@ -525,17 +525,17 @@ proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
           result[key] = read(p)
 
 proc read_gene(p: var Parser): GeneValue =
-  result = GeneValue(kind: GeneGene)
+  result = GeneValue(kind: GeneGene, gene: Gene())
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col(p, result)
-  result.gene_op = read_gene_op(p)
+  result.gene.op = read_gene_op(p)
   skip_ws(p)
   if p.buf[p.bufpos] == '^':
     let props = read_map(p, true)
-    result.gene_props = props
+    result.gene.props = props
   var result_list = read_delimited_list(p, ')', true)
-  result.gene_data = result_list.list
+  result.gene.data = result_list.list
   discard maybe_add_comments(result, result_list)
 
 proc read_map(p: var Parser): GeneValue =
@@ -574,9 +574,9 @@ proc hash*(node: GeneValue): Hash =
   of GeneComplexSymbol:
     h = h !& hash(node.csymbol.first & "/" & node.csymbol.rest.join("/"))
   of GeneGene:
-    if node.gene_op != nil:
-      h = h !& hash(node.gene_op)
-    h = h !& hash(node.gene_data)
+    if node.gene.op != nil:
+      h = h !& hash(node.gene.op)
+    h = h !& hash(node.gene.data)
   of GeneMap:
     for key, val in node.map:
       h = h !& hash(key)
