@@ -10,6 +10,9 @@ import ./helpers
 # * Custom matchers can be created, which takes something and
 #   returns a function that takes an input and a scope object and
 #   parses the input and stores as one or multiple variables
+# * Every standard type should have an adapter to allow pattern matching
+#   to access its data easily
+#
 
 # Mode: argument, match, ...
 # When matching arguments, root level name will match first item in the input

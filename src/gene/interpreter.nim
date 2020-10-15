@@ -40,6 +40,8 @@ proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr
+proc new_mixin_expr*(parent: Expr, val: GeneValue): Expr
+proc new_include_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr
 proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr
@@ -377,10 +379,28 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else:
       super_class = self.eval(frame, expr.super_class).internal.class
     expr.class.internal.class.parent = super_class
-    frame.self = expr.class
+    var ns = frame.ns
+    var scope = new_scope()
+    var new_frame = FrameMgr.get(FrClass, ns, scope)
+    new_frame.self = expr.class
     for e in expr.class_body:
-      discard self.eval(frame, e)
+      discard self.eval(new_frame, e)
     result = expr.class
+  of ExMixin:
+    self.set_member(frame, expr.mix_name, expr.mix, true)
+    var ns = frame.ns
+    var scope = new_scope()
+    var new_frame = FrameMgr.get(FrMixin, ns, scope)
+    new_frame.self = expr.mix
+    for e in expr.mix_body:
+      discard self.eval(new_frame, e)
+    result = expr.mix
+  of ExInclude:
+    # Copy methods to target class
+    for e in expr.include_args:
+      var mix = self.eval(frame, e)
+      for name, meth in mix.internal.mix.methods:
+        frame.self.internal.class.methods[name] = meth
   of ExNew:
     var class = self.eval(frame, expr.new_class)
     var instance = new_instance(class.internal.class)
@@ -389,7 +409,13 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExMethod:
     expr.meth_ns = frame.ns
     var meth = expr.meth
-    frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
+    case frame.self.internal.kind:
+    of GeneClass:
+      frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
+    of GeneMixin:
+      frame.self.internal.mix.methods[meth.internal.fn.name] = meth.internal.fn
+    else:
+      not_allowed()
     result = meth
   of ExInvokeMethod:
     var instance = self.eval(frame, expr.invoke_self)
@@ -757,6 +783,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_import_expr(parent, node)
       of "class":
         return new_class_expr(parent, node)
+      of "mixin":
+        return new_mixin_expr(parent, node)
+      of "include":
+        return new_include_expr(parent, node)
       of "new":
         return new_new_expr(parent, node)
       of "method":
@@ -972,6 +1002,39 @@ proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   for i in body_start..<val.gene_data.len:
     body.add(new_expr(parent, val.gene_data[i]))
   result.class_body = body
+
+proc new_mixin_expr*(parent: Expr, val: GeneValue): Expr =
+  var name = val.gene_data[0]
+  var s: string
+  case name.kind:
+  of GeneSymbol:
+    s = name.symbol
+  of GeneComplexSymbol:
+    s = name.csymbol.rest[^1]
+  else:
+    not_allowed()
+  var mix = new_mixin(s)
+  mix.name_key = parent.module.get_index(s)
+  result = Expr(
+    kind: ExMixin,
+    parent: parent,
+    module: parent.module,
+    mix: new_gene_internal(mix),
+    mix_name: name,
+  )
+  var body: seq[Expr] = @[]
+  for i in 1..<val.gene_data.len:
+    body.add(new_expr(parent, val.gene_data[i]))
+  result.mix_body = body
+
+proc new_include_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExInclude,
+    parent: parent,
+    module: parent.module,
+  )
+  for item in val.gene_data:
+    result.include_args.add(new_expr(result, item))
 
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(

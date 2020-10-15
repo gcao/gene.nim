@@ -41,6 +41,11 @@ type
     name_key*: int
     methods*: Table[string, Function]
 
+  Mixin* = ref object
+    name*: string
+    name_key*: int
+    methods*: Table[string, Function]
+
   Instance* = ref object
     class*: Class
     value*: GeneValue
@@ -84,6 +89,7 @@ type
     GeneReturn
     GeneArguments
     GeneClass
+    GeneMixin
     GeneInstance
     GeneNamespace
     GeneNativeProc
@@ -102,6 +108,8 @@ type
       args*: Arguments
     of GeneClass:
       class*: Class
+    of GeneMixin:
+      mix*: Mixin
     of GeneInstance:
       instance*: Instance
     of GeneNamespace:
@@ -219,7 +227,9 @@ type
     ExReturn
     ExReturnRef
     ExClass
+    ExMixin
     ExNew
+    ExInclude
     ExMethod
     ExInvokeMethod
     ExGetProp
@@ -303,9 +313,15 @@ type
       class*: GeneValue
       class_name*: GeneValue # The simple name or complex name that is associated with the class
       class_body*: seq[Expr]
+    of ExMixin:
+      mix*: GeneValue
+      mix_name*: GeneValue
+      mix_body*: seq[Expr]
     of ExNew:
       new_class*: Expr
       new_args*: seq[Expr]
+    of ExInclude:
+      include_args*: seq[Expr]
     of ExMethod:
       meth_ns*: Namespace
       meth*: GeneValue
@@ -361,6 +377,7 @@ type
     FrModule
     FrNamespace
     FrClass
+    FrMixin
     FrEval # the code passed to (eval)
     FrBlock # like a block passed to a method in Ruby
 
@@ -810,6 +827,9 @@ proc new_gene_arguments*(): GeneValue =
 proc new_class*(name: string): Class =
   return Class(name: name)
 
+proc new_mixin*(name: string): Mixin =
+  return Mixin(name: name)
+
 proc new_instance*(class: Class): Instance =
   return Instance(value: new_gene_gene(GeneNil), class: class)
 
@@ -817,6 +837,12 @@ proc new_gene_internal*(class: Class): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneClass, class: class),
+  )
+
+proc new_gene_internal*(mix: Mixin): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneMixin, mix: mix),
   )
 
 proc new_gene_instance*(instance: Instance): GeneValue =

@@ -78,3 +78,15 @@ test_interpreter """
   )
   ((new B) .test)
 """, "A.test"
+
+test_interpreter """
+  (mixin M
+    (method test _
+      1
+    )
+  )
+  (class A
+    (include M)
+  )
+  ((new A) .test)
+""", 1
