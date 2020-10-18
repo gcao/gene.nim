@@ -25,18 +25,10 @@ type
     MatchExpression # (match [a b] input): a and b will be defined
     MatchAssignment # ([a b] = input): a and b must be defined first
 
-  RootMatcherKind* = enum
-    RootNone # is only useful for argument parsing
-    RootWithName
-    RootChildren
-
   # Match the whole input or the first child (if running in ArgumentMode)
   # Can have name, match nothing, or have group of children
   RootMatcher* = ref object
     mode*: MatchingMode
-    kind*: RootMatcherKind
-    name*: string
-    default*: GeneValue
     children*: seq[Matcher]
 
   MatcherKind* = enum
@@ -48,6 +40,8 @@ type
     root*: RootMatcher
     kind*: MatcherKind
     name*: string
+    children*: seq[Matcher]
+    required*: bool
 
   MatchResultKind* = enum
     MatchSuccess
@@ -84,59 +78,74 @@ proc new_arg_matcher*(): RootMatcher =
     mode: MatchArgParsing,
   )
 
-proc new_matcher*(root: RootMatcher, kind: MatcherKind): Matcher =
+proc new_matcher(root: RootMatcher, kind: MatcherKind): Matcher =
   result = Matcher(
     root: root,
     kind: kind,
   )
 
-proc new_matched_field*(name: string, value: GeneValue): MatchedField =
+proc new_matched_field(name: string, value: GeneValue): MatchedField =
   result = MatchedField(
     name: name,
     value: value,
   )
 
-proc parse*(self: var RootMatcher, parent: Matcher, v: GeneValue) =
-  if parent == nil:
-    # On top level
-    case v.kind:
-    of GeneSymbol:
-      if v.symbol == "_":
-        self.kind = RootNone
-      else:
-        var m = new_matcher(self, MatchData)
-        m.name = v.symbol
-        self.children.add(m)
-    of GeneVector:
-      for item in v.vec:
-        case item.kind:
-        of GeneSymbol:
-          if item.symbol == "_":
-            var m = new_matcher(self, MatchData)
-            self.children.add(m)
-          else:
-            var m = new_matcher(self, MatchData)
-            m.name = item.symbol
-            self.children.add(m)
-        else:
-          todo()
+proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
+  case v.kind:
+  of GeneSymbol:
+    if v.symbol == "_":
+      var m = new_matcher(self, MatchData)
+      group.add(m)
     else:
-      todo()
+      var m = new_matcher(self, MatchData)
+      m.name = v.symbol
+      group.add(m)
+  of GeneVector:
+    for item in v.vec:
+      case item.kind:
+      of GeneSymbol:
+        self.parse(group, item)
+      of GeneVector:
+        var m = new_matcher(self, MatchData)
+        group.add(m)
+        self.parse(m.children, item)
+      else:
+        todo()
   else:
-    # On child levels
     todo()
 
 proc parse*(self: var RootMatcher, v: GeneValue) =
-  self.parse(nil, v)
+  case v.kind:
+  of GeneSymbol:
+    if v.symbol == "_":
+      discard
+    else:
+      var m = new_matcher(self, MatchData)
+      m.name = v.symbol
+      self.children.add(m)
+  of GeneVector:
+    self.parse(self.children, v)
+  else:
+    todo()
 
-proc match*(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
+proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   case self.kind:
   of MatchData:
     var name = self.name
-    var value = input.gene.data[state.data_index]
+    var value: GeneValue
+    case input.kind:
+    of GeneGene:
+      value = input.gene.data[state.data_index]
+    of GeneVector:
+      value = input.vec[state.data_index]
+    else:
+      todo()
     if name != "":
       r.fields.add(new_matched_field(name, value))
     state.data_index += 1
+    var child_state = MatchState()
+    for child in self.children:
+      child.match(value, child_state, r)
   else:
     todo()
 
