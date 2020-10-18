@@ -15,6 +15,7 @@ import ./helpers
 #   parses the input and stores as one or multiple variables
 # * Every standard type should have an adapter to allow pattern matching
 #   to access its data easily
+# * Support "|" for different branches
 #
 
 # Mode: argument, match, ...

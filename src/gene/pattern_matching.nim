@@ -93,40 +93,23 @@ proc new_matched_field(name: string, value: GeneValue): MatchedField =
 proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
   case v.kind:
   of GeneSymbol:
-    if v.symbol == "_":
-      var m = new_matcher(self, MatchData)
-      group.add(m)
-    else:
-      var m = new_matcher(self, MatchData)
+    var m = new_matcher(self, MatchData)
+    group.add(m)
+    if v.symbol != "_":
       m.name = v.symbol
-      group.add(m)
   of GeneVector:
     for item in v.vec:
-      case item.kind:
-      of GeneSymbol:
-        self.parse(group, item)
-      of GeneVector:
+      if item.kind == GeneVector:
         var m = new_matcher(self, MatchData)
         group.add(m)
         self.parse(m.children, item)
       else:
-        todo()
+        self.parse(group, item)
   else:
     todo()
 
 proc parse*(self: var RootMatcher, v: GeneValue) =
-  case v.kind:
-  of GeneSymbol:
-    if v.symbol == "_":
-      discard
-    else:
-      var m = new_matcher(self, MatchData)
-      m.name = v.symbol
-      self.children.add(m)
-  of GeneVector:
-    self.parse(self.children, v)
-  else:
-    todo()
+  self.parse(self.children, v)
 
 proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   case self.kind:
