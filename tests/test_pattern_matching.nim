@@ -95,5 +95,20 @@ test_interpreter """
 
 test_arg_matching "a", "(_ 1)", proc(r: MatchResult) =
   check r.kind == MatchSuccess
+  check r.fields.len == 1
   check r.fields[0].name == "a"
   check r.fields[0].value == 1
+
+test_arg_matching "[a b]", "(_ 1 2)", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 2
+  check r.fields[0].name == "a"
+  check r.fields[0].value == 1
+  check r.fields[1].name == "b"
+  check r.fields[1].value == 2
+
+test_arg_matching "[_ b]", "(_ 1 2)", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 1
+  check r.fields[0].name == "b"
+  check r.fields[0].value == 2

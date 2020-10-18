@@ -107,6 +107,19 @@ proc parse*(self: var RootMatcher, parent: Matcher, v: GeneValue) =
         var m = new_matcher(self, MatchData)
         m.name = v.symbol
         self.children.add(m)
+    of GeneVector:
+      for item in v.vec:
+        case item.kind:
+        of GeneSymbol:
+          if item.symbol == "_":
+            var m = new_matcher(self, MatchData)
+            self.children.add(m)
+          else:
+            var m = new_matcher(self, MatchData)
+            m.name = item.symbol
+            self.children.add(m)
+        else:
+          todo()
     else:
       todo()
   else:
@@ -121,7 +134,8 @@ proc match*(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) 
   of MatchData:
     var name = self.name
     var value = input.gene.data[state.data_index]
-    r.fields.add(new_matched_field(name, value))
+    if name != "":
+      r.fields.add(new_matched_field(name, value))
     state.data_index += 1
   else:
     todo()
