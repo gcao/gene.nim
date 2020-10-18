@@ -51,7 +51,7 @@ type
   MatchedField* = ref object
     name*: string
     value*: GeneValue # Either value_expr or value must be given
-    value_expr*: Expr
+    value_expr*: Expr # Expression for calculating default value
 
   MatchResult* = ref object
     message*: string
@@ -90,6 +90,8 @@ proc new_matched_field(name: string, value: GeneValue): MatchedField =
     value: value,
   )
 
+#################### Parsing #####################
+
 proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
   case v.kind:
   of GeneSymbol:
@@ -110,6 +112,8 @@ proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
 
 proc parse*(self: var RootMatcher, v: GeneValue) =
   self.parse(self.children, v)
+
+#################### Matching ####################
 
 proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   case self.kind:
