@@ -1,8 +1,11 @@
+import unittest
+
 import gene/types
+import gene/pattern_matching
 
 import ./helpers
 
-# Pattern Matching 
+# Pattern Matching
 #
 # * Argument parsing
 # * (match pattern input)
@@ -89,3 +92,8 @@ test_interpreter """
 #   )
 #   cond
 # """, true
+
+test_arg_matching "a", "(_ 1)", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields[0].name == "a"
+  check r.fields[0].value == 1

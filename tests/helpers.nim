@@ -3,6 +3,7 @@ import unittest, strutils
 import gene/types
 import gene/parser
 import gene/interpreter
+import gene/pattern_matching
 
 # Uncomment below lines to see logs
 # import logging
@@ -55,3 +56,14 @@ proc test_core*(code: string, callback: proc(result: GeneValue)) =
     interpreter.load_gene_module()
     interpreter.load_genex_module()
     callback interpreter.eval(code)
+
+proc test_arg_matching*(pattern: string, input: string, callback: proc(result: MatchResult)) =
+  var pattern = cleanup(pattern)
+  var input = cleanup(input)
+  test "Pattern Matching: \n" & pattern & "\n" & input:
+    var p = read(pattern)
+    var i = read(input)
+    var m = new_arg_matcher()
+    m.parse(p)
+    var result = m.match(i)
+    callback(result)
