@@ -27,9 +27,14 @@ test_parser("A", new_gene_symbol("A"))
 test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
 test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
 test_parser("\\true", new_gene_symbol("true"))
+test_parser("^a", new_gene_symbol("^a"))
 
 test_parser("{}", Table[string, GeneValue]())
 test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)
+
+test_parser "[]", new_gene_vec()
+test_parser "[1 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
+test_parser "[1, 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
 
 test_read_all """
   1 # comment
