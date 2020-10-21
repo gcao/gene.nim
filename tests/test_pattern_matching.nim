@@ -1,7 +1,6 @@
 import unittest
 
 import gene/types
-import gene/pattern_matching
 
 import ./helpers
 
@@ -99,6 +98,10 @@ test_arg_matching "a", "[1]", proc(r: MatchResult) =
   check r.fields.len == 1
   check r.fields[0].name == "a"
   check r.fields[0].value == 1
+
+test_arg_matching "_", "[]", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 0
 
 test_arg_matching "a", "[]", proc(r: MatchResult) =
   check r.kind == MatchMissingFields

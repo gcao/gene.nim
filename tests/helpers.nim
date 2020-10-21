@@ -3,7 +3,6 @@ import unittest, strutils
 import gene/types
 import gene/parser
 import gene/interpreter
-import gene/pattern_matching
 
 # Uncomment below lines to see logs
 # import logging
