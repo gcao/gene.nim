@@ -1,4 +1,4 @@
-import ./types
+import ./types, strutils
 
 type
   # # Pattern matching
@@ -123,7 +123,11 @@ proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
     var m = new_matcher(self, MatchData)
     group.add(m)
     if v.symbol != "_":
-      m.name = v.symbol
+      if v.symbol.endsWith("..."):
+        m.name = v.symbol[0..^4]
+        m.splat = true
+      else:
+        m.name = v.symbol
   of GeneVector:
     var i = 0
     while i < v.vec.len:
@@ -175,7 +179,12 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   of MatchData:
     var name = self.name
     var value: GeneValue
-    if self.min_left < input.len - state.data_index:
+    if self.splat:
+      value = new_gene_vec()
+      for i in state.data_index..<input.len - self.min_left:
+        value.vec.add(input[i])
+        state.data_index += 1
+    elif self.min_left < input.len - state.data_index:
       value = input[state.data_index]
       state.data_index += 1
     else:
