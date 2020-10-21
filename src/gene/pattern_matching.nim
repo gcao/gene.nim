@@ -76,6 +76,11 @@ type
 
 ##################################################
 
+proc new_match_matcher*(): RootMatcher =
+  result = RootMatcher(
+    mode: MatchExpression,
+  )
+
 proc new_arg_matcher*(): RootMatcher =
   result = RootMatcher(
     mode: MatchArgParsing,
@@ -98,13 +103,15 @@ proc required(self: Matcher): bool =
 
 #################### Parsing #####################
 
-# proc calc_min_left*(self: var Matcher) =
-#   var min_left = 0
-#   for i in (self.children.len - 1)..0:
-#     var m = self.children[i]
-#     m.min_left = min_left
-#     if m.required:
-#       min_left += 1
+proc calc_min_left*(self: var Matcher) =
+  var min_left = 0
+  var i = self.children.len
+  while i > 0:
+    i -= 1
+    var m = self.children[i]
+    m.min_left = min_left
+    if m.required:
+      min_left += 1
 
 proc calc_min_left*(self: var RootMatcher) =
   var min_left = 0
@@ -112,7 +119,7 @@ proc calc_min_left*(self: var RootMatcher) =
   while i > 0:
     i -= 1
     var m = self.children[i]
-    # m.calc_min_left
+    m.calc_min_left
     m.min_left = min_left
     if m.required:
       min_left += 1
@@ -190,6 +197,7 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
     else:
       if self.default_value == nil:
         r.kind = MatchMissingFields
+        r.missing.add(self.name)
         return
       else:
         value = self.default_value # Default value

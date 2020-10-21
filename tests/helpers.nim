@@ -72,3 +72,14 @@ proc test_arg_matching*(pattern: string, input: string, callback: proc(result: M
     m.parse(p)
     var result = m.match(i)
     callback(result)
+
+proc test_match*(pattern: string, input: string, callback: proc(result: MatchResult)) =
+  var pattern = cleanup(pattern)
+  var input = cleanup(input)
+  test "Pattern Matching: \n" & pattern & "\n" & input:
+    var p = read(pattern)
+    var i = read(input)
+    var m = new_match_matcher()
+    m.parse(p)
+    var result = m.match(i)
+    callback(result)

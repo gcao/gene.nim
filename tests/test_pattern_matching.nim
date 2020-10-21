@@ -102,6 +102,7 @@ test_arg_matching "a", "[1]", proc(r: MatchResult) =
 
 test_arg_matching "a", "[]", proc(r: MatchResult) =
   check r.kind == MatchMissingFields
+  check r.missing[0] == "a"
 
 test_arg_matching "a", "(_ 1)", proc(r: MatchResult) =
   check r.kind == MatchSuccess
@@ -204,3 +205,21 @@ test_arg_matching "[a b... c]", "[1 2 3 4]", proc(r: MatchResult) =
   check r.fields[1].value == new_gene_vec(new_gene_int(2), new_gene_int(3))
   check r.fields[2].name == "c"
   check r.fields[2].value == 4
+
+test_arg_matching "[a [b... c]]", "[1 [2 3 4]]", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 3
+  check r.fields[0].name == "a"
+  check r.fields[0].value == 1
+  check r.fields[1].name == "b"
+  check r.fields[1].value == new_gene_vec(new_gene_int(2), new_gene_int(3))
+  check r.fields[2].name == "c"
+  check r.fields[2].value == 4
+
+# test_arg_matching "[a :do b]", "[1 do 2]", proc(r: MatchResult) =
+#   check r.kind == MatchSuccess
+#   check r.fields.len == 2
+#   check r.fields[0].name == "a"
+#   check r.fields[0].value == 1
+#   check r.fields[1].name == "b"
+#   check r.fields[1].value == 2
