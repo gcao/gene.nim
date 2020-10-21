@@ -556,23 +556,17 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
     args_blk = expr.invoke_args
   else:
     todo()
-  case args_blk.len:
-  of 0:
-    for i in 0..<fn.args.len:
-      fn_scope.def_member(fn.arg_keys[i], GeneNil)
-  of 1:
-    var arg = self.eval(frame, args_blk[0])
-    for i in 0..<fn.args.len:
-      if i == 0:
-        fn_scope.def_member(fn.arg_keys[0], arg)
-      else:
-        fn_scope.def_member(fn.arg_keys[i], GeneNil)
+
+  var args = new_gene_gene(GeneNil)
+  for e in args_blk:
+    args.gene.data.add(self.eval(frame, e))
+  var match_result = fn.matcher.match(args)
+  if match_result.kind == MatchSuccess:
+    for field in match_result.fields:
+      var key = fn.expr.module.get_index(field.name)
+      fn_scope.def_member(key, field.value)
   else:
-    var args: seq[GeneValue] = @[]
-    for e in args_blk:
-      args.add(self.eval(frame, e))
-    for i in 0..<fn.args.len:
-      fn_scope.def_member(fn.arg_keys[i], args[i])
+    todo()
 
   if fn.body_blk.len == 0:
     for item in fn.body:
@@ -923,6 +917,13 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
   if val.gene.data.len > 3:
     result.if_else = new_expr(result, val.gene.data[3])
 
+# Create expressions for default values
+proc update_matchers*(fn: Function, group: seq[Matcher]) =
+  for m in group:
+    if m.default_value != nil and not m.default_value.is_literal:
+      m.default_value_expr = new_expr(fn.expr, m.default_value)
+    fn.update_matchers(m.children)
+
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val
   fn.name_key = parent.module.get_index(fn.name)
@@ -935,6 +936,7 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
     fn: new_gene_internal(fn),
   )
   fn.expr = result
+  fn.update_matchers(fn.matcher.children)
 
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
   var mac: Macro = val

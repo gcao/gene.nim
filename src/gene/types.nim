@@ -466,6 +466,7 @@ type
     name*: string
     # match_name*: bool # Match symbol to name - useful for (myif true then ... else ...)
     default_value*: GeneValue
+    default_value_expr*: Expr
     splat*: bool
     min_left*: int # Minimum number of args following this
     children*: seq[Matcher]
