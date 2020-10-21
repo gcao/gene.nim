@@ -40,11 +40,11 @@ type
     root*: RootMatcher
     kind*: MatcherKind
     name*: string
-    value*: GeneValue
-    # required*: bool # computed property: true if splat is false and default value is not given
+    default_value*: GeneValue
     splat*: bool
     min_left*: int # Minimum number of args following this
     children*: seq[Matcher]
+    # required*: bool # computed property: true if splat is false and default value is not given
 
   MatchResultKind* = enum
     MatchSuccess
@@ -94,7 +94,7 @@ proc new_matched_field(name: string, value: GeneValue): MatchedField =
   )
 
 proc required(self: Matcher): bool =
-  return self.value == nil and not self.splat
+  return self.default_value == nil and not self.splat
 
 #################### Parsing #####################
 
@@ -144,7 +144,7 @@ proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
           var last_matcher = group[^1]
           var value = v.vec[i]
           i += 1
-          last_matcher.value = value
+          last_matcher.default_value = value
   else:
     todo()
 
@@ -188,7 +188,11 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
       value = input[state.data_index]
       state.data_index += 1
     else:
-      value = self.value # Default value
+      if self.default_value == nil:
+        r.kind = MatchMissingFields
+        return
+      else:
+        value = self.default_value # Default value
     if name != "":
       r.fields.add(new_matched_field(name, value))
     var child_state = MatchState()
