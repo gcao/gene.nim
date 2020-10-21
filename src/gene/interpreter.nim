@@ -564,7 +564,10 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
   if match_result.kind == MatchSuccess:
     for field in match_result.fields:
       var key = fn.expr.module.get_index(field.name)
-      fn_scope.def_member(key, field.value)
+      if field.value_expr != nil:
+        fn_scope.def_member(key, self.eval(new_frame, field.value_expr))
+      else:
+        fn_scope.def_member(key, field.value)
   else:
     todo()
 
@@ -927,8 +930,6 @@ proc update_matchers*(fn: Function, group: seq[Matcher]) =
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val
   fn.name_key = parent.module.get_index(fn.name)
-  for name in fn.args:
-    fn.arg_keys.add(parent.module.get_index(name))
   result = Expr(
     kind: ExFn,
     parent: parent,
@@ -1069,8 +1070,6 @@ proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
 
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val # Converter is implicitly called here
-  for name in fn.args:
-    fn.arg_keys.add(parent.module.get_index(name))
   result = Expr(
     kind: ExMethod,
     parent: parent,

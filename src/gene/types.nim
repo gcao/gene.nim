@@ -55,8 +55,6 @@ type
     parent_scope*: Scope
     name*: string
     name_key*: int
-    args*: seq[string]
-    arg_keys*: seq[int]
     matcher*: RootMatcher
     body*: seq[GeneValue]
     expr*: Expr # The function expression that will be the parent of body
@@ -627,10 +625,10 @@ proc `[]=`*(self: var Scope, key: int, val: GeneValue) {.inline.} =
 
 #################### Function ####################
 
-proc new_fn*(name: string, args: seq[string], body: seq[GeneValue]): Function =
+proc new_fn*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Function =
   return Function(
     name: name,
-    args: args,
+    matcher: matcher,
     body: body,
   )
 
@@ -1096,24 +1094,15 @@ converter to_function*(node: GeneValue): Function =
     name = first.symbol
   elif first.kind == GeneComplexSymbol:
     name = first.csymbol.rest[^1]
-  var args: seq[string] = @[]
-  var a = node.gene.data[1]
-  case a.kind:
-  of GeneSymbol:
-    if a.symbol != "_":
-      args.add(a.symbol)
-  of GeneVector:
-    for item in a.vec:
-      args.add(item.symbol)
-  else:
-    not_allowed()
+
+  var matcher = new_arg_matcher()
+  matcher.parse(node.gene.data[1])
+
   var body: seq[GeneValue] = @[]
   for i in 2..<node.gene.data.len:
     body.add node.gene.data[i]
 
-  result = new_fn(name, args, body)
-  result.matcher = new_arg_matcher()
-  result.matcher.parse(node.gene.data[1])
+  result = new_fn(name, matcher, body)
 
 converter to_macro*(node: GeneValue): Macro =
   var first = node.gene.data[0]
@@ -1270,6 +1259,7 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   of MatchData:
     var name = self.name
     var value: GeneValue
+    var value_expr: Expr
     if self.splat:
       value = new_gene_vec()
       for i in state.data_index..<input.len - self.min_left:
@@ -1283,10 +1273,14 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
         r.kind = MatchMissingFields
         r.missing.add(self.name)
         return
+      elif self.default_value_expr != nil:
+        value_expr = self.default_value_expr
       else:
         value = self.default_value # Default value
     if name != "":
-      r.fields.add(new_matched_field(name, value))
+      var matched_field = new_matched_field(name, value)
+      matched_field.value_expr = value_expr
+      r.fields.add(matched_field)
     var child_state = MatchState()
     for child in self.children:
       child.match(value, child_state, r)

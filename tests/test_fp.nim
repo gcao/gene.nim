@@ -17,10 +17,30 @@ test_interpreter "(fn f a a)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
 
 test_interpreter "(fn f _)", proc(r: GeneValue) =
-  check r.internal.fn.args.len == 0
+  check r.internal.fn.matcher.children.len == 0
 
 test_interpreter "(fn f [] 1) (f)", 1
 test_interpreter "(fn f a (a + 1)) (f 1)", 2
+
+test_interpreter """
+  (fn f [a = 1] a)
+  (f)
+""", 1
+
+test_interpreter """
+  (fn f [a = 1] a)
+  (f 2)
+""", 2
+
+test_interpreter """
+  (fn f [a b = a] b)
+  (f 1)
+""", 1
+
+test_interpreter """
+  (fn f [a b = (a + 1)] b)
+  (f 1)
+""", 2
 
 test_interpreter """
   (fn f _
