@@ -16,11 +16,13 @@ test_parser("10e10", 10e10)
 test_parser("+5.0E5", +5.0E5)
 
 test_parser("'t", 't')
+test_parser("'t,", 't')
 test_parser("'\\t", '\t')
 test_parser("'\\tab", '\t')
 test_parser("'中", "中".runeAt(0))
 
 test_parser("\"test\"", "test")
+test_parser(",\"test\",", "test")
 
 test_parser("a", new_gene_symbol("a"))
 test_parser("A", new_gene_symbol("A"))
@@ -33,8 +35,12 @@ test_parser("{}", Table[string, GeneValue]())
 test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)
 
 test_parser "[]", new_gene_vec()
+test_parser "[,]", new_gene_vec()
 test_parser "[1 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
 test_parser "[1, 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
+
+test_parser(",a", new_gene_symbol("a"))
+test_parser("a,", new_gene_symbol("a"))
 
 test_read_all """
   1 # comment
@@ -42,6 +48,10 @@ test_read_all """
 """, proc(r: seq[GeneValue]) =
   check r[0] == 1
   check r[1] == 2
+
+test_read_all "a,b", proc(r: seq[GeneValue]) =
+  check r[0] == new_gene_symbol("a")
+  check r[1] == new_gene_symbol("b")
 
 test "Parser":
   var node: GeneValue

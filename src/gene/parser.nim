@@ -224,7 +224,7 @@ proc read_token(p: var Parser, lead_constituent: bool): string =
   while true:
     inc(pos)
     ch = p.buf[pos]
-    if ch == EndOfFile or isSpaceAscii(ch) or is_terminating_macro(ch):
+    if ch == EndOfFile or isSpaceAscii(ch) or ch == ',' or is_terminating_macro(ch):
       break
     elif non_constituent(ch):
       raise new_exception(ParseError, "Invalid constituent character: " & ch)
