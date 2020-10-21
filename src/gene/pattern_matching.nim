@@ -40,8 +40,11 @@ type
     root*: RootMatcher
     kind*: MatcherKind
     name*: string
+    value*: GeneValue
+    # required*: bool # computed property: true if splat is false and default value is not given
+    splat*: bool
+    min_left*: int # Minimum number of args following this
     children*: seq[Matcher]
-    required*: bool
 
   MatchResultKind* = enum
     MatchSuccess
@@ -68,7 +71,7 @@ type
   # Internal state when applying the matcher to an input
   # Limited to one level
   MatchState = ref object
-    prop_processed*: seq[string]
+    # prop_processed*: seq[string]
     data_index*: int
 
 ##################################################
@@ -90,7 +93,29 @@ proc new_matched_field(name: string, value: GeneValue): MatchedField =
     value: value,
   )
 
+proc required(self: Matcher): bool =
+  return self.value == nil and not self.splat
+
 #################### Parsing #####################
+
+# proc calc_min_left*(self: var Matcher) =
+#   var min_left = 0
+#   for i in (self.children.len - 1)..0:
+#     var m = self.children[i]
+#     m.min_left = min_left
+#     if m.required:
+#       min_left += 1
+
+proc calc_min_left*(self: var RootMatcher) =
+  var min_left = 0
+  var i = self.children.len
+  while i > 0:
+    i -= 1
+    var m = self.children[i]
+    # m.calc_min_left
+    m.min_left = min_left
+    if m.required:
+      min_left += 1
 
 proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
   case v.kind:
@@ -100,36 +125,63 @@ proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
     if v.symbol != "_":
       m.name = v.symbol
   of GeneVector:
-    for item in v.vec:
+    var i = 0
+    while i < v.vec.len:
+      var item = v.vec[i]
+      i += 1
       if item.kind == GeneVector:
         var m = new_matcher(self, MatchData)
         group.add(m)
         self.parse(m.children, item)
       else:
         self.parse(group, item)
+        if i < v.vec.len and v.vec[i] == new_gene_symbol("="):
+          i += 1
+          var last_matcher = group[^1]
+          var value = v.vec[i]
+          i += 1
+          last_matcher.value = value
   else:
     todo()
 
 proc parse*(self: var RootMatcher, v: GeneValue) =
   self.parse(self.children, v)
+  self.calc_min_left
 
 #################### Matching ####################
+
+proc `[]`(self: GeneValue, i: int): GeneValue =
+  case self.kind:
+  of GeneGene:
+    return self.gene.data[i]
+  of GeneVector:
+    return self.vec[i]
+  else:
+    not_allowed()
+
+proc `len`(self: GeneValue): int =
+  if self == nil:
+    return 0
+  case self.kind:
+  of GeneGene:
+    return self.gene.data.len
+  of GeneVector:
+    return self.vec.len
+  else:
+    not_allowed()
 
 proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   case self.kind:
   of MatchData:
     var name = self.name
     var value: GeneValue
-    case input.kind:
-    of GeneGene:
-      value = input.gene.data[state.data_index]
-    of GeneVector:
-      value = input.vec[state.data_index]
+    if self.min_left < input.len - state.data_index:
+      value = input[state.data_index]
+      state.data_index += 1
     else:
-      todo()
+      value = self.value # Default value
     if name != "":
       r.fields.add(new_matched_field(name, value))
-    state.data_index += 1
     var child_state = MatchState()
     for child in self.children:
       child.match(value, child_state, r)

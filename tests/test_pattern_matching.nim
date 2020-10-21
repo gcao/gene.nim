@@ -138,8 +138,24 @@ test_arg_matching "[[[a] [b]] c]", "[[[1] [2]] 3]", proc(r: MatchResult) =
   check r.fields[2].name == "c"
   check r.fields[2].value == 3
 
-# test_arg_matching "[a = 1]", "[]", proc(r: MatchResult) =
-#   check r.kind == MatchSuccess
-#   check r.fields.len == 1
-#   check r.fields[0].name == "a"
-#   check r.fields[0].value == 1
+test_arg_matching "[a = 1]", "[]", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 1
+  check r.fields[0].name == "a"
+  check r.fields[0].value == 1
+
+test_arg_matching "[a b = 2]", "[1]", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 2
+  check r.fields[0].name == "a"
+  check r.fields[0].value == 1
+  check r.fields[1].name == "b"
+  check r.fields[1].value == 2
+
+test_arg_matching "[a = 1 b]", "[2]", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 2
+  check r.fields[0].name == "a"
+  check r.fields[0].value == 1
+  check r.fields[1].name == "b"
+  check r.fields[1].value == 2
