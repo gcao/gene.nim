@@ -260,6 +260,8 @@ type
     ExMapChild
     ExArray
     ExGene
+    ExGet
+    ExSet
     ExGroup
     ExVar
     ExAssignment
@@ -331,6 +333,13 @@ type
       gene_op*: Expr
       gene_props*: seq[Expr]
       gene_data*: seq[Expr]
+    of ExGet:
+      get_target*: Expr
+      get_index*: Expr
+    of ExSet:
+      set_target*: Expr
+      set_index*: Expr
+      set_value*: Expr
     of ExGroup:
       group*: seq[Expr]
     of ExVar, ExAssignment:

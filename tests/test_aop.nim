@@ -36,12 +36,9 @@ import ./helpers
 #       a
 #     )
 #     (before "test" (fnx a
-#       (if a > 0
-#         a
-#       else
-#         0
-#       )
+#       ($set $args 0 (a + 1)) # have to update the args object
 #     ))
 #   )
-#   ((new A) .test -1)
-# """, 0
+#   ((new A) .test 1)
+# """, 2
+#

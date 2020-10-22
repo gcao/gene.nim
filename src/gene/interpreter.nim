@@ -215,6 +215,15 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       result.map[e.map_key] = self.eval(frame, e.map_val)
   of ExMapChild:
     discard
+  of ExGet:
+    var target = self.eval(frame, expr.get_target)
+    var index = self.eval(frame, expr.get_index)
+    result = target.gene.data[index.int]
+  of ExSet:
+    var target = self.eval(frame, expr.set_target)
+    var index = self.eval(frame, expr.set_index)
+    var value = self.eval(frame, expr.set_value)
+    target.gene.data[index.int] = value
   of ExGene:
     var target = self.eval(frame, expr.gene_op)
     var processed = false
@@ -835,6 +844,17 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_invoke_expr(parent, node)
       of "call_native":
         return new_call_native_expr(parent, node)
+      of "$get":
+        result = new_expr(parent, ExGet)
+        result.get_target = new_expr(result, node.gene.data[0])
+        result.get_index = new_expr(result, node.gene.data[1])
+        return result
+      of "$set":
+        result = new_expr(parent, ExSet)
+        result.set_target = new_expr(result, node.gene.data[0])
+        result.set_index = new_expr(result, node.gene.data[1])
+        result.set_value = new_expr(result, node.gene.data[2])
+        return result
       of "$get_class":
         result = new_expr(parent, ExGetClass)
         result.get_class_val = new_expr(result, node.gene.data[0])
