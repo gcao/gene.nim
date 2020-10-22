@@ -1,3 +1,7 @@
+import gene/types
+
+import ./helpers
+
 # AOP(Aspect Oriented Programming):
 #
 # * before
@@ -25,3 +29,19 @@
 # * postcondition
 # * invariant
 #
+
+# test_interpreter """
+#   (class A
+#     (method test a
+#       a
+#     )
+#     (before "test" (fnx a
+#       (if a > 0
+#         a
+#       else
+#         0
+#       )
+#     ))
+#   )
+#   ((new A) .test -1)
+# """, 0

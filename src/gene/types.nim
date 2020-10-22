@@ -56,6 +56,41 @@ type
     class*: Class
     value*: GeneValue
 
+  # Order of execution:
+  # before 1
+  # invariant 1
+  # before 2
+  # invariant 2
+  # around 1
+  # around 2
+  # method
+  # around 2
+  # around 1
+  # after 1
+  # after 2
+  # invariant 1
+  # invariant 2
+  ClassAdviceKind* = enum
+    ClPreProcess
+    ClPreCondition  # if false is returned, throw PreconditionError
+    ClPostProcess
+    ClPostCondition # if false is returned, throw PostconditionError
+    ClAround        # wrap around the method
+    ClInvariant     # executed before and after (not like around advices)
+                    # if false is returned, throw InvariantError
+
+  ClassAdviceMatcher* = ref object
+    `include`*: seq[string]
+    exclude*: seq[string]
+    include_all*: bool # exclude still applies
+
+  ClassAdvice* = ref object
+    name*: string # Optional name for better debugging
+    class*: Class
+    args*: GeneValue
+    body*: seq[GeneValue]
+    expr*: Expr
+
   Function* = ref object
     ns*: Namespace
     parent_scope*: Scope
@@ -1018,7 +1053,14 @@ proc normalize*(self: GeneValue) =
       return
     elif op.symbol == "->":
       return
-    elif op.symbol.startsWith("for"):
+    elif op.symbol == "fnx":
+      self.gene.op = new_gene_symbol("fn")
+      self.gene.data.insert(new_gene_symbol("_"), 0)
+    elif op.symbol == "fnxx":
+      self.gene.op = new_gene_symbol("fn")
+      self.gene.data.insert(new_gene_symbol("_"), 0)
+      self.gene.data.insert(new_gene_symbol("_"), 0)
+    elif op.symbol == "for":
       self.gene.props["init"]   = self.gene.data[0]
       self.gene.props["guard"]  = self.gene.data[1]
       self.gene.props["update"] = self.gene.data[2]

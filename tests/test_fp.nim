@@ -128,3 +128,17 @@ test_interpreter """
   )
   (g 1 2)
 """, 3
+
+test_interpreter """
+  (var f
+    (fnx a a)
+  )
+  (f 1)
+""", 1
+
+test_interpreter """
+  (var f
+    (fnxx 1)
+  )
+  (f)
+""", 1
