@@ -63,20 +63,18 @@ type
   Block* = ref object
     ns*: Namespace
     parent_scope*: Scope
-    args*: seq[string]
-    arg_keys*: seq[int]
+    matcher*: RootMatcher
     body*: seq[GeneValue]
-    expr*: Expr # The function expression that will be the parent of body
+    expr*: Expr # The expression that will be the parent of body
     body_blk*: seq[Expr]
 
   Macro* = ref object
     ns*: Namespace
     name*: string
     name_key*: int
-    args*: seq[string]
-    arg_keys*: seq[int]
+    matcher*: RootMatcher
     body*: seq[GeneValue]
-    expr*: Expr # The function expression that will be the parent of body
+    expr*: Expr # The expression that will be the parent of body
 
   Arguments* = ref object
     positional*: seq[GeneValue]
@@ -634,13 +632,17 @@ proc new_fn*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Function
 
 #################### Macro #######################
 
-proc new_macro*(name: string, args: seq[string], body: seq[GeneValue]): Macro =
-  return Macro(name: name, args: args, body: body)
+proc new_macro*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Macro =
+  return Macro(
+    name: name,
+    matcher: matcher,
+    body: body,
+  )
 
 #################### Block #######################
 
-proc new_block*(args: seq[string], body: seq[GeneValue]): Block =
-  return Block(args: args, body: body)
+proc new_block*(matcher: RootMatcher,  body: seq[GeneValue]): Block =
+  return Block(matcher: matcher, body: body)
 
 #################### Return ######################
 
@@ -1102,7 +1104,7 @@ converter to_function*(node: GeneValue): Function =
   for i in 2..<node.gene.data.len:
     body.add node.gene.data[i]
 
-  result = new_fn(name, matcher, body)
+  return new_fn(name, matcher, body)
 
 converter to_macro*(node: GeneValue): Macro =
   var first = node.gene.data[0]
@@ -1111,39 +1113,25 @@ converter to_macro*(node: GeneValue): Macro =
     name = first.symbol
   elif first.kind == GeneComplexSymbol:
     name = first.csymbol.rest[^1]
-  var args: seq[string] = @[]
-  var a = node.gene.data[1]
-  case a.kind:
-  of GeneSymbol:
-    args.add(a.symbol)
-  of GeneVector:
-    for item in a.vec:
-      args.add(item.symbol)
-  else:
-    not_allowed()
+
+  var matcher = new_arg_matcher()
+  matcher.parse(node.gene.data[1])
+
   var body: seq[GeneValue] = @[]
   for i in 2..<node.gene.data.len:
     body.add node.gene.data[i]
 
-  return new_macro(name, args, body)
+  return new_macro(name, matcher, body)
 
 converter to_block*(node: GeneValue): Block =
-  var args: seq[string] = @[]
+  var matcher = new_arg_matcher()
   if node.gene.props.hasKey("args"):
-    var a = node.gene.props["args"]
-    case a.kind:
-    of GeneSymbol:
-      args.add(a.symbol)
-    of GeneVector:
-      for item in a.vec:
-        args.add(item.symbol)
-    else:
-      not_allowed()
+    matcher.parse(node.gene.props["args"])
   var body: seq[GeneValue] = @[]
   for i in 0..<node.gene.data.len:
     body.add node.gene.data[i]
 
-  return new_block(args, body)
+  return new_block(matcher, body)
 
 #################### Pattern Matching ############
 

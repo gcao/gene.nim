@@ -530,6 +530,18 @@ proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     else:
       todo()
 
+proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatcher, input: GeneValue) =
+  var match_result = matcher.match(input)
+  if match_result.kind == MatchSuccess:
+    for field in match_result.fields:
+      var key = module.get_index(field.name)
+      if field.value_expr != nil:
+        frame.scope.def_member(key, self.eval(frame, field.value_expr))
+      else:
+        frame.scope.def_member(key, field.value)
+  else:
+    todo()
+
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue =
   var fn_scope = ScopeMgr.get()
   var ns: Namespace
@@ -560,16 +572,8 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
   var args = new_gene_gene(GeneNil)
   for e in args_blk:
     args.gene.data.add(self.eval(frame, e))
-  var match_result = fn.matcher.match(args)
-  if match_result.kind == MatchSuccess:
-    for field in match_result.fields:
-      var key = fn.expr.module.get_index(field.name)
-      if field.value_expr != nil:
-        fn_scope.def_member(key, self.eval(new_frame, field.value_expr))
-      else:
-        fn_scope.def_member(key, field.value)
-  else:
-    todo()
+  var module = fn.expr.module
+  self.process_args(new_frame, module, fn.matcher, args)
 
   if fn.body_blk.len == 0:
     for item in fn.body:
@@ -592,25 +596,8 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
   new_frame.parent = frame
   new_frame.self = target
 
-  var args_blk: seq[Expr]
-  case expr.kind:
-  of ExGene:
-    args_blk = expr.gene_data
-  else:
-    todo()
-  case args_blk.len:
-  of 0:
-    for i in 0..<mac.args.len:
-      mac_scope.def_member(mac.arg_keys[i], GeneNil)
-  of 1:
-    for i in 0..<mac.args.len:
-      if i == 0:
-        mac_scope.def_member(mac.arg_keys[0], expr.gene.gene.data[i])
-      else:
-        mac_scope.def_member(mac.arg_keys[i], GeneNil)
-  else:
-    for i in 0..<mac.args.len:
-      mac_scope.def_member(mac.arg_keys[i], expr.gene.gene.data[i])
+  var module = mac.expr.module
+  self.process_args(new_frame, module, mac.matcher, expr.gene)
 
   var blk: seq[Expr] = @[]
   for item in mac.body:
@@ -637,19 +624,11 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
     args_blk = expr.gene_data
   else:
     todo()
-  case args_blk.len:
-  of 0:
-    for i in 0..<blk.args.len:
-      blk_scope.def_member(blk.arg_keys[i], GeneNil)
-  of 1:
-    for i in 0..<blk.args.len:
-      if i == 0:
-        blk_scope.def_member(blk.arg_keys[0], expr.gene.gene.data[i])
-      else:
-        blk_scope.def_member(blk.arg_keys[i], GeneNil)
-  else:
-    for i in 0..<blk.args.len:
-      blk_scope.def_member(blk.arg_keys[i], expr.gene.gene.data[i])
+  var args = new_gene_gene(GeneNil)
+  for e in args_blk:
+    args.gene.data.add(self.eval(frame, e))
+  var module = blk.expr.module
+  self.process_args(new_frame, module, blk.matcher, args)
 
   var blk2: seq[Expr] = @[]
   for item in blk.body:
@@ -942,8 +921,6 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
   var mac: Macro = val
   mac.name_key = parent.module.get_index(mac.name)
-  for name in mac.args:
-    mac.arg_keys.add(parent.module.get_index(name))
   result = Expr(
     kind: ExMacro,
     parent: parent,
@@ -954,8 +931,6 @@ proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
 
 proc new_block_expr*(parent: Expr, val: GeneValue): Expr =
   var blk: Block = val
-  for name in blk.args:
-    blk.arg_keys.add(parent.module.get_index(name))
   result = Expr(
     kind: ExBlock,
     parent: parent,
