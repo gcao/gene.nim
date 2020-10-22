@@ -39,12 +39,18 @@ type
     parent*: Class
     name*: string
     name_key*: int
-    methods*: Table[string, Function]
+    methods*: Table[string, Method]
 
   Mixin* = ref object
     name*: string
     name_key*: int
-    methods*: Table[string, Function]
+    methods*: Table[string, Method]
+
+  Method* = ref object
+    class*: Class
+    name*: string
+    fn*: Function
+    # public*: bool
 
   Instance* = ref object
     class*: Class
@@ -83,6 +89,7 @@ type
     GeneReturn
     GeneClass
     GeneMixin
+    GeneMethod
     GeneInstance
     GeneNamespace
     GeneExplode
@@ -102,6 +109,8 @@ type
       class*: Class
     of GeneMixin:
       mix*: Mixin
+    of GeneMethod:
+      meth*: Method
     of GeneInstance:
       instance*: Instance
     of GeneNamespace:
@@ -349,7 +358,6 @@ type
       invoke_args*: seq[Expr]
     of ExSuper:
       super_args*: seq[Expr]
-      super_args_omitted*: bool
     of ExGetProp:
       get_prop_self*: Expr
       get_prop_name*: string
@@ -663,11 +671,20 @@ proc new_return*(): Return =
 
 #################### Class #######################
 
-proc get_method*(self: Class, name: string): Function =
+proc get_method*(self: Class, name: string): Method =
   if self.methods.hasKey(name):
     return self.methods[name]
   elif self.parent != nil:
     return self.parent.get_method(name)
+
+#################### Method ######################
+
+proc new_method*(class: Class, name: string, fn: Function): Method =
+  return Method(
+    class: class,
+    name: name,
+    fn: fn,
+  )
 
 #################### ComplexSymbol ###############
 
@@ -906,6 +923,12 @@ proc new_gene_internal*(mix: Mixin): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneMixin, mix: mix),
+  )
+
+proc new_gene_internal*(meth: Method): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneMethod, meth: meth),
   )
 
 proc new_gene_instance*(instance: Instance): GeneValue =

@@ -4,6 +4,11 @@ import ./types
 import ./parser
 import ./native_procs
 
+type
+  FnOption = enum
+    FnClass
+    FnMethod
+
 var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
 
@@ -45,6 +50,7 @@ proc new_mixin_expr*(parent: Expr, val: GeneValue): Expr
 proc new_include_expr*(parent: Expr, val: GeneValue): Expr
 proc new_new_expr*(parent: Expr, val: GeneValue): Expr
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr
+proc new_super_expr*(parent: Expr, val: GeneValue): Expr
 proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr
@@ -55,7 +61,7 @@ proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
 
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
-proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue
+proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args_blk: seq[Expr], options: Table[FnOption, GeneValue]): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
@@ -224,7 +230,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       case target.internal.kind:
       of GeneFunction:
         processed = true
-        result = self.call_fn(frame, GeneNil, target.internal.fn, expr)
+        var options = Table[FnOption, GeneValue]()
+        result = self.call_fn(frame, GeneNil, target.internal.fn, expr.gene_data, options)
       of GeneMacro:
         processed = true
         result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
@@ -431,9 +438,10 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var meth = expr.meth
     case frame.self.internal.kind:
     of GeneClass:
-      frame.self.internal.class.methods[meth.internal.fn.name] = meth.internal.fn
+      meth.internal.meth.class = frame.self.internal.class
+      frame.self.internal.class.methods[meth.internal.meth.name] = meth.internal.meth
     of GeneMixin:
-      frame.self.internal.mix.methods[meth.internal.fn.name] = meth.internal.fn
+      frame.self.internal.mix.methods[meth.internal.meth.name] = meth.internal.meth
     else:
       not_allowed()
     result = meth
@@ -443,6 +451,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = self.eval_method(frame, instance, class, expr.invoke_meth, expr)
   of ExSuper:
     todo()
+    # var instance = frame.self
+    # var class = 
+    # discard self.eval_method(frame, instance, class.internal.class, method_name, expr)
   of ExGetProp:
     var target = self.eval(frame, expr.get_prop_self)
     var name = expr.get_prop_name
@@ -534,7 +545,10 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
 proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue =
   var meth = class.get_method(method_name)
   if meth != nil:
-    result = self.call_fn(frame, instance, meth, expr)
+    var options = Table[FnOption, GeneValue]()
+    options[FnClass] = new_gene_internal(class)
+    options[FnMethod] = new_gene_internal(meth)
+    result = self.call_fn(frame, instance, meth.fn, expr.invoke_args, options)
   else:
     case method_name:
     of "new": # No implementation is required for `new` method
@@ -554,7 +568,14 @@ proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatc
   else:
     todo()
 
-proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Expr): GeneValue =
+proc call_fn*(
+  self: VM,
+  frame: Frame,
+  target: GeneValue,
+  fn: Function,
+  args_blk: seq[Expr],
+  options: Table[FnOption, GeneValue]
+): GeneValue =
   var fn_scope = ScopeMgr.get()
   var ns: Namespace
   case fn.expr.kind:
@@ -569,17 +590,6 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
   var new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
   new_frame.parent = frame
   new_frame.self = target
-
-  var args_blk: seq[Expr]
-  case expr.kind:
-  of ExGene:
-    args_blk = expr.gene_data
-  of ExNew:
-    args_blk = expr.new_args
-  of ExInvokeMethod:
-    args_blk = expr.invoke_args
-  else:
-    todo()
 
   new_frame.args = new_gene_gene(GeneNil)
   for e in args_blk:
@@ -809,6 +819,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_new_expr(parent, node)
       of "method":
         return new_method_expr(parent, node)
+      of "super":
+        return new_super_expr(parent, node)
       of "$invoke_method":
         return new_invoke_expr(parent, node)
       of "call_native":
@@ -1082,13 +1094,21 @@ proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
   for i in 1..<val.gene.data.len:
     result.new_args.add(new_expr(result, val.gene.data[i]))
 
+proc new_super_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExSuper,
+    parent: parent,
+    module: parent.module,
+  )
+
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val # Converter is implicitly called here
+  var meth = new_method(nil, fn.name, fn)
   result = Expr(
     kind: ExMethod,
     parent: parent,
     module: parent.module,
-    meth: new_gene_internal(fn),
+    meth: new_gene_internal(meth),
   )
   fn.expr = result
 
