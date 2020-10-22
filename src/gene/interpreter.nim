@@ -60,7 +60,7 @@ proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
 
-proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: seq[Expr]): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args_blk: seq[Expr], options: Table[FnOption, GeneValue]): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
@@ -340,7 +340,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = expr.fn
   of ExArgs:
     case frame.extra.kind:
-    of FrFunction, FrMacro, FrBlock:
+    of FrFunction, FrMacro, FrBlock, FrMethod:
       result = frame.args
     else:
       not_allowed()
@@ -432,7 +432,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var class = self.eval(frame, expr.new_class)
     var instance = new_instance(class.internal.class)
     result = new_gene_instance(instance)
-    discard self.eval_method(frame, result, class.internal.class, "new", expr)
+    discard self.call_method(frame, result, class.internal.class, "new", expr.new_args)
   of ExMethod:
     expr.meth_ns = frame.ns
     var meth = expr.meth
@@ -448,12 +448,13 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExInvokeMethod:
     var instance = self.eval(frame, expr.invoke_self)
     var class = self.get_class(instance)
-    result = self.eval_method(frame, instance, class, expr.invoke_meth, expr)
+    result = self.call_method(frame, instance, class, expr.invoke_meth, expr.invoke_args)
   of ExSuper:
-    todo()
-    # var instance = frame.self
-    # var class = 
-    # discard self.eval_method(frame, instance, class.internal.class, method_name, expr)
+    var instance = frame.self
+    var method_key = frame.ns.module.get_index("$method")
+    var meth = frame.scope[method_key].internal.meth
+    var class = meth.class
+    result = self.call_method(frame, instance, class.parent, meth.name, expr.super_args)
   of ExGetProp:
     var target = self.eval(frame, expr.get_prop_self)
     var name = expr.get_prop_name
@@ -542,19 +543,19 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
   result = self.cur_module.root_ns
   self.modules[name] = result
 
-proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, expr: Expr): GeneValue =
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
   if meth != nil:
     var options = Table[FnOption, GeneValue]()
     options[FnClass] = new_gene_internal(class)
     options[FnMethod] = new_gene_internal(meth)
-    result = self.call_fn(frame, instance, meth.fn, expr.invoke_args, options)
+    result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
     case method_name:
     of "new": # No implementation is required for `new` method
       discard
     else:
-      todo()
+      todo("Method is missing: " & method_name)
 
 proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatcher) =
   var match_result = matcher.match(frame.args)
@@ -576,6 +577,7 @@ proc call_fn*(
   args_blk: seq[Expr],
   options: Table[FnOption, GeneValue]
 ): GeneValue =
+  var module = fn.expr.module
   var fn_scope = ScopeMgr.get()
   var ns: Namespace
   case fn.expr.kind:
@@ -587,7 +589,16 @@ proc call_fn*(
     ns = fn.expr.meth_ns
   else:
     todo()
-  var new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
+  var new_frame: Frame
+  if options.hasKey(FnMethod):
+    new_frame = FrameMgr.get(FrMethod, ns, fn_scope)
+    var class_key = module.get_index("$class")
+    fn_scope.def_member(class_key, options[FnClass])
+    var method_key = module.get_index("$method")
+    var meth = options[FnMethod]
+    fn_scope.def_member(method_key, meth)
+  else:
+    new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
   new_frame.parent = frame
   new_frame.self = target
 
@@ -598,7 +609,6 @@ proc call_fn*(
       new_frame.args.merge(v.internal.explode)
     else:
       new_frame.args.gene.data.add(v)
-  var module = fn.expr.module
   self.process_args(new_frame, module, fn.matcher)
 
   if fn.body_blk.len == 0:
@@ -1100,6 +1110,8 @@ proc new_super_expr*(parent: Expr, val: GeneValue): Expr =
     parent: parent,
     module: parent.module,
   )
+  for item in val.gene.data:
+    result.super_args.add(new_expr(result, item))
 
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val # Converter is implicitly called here
