@@ -85,6 +85,7 @@ type
     GeneMixin
     GeneInstance
     GeneNamespace
+    GeneExplode
     GeneNativeProc
 
   Internal* = ref object
@@ -105,6 +106,8 @@ type
       instance*: Instance
     of GeneNamespace:
       ns*: Namespace
+    of GeneExplode:
+      explode*: GeneValue
     of GeneNativeProc:
       native_proc*: NativeProc
 
@@ -225,6 +228,7 @@ type
     ExLoop
     ExBreak
     ExWhile
+    ExExplode
     ExFn
     ExArgs
     ExMacro
@@ -308,6 +312,8 @@ type
     of ExWhile:
       while_cond*: Expr
       while_blk*: seq[Expr]
+    of ExExplode:
+      explode*: Expr
     of ExFn:
       fn*: GeneValue
     of ExArgs:
@@ -914,6 +920,12 @@ proc new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
+proc new_gene_explode*(v: GeneValue): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneExplode, explode: v),
+  )
+
 #################### GeneValue ###################
 
 proc is_truthy*(self: GeneValue): bool =
@@ -924,6 +936,33 @@ proc is_truthy*(self: GeneValue): bool =
     return false
   else:
     return true
+
+proc merge*(self: var GeneValue, value: GeneValue) =
+  case self.kind:
+  of GeneGene:
+    case value.kind:
+    of GeneGene:
+      for item in value.gene.data:
+        self.gene.data.add(item)
+      for k, v in value.gene.props:
+        self.gene.props[k] = v
+    of GeneVector:
+      for item in value.vec:
+        self.gene.data.add(item)
+    of GeneMap:
+      for k, v in value.map:
+        self.gene.props[k] = v
+    else:
+      todo()
+  of GeneVector:
+    case value.kind:
+    of GeneVector:
+      for item in value.vec:
+        self.gene.data.add(item)
+    else:
+      todo()
+  else:
+    todo()
 
 proc normalize*(self: GeneValue) =
   if self.gene.normalized:
@@ -990,6 +1029,8 @@ proc normalize*(self: GeneValue) =
         self.gene.op = new_gene_symbol("@")
         self.gene.data[0] = new_gene_string_move(first.symbol.substr(2))
         self.gene.props["self"] = op
+    elif first.symbol == "...":
+      return
     elif first.symbol[0] == '.':
       self.gene.props["self"] = op
       self.gene.props["method"] = new_gene_string_move(first.symbol.substr(1))

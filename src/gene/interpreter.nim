@@ -1,4 +1,4 @@
-import tables
+import tables, strutils
 
 import ./types
 import ./parser
@@ -32,6 +32,7 @@ proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_break_expr*(parent: Expr, val: GeneValue): Expr
 proc new_while_expr*(parent: Expr, val: GeneValue): Expr
+proc new_explode_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr
 proc new_block_expr*(parent: Expr, val: GeneValue): Expr
@@ -322,6 +323,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
         cond = self.eval(frame, expr.while_cond)
     except Break as b:
       result = b.val
+  of ExExplode:
+    var val = self.eval(frame, expr.explode)
+    result = new_gene_explode(val)
   of ExFn:
     expr.fn.internal.fn.ns = frame.ns
     expr.fn.internal.fn.parent_scope = frame.scope
@@ -579,7 +583,11 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
 
   new_frame.args = new_gene_gene(GeneNil)
   for e in args_blk:
-    new_frame.args.gene.data.add(self.eval(frame, e))
+    var v = self.eval(frame, e)
+    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
+      new_frame.args.merge(v.internal.explode)
+    else:
+      new_frame.args.gene.data.add(v)
   var module = fn.expr.module
   self.process_args(new_frame, module, fn.matcher)
 
@@ -633,9 +641,14 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
     args_blk = expr.gene_data
   else:
     todo()
+
   new_frame.args = new_gene_gene(GeneNil)
   for e in args_blk:
-    new_frame.args.gene.data.add(self.eval(frame, e))
+    var v = self.eval(frame, e)
+    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
+      new_frame.args.merge(v.internal.explode)
+    else:
+      new_frame.args.gene.data.add(v)
   var module = blk.expr.module
   self.process_args(new_frame, module, blk.matcher)
 
@@ -732,7 +745,13 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
     of "_":
       return new_literal_expr(parent, GenePlaceholder)
     else:
-      return new_symbol_expr(parent, node.symbol)
+      if node.symbol.endsWith("..."):
+        if node.symbol.len == 3: # symbol == "..."
+          return new_explode_expr(parent, new_gene_symbol("$args"))
+        else:
+          return new_explode_expr(parent, new_gene_symbol(node.symbol[0..^4]))
+      else:
+        return new_symbol_expr(parent, node.symbol)
   of GeneComplexSymbol:
     return new_complex_symbol_expr(parent, node)
   of GeneVector:
@@ -917,6 +936,14 @@ proc update_matchers*(fn: Function, group: seq[Matcher]) =
     if m.default_value != nil and not m.default_value.is_literal:
       m.default_value_expr = new_expr(fn.expr, m.default_value)
     fn.update_matchers(m.children)
+
+proc new_explode_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExExplode,
+    parent: parent,
+    module: parent.module,
+  )
+  result.explode = new_expr(parent, val)
 
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val

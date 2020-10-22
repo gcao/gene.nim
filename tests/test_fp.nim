@@ -120,3 +120,11 @@ test_interpreter """
   (f 1)
 """, proc(r: GeneValue) =
   check r.gene.data[0] == 1
+
+test_interpreter """
+  (fn f [a b] (a + b))
+  (fn g _
+    (f ...)
+  )
+  (g 1 2)
+""", 3

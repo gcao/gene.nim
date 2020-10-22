@@ -1,10 +1,7 @@
 # AOP(Aspect Oriented Programming):
 #
-# 
 # * before
-# * before_check
 # * after
-# * after_check
 # * around
 #
 # * Can alter arguments
