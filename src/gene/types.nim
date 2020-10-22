@@ -56,40 +56,64 @@ type
     class*: Class
     value*: GeneValue
 
-  # Order of execution:
-  # before 1
-  # invariant 1
-  # before 2
-  # invariant 2
-  # around 1
-  # around 2
-  # method
-  # around 2
-  # around 1
-  # after 1
-  # after 2
-  # invariant 1
-  # invariant 2
-  ClassAdviceKind* = enum
-    ClPreProcess
-    ClPreCondition  # if false is returned, throw PreconditionError
-    ClPostProcess
-    ClPostCondition # if false is returned, throw PostconditionError
-    ClAround        # wrap around the method
-    ClInvariant     # executed before and after (not like around advices)
-                    # if false is returned, throw InvariantError
+  # # Order of execution:
+  # # before 1
+  # # invariant 1
+  # # before 2
+  # # invariant 2
+  # # around 1
+  # # around 2
+  # # method
+  # # around 2
+  # # around 1
+  # # after 1
+  # # after 2
+  # # invariant 1
+  # # invariant 2
+  # ClassAdviceKind* = enum
+  #   ClPreProcess
+  #   ClPreCondition  # if false is returned, throw PreconditionError
+  #   ClPostProcess
+  #   ClPostCondition # if false is returned, throw PostconditionError
+  #   ClAround        # wrap around the method
+  #   ClInvariant     # executed before and after (not like around advices)
+  #                   # if false is returned, throw InvariantError
 
-  ClassAdviceMatcher* = ref object
-    `include`*: seq[string]
-    exclude*: seq[string]
-    include_all*: bool # exclude still applies
+  # ClassAdviceMatcher* = ref object
+  #   `include`*: seq[string]
+  #   exclude*: seq[string]
+  #   include_all*: bool # exclude still applies
 
-  ClassAdvice* = ref object
+  # ClassAdvice* = ref object
+  #   name*: string # Optional name for better debugging
+  #   class*: Class
+  #   target*: GeneValue
+  #   logic*: Function
+  #   expr*: Expr
+
+  AdviceKind* = enum
+    AdPreProcess
+    AdPreCondition   # if false is returned, throw PreconditionError
+    AdPostProcess
+    AdPostCleanup    # does not affect result
+    AdPostCondition  # if false is returned, throw PostconditionError
+    AdCatchException # like Around advice, will catch specified exception
+    AdAround         # wrap around the method
+    AdInvariant      # executed before and after (not like around advices)
+                     # if false is returned, throw InvariantError
+
+  Advice* = ref object
+    kind: AdviceKind
     name*: string # Optional name for better debugging
-    class*: Class
-    args*: GeneValue
-    body*: seq[GeneValue]
-    expr*: Expr
+    logic*: Function
+    active*: bool
+
+  FunctionWithAdvices* = ref object
+    fn: Function
+    before_advices*: seq[Advice]
+    after_advices*:  seq[Advice]
+    around_advices*: seq[Advice]
+    invariants*:     seq[Advice]
 
   Function* = ref object
     ns*: Namespace
