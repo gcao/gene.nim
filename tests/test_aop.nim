@@ -35,6 +35,21 @@ import ./helpers
 #
 
 # test_interpreter """
+#   (aspect A [_ m]   # target is required, m is the matcher for arguments passed in when applied
+#     (before m (fnx a
+#       ($set $args 0 (a + 1)) # have to update the args object
+#     ))
+#   )
+#   (class C
+#     (method test a
+#       a
+#     )
+#   )
+#   (A C "test")
+#   ((new C) .test 1)
+# """, 2
+
+# test_interpreter """
 #   (class A
 #     (method test a
 #       a
@@ -45,7 +60,6 @@ import ./helpers
 #   )
 #   ((new A) .test 1)
 # """, 2
-#
 
 # test_interpreter """
 #   (fn f a a)

@@ -42,6 +42,8 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr
 proc new_block_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
+proc new_aspect_expr*(parent: Expr, val: GeneValue): Expr
+proc new_advice_expr*(parent: Expr, val: GeneValue): Expr
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr
@@ -261,12 +263,10 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
           val: val,
         )
       else:
-        discard
+        todo()
     else:
-      discard
+      todo()
 
-    if not processed:
-      todo($expr.gene)
   of ExBinary:
     var first = self.eval(frame, expr.bin_first)
     var second = self.eval(frame, expr.bin_second)
@@ -371,6 +371,16 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     )
   of ExReturnRef:
     result = new_gene_internal(Return(frame: frame))
+  of ExAspect:
+    var aspect = expr.aspect.internal.aspect
+    aspect.ns = frame.ns
+    var key = frame.ns.module.get_index(aspect.name)
+    frame.ns[key] = expr.aspect
+    result = expr.aspect
+  of ExAdvice:
+    todo()
+    # Create advice
+    # Apply it immediately
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -824,6 +834,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_macro_expr(parent, node)
       of "return":
         return new_return_expr(parent, node)
+      of "aspect":
+        return new_aspect_expr(parent, node)
+      of "before":
+        return new_advice_expr(parent, node)
       of "ns":
         return new_ns_expr(parent, node)
       of "import":
@@ -1028,6 +1042,25 @@ proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   )
   if val.gene.data.len > 0:
     result.return_val = new_expr(result, val.gene.data[0])
+
+proc new_aspect_expr*(parent: Expr, val: GeneValue): Expr =
+  var aspect: Aspect = val
+  result = Expr(
+    kind: ExAspect,
+    parent: parent,
+    module: parent.module,
+    aspect: new_gene_internal(aspect),
+  )
+  # TODO: convert default values to expressions like below
+  # fn.update_matchers(fn.matcher.children)
+
+proc new_advice_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExAdvice,
+    parent: parent,
+    module: parent.module,
+  )
+  todo()
 
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   var ns = new_namespace(parent.module, val.gene.data[0].symbol)

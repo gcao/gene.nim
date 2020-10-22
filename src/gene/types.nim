@@ -56,6 +56,13 @@ type
     class*: Class
     value*: GeneValue
 
+  Aspect* = ref object
+    ns*: Namespace
+    name*: string
+    matcher*: RootMatcher
+    body*: seq[GeneValue]
+    expr*: Expr
+
   # # Order of execution:
   # # before 1
   # # invariant 1
@@ -151,6 +158,9 @@ type
     GeneMethod
     GeneInstance
     GeneNamespace
+    GeneAspect
+    GeneAdvice
+    GeneFnWithAdvices
     GeneExplode
     GeneNativeProc
 
@@ -174,6 +184,12 @@ type
       instance*: Instance
     of GeneNamespace:
       ns*: Namespace
+    of GeneAspect:
+      aspect*: Aspect
+    of GeneAdvice:
+      advice*: Advice
+    of GeneFnWithAdvices:
+      fn_with_advices*: FunctionWithAdvices
     of GeneExplode:
       explode*: GeneValue
     of GeneNativeProc:
@@ -305,6 +321,8 @@ type
     ExBlock
     ExReturn
     ExReturnRef
+    ExAspect
+    ExAdvice
     ExClass
     ExMixin
     ExNew
@@ -403,6 +421,10 @@ type
       return_val*: Expr
     of ExReturnRef:
       discard
+    of ExAspect:
+      aspect*: GeneValue
+    of ExAdvice:
+      advice: GeneValue
     of ExClass:
       super_class*: Expr
       class*: GeneValue
@@ -476,6 +498,7 @@ type
     FrNamespace
     FrClass
     FrMixin
+    FrAspect
     FrEval # the code passed to (eval)
     FrBlock # like a block passed to a method in Ruby
 
@@ -853,6 +876,26 @@ proc `$`*(node: GeneValue): string =
   else:
     result = $node.kind
 
+#################### AOP #########################
+
+proc new_aspect*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Aspect =
+  return Aspect(
+    name: name,
+    matcher: matcher,
+    body: body,
+  )
+
+proc new_advice*(kind: AdviceKind, logic: Function): Advice =
+  return Advice(
+    kind: kind,
+    logic: logic,
+  )
+
+proc new_fn_with_advices*(fn: Function): FunctionWithAdvices =
+  return FunctionWithAdvices(
+    fn: fn,
+  )
+
 ## ============== NEW OBJ FACTORIES =================
 
 proc new_gene_string*(s: string): GeneValue =
@@ -980,6 +1023,12 @@ proc new_mixin*(name: string): Mixin =
 
 proc new_instance*(class: Class): Instance =
   return Instance(value: new_gene_gene(GeneNil), class: class)
+
+proc new_gene_internal*(aspect: Aspect): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneAspect, aspect: aspect),
+  )
 
 proc new_gene_internal*(class: Class): GeneValue =
   return GeneValue(
@@ -1211,6 +1260,23 @@ converter to_bool*(v: GeneValue): bool =
     return v.vec.len != 0
   else:
     true
+
+converter to_aspect*(node: GeneValue): Aspect =
+  var first = node.gene.data[0]
+  var name: string
+  if first.kind == GeneSymbol:
+    name = first.symbol
+  elif first.kind == GeneComplexSymbol:
+    name = first.csymbol.rest[^1]
+
+  var matcher = new_arg_matcher()
+  matcher.parse(node.gene.data[1])
+
+  var body: seq[GeneValue] = @[]
+  for i in 2..<node.gene.data.len:
+    body.add node.gene.data[i]
+
+  return new_aspect(name, matcher, body)
 
 converter to_function*(node: GeneValue): Function =
   var first = node.gene.data[0]
