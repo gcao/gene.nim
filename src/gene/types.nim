@@ -76,15 +76,11 @@ type
     body*: seq[GeneValue]
     expr*: Expr # The expression that will be the parent of body
 
-  Arguments* = ref object
-    positional*: seq[GeneValue]
-
   GeneInternalKind* = enum
     GeneFunction
     GeneMacro
     GeneBlock
     GeneReturn
-    GeneArguments
     GeneClass
     GeneMixin
     GeneInstance
@@ -101,8 +97,6 @@ type
       blk*: Block
     of GeneReturn:
       ret*: Return
-    of GeneArguments:
-      args*: Arguments
     of GeneClass:
       class*: Class
     of GeneMixin:
@@ -232,6 +226,7 @@ type
     ExBreak
     ExWhile
     ExFn
+    ExArgs
     ExMacro
     ExBlock
     ExReturn
@@ -242,6 +237,7 @@ type
     ExInclude
     ExMethod
     ExInvokeMethod
+    ExSuper
     ExGetProp
     ExSetProp
     ExNamespace
@@ -314,6 +310,8 @@ type
       while_blk*: seq[Expr]
     of ExFn:
       fn*: GeneValue
+    of ExArgs:
+      discard
     of ExBlock:
       blk*: GeneValue
     of ExMacro:
@@ -343,6 +341,9 @@ type
       invoke_self*: Expr
       invoke_meth*: string
       invoke_args*: seq[Expr]
+    of ExSuper:
+      super_args*: seq[Expr]
+      super_args_omitted*: bool
     of ExGetProp:
       get_prop_self*: Expr
       get_prop_name*: string
@@ -387,6 +388,7 @@ type
 
   FrameKind* = enum
     FrFunction
+    FrMacro
     FrMethod
     FrModule
     FrNamespace
@@ -398,13 +400,16 @@ type
   FrameExtra* = ref object
     case kind*: FrameKind
     of FrFunction:
-      # fn_name*: string  # We may support 1-n mapping for function and names
       fn*: Function
+    of FrMacro:
+      mac*: Function
     of FrMethod:
       class*: Class
       meth*: Function
       meth_name*: string
       # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
+    of FrBlock:
+      blk*: Block
     else:
       discard
 
@@ -413,6 +418,7 @@ type
     self*: GeneValue
     ns*: Namespace
     scope*: Scope
+    args*: GeneValue # This is only available in some frames (e.g. function/macro/block)
     extra*: FrameExtra
 
   Break* = ref object of CatchableError
@@ -649,22 +655,6 @@ proc new_block*(matcher: RootMatcher,  body: seq[GeneValue]): Block =
 proc new_return*(): Return =
   return Return()
 
-#################### Arguments ###################
-
-proc new_args*(): Arguments =
-  return Arguments(positional: @[])
-
-proc new_args*(args: seq[GeneValue]): Arguments =
-  return Arguments(positional: args)
-
-proc `[]`*(self: Arguments, i: int): GeneValue =
-  return self.positional[i]
-
-proc `[]=`*(self: Arguments, i: int, val: GeneValue) =
-  while i >= self.positional.len:
-    self.positional.add(GeneNil)
-  self.positional[i] = val
-
 #################### Class #######################
 
 proc get_method*(self: Class, name: string): Function =
@@ -890,12 +880,6 @@ proc new_gene_internal*(ret: Return): GeneValue =
 
 proc new_gene_internal*(value: NativeProc): GeneValue =
   return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
-
-proc new_gene_arguments*(): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(kind: GeneArguments, args: new_args()),
-  )
 
 proc new_class*(name: string): Class =
   return Class(name: name)

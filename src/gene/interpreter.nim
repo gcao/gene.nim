@@ -327,6 +327,12 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     expr.fn.internal.fn.parent_scope = frame.scope
     frame.ns[expr.fn.internal.fn.name_key] = expr.fn
     result = expr.fn
+  of ExArgs:
+    case frame.extra.kind:
+    of FrFunction, FrMacro, FrBlock:
+      result = frame.args
+    else:
+      not_allowed()
   of ExMacro:
     expr.mac.internal.mac.ns = frame.ns
     frame.ns[expr.mac.internal.mac.name_key] = expr.mac
@@ -431,6 +437,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var instance = self.eval(frame, expr.invoke_self)
     var class = self.get_class(instance)
     result = self.eval_method(frame, instance, class, expr.invoke_meth, expr)
+  of ExSuper:
+    todo()
   of ExGetProp:
     var target = self.eval(frame, expr.get_prop_self)
     var name = expr.get_prop_name
@@ -530,8 +538,8 @@ proc eval_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     else:
       todo()
 
-proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatcher, input: GeneValue) =
-  var match_result = matcher.match(input)
+proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatcher) =
+  var match_result = matcher.match(frame.args)
   if match_result.kind == MatchSuccess:
     for field in match_result.fields:
       var key = module.get_index(field.name)
@@ -569,11 +577,11 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, expr: Exp
   else:
     todo()
 
-  var args = new_gene_gene(GeneNil)
+  new_frame.args = new_gene_gene(GeneNil)
   for e in args_blk:
-    args.gene.data.add(self.eval(frame, e))
+    new_frame.args.gene.data.add(self.eval(frame, e))
   var module = fn.expr.module
-  self.process_args(new_frame, module, fn.matcher, args)
+  self.process_args(new_frame, module, fn.matcher)
 
   if fn.body_blk.len == 0:
     for item in fn.body:
@@ -596,8 +604,9 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
   new_frame.parent = frame
   new_frame.self = target
 
+  new_frame.args = expr.gene
   var module = mac.expr.module
-  self.process_args(new_frame, module, mac.matcher, expr.gene)
+  self.process_args(new_frame, module, mac.matcher)
 
   var blk: seq[Expr] = @[]
   for item in mac.body:
@@ -624,11 +633,11 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
     args_blk = expr.gene_data
   else:
     todo()
-  var args = new_gene_gene(GeneNil)
+  new_frame.args = new_gene_gene(GeneNil)
   for e in args_blk:
-    args.gene.data.add(self.eval(frame, e))
+    new_frame.args.gene.data.add(self.eval(frame, e))
   var module = blk.expr.module
-  self.process_args(new_frame, module, blk.matcher, args)
+  self.process_args(new_frame, module, blk.matcher)
 
   var blk2: seq[Expr] = @[]
   for item in blk.body:
@@ -711,13 +720,16 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
   of GeneNilKind, GeneBool, GeneInt, GeneString:
     return new_literal_expr(parent, node)
   of GeneSymbol:
-    if node.symbol == "global":
+    case node.symbol:
+    of "global":
       return new_expr(parent, ExGlobal)
-    elif node.symbol == "self":
+    of "$args":
+      return new_expr(parent, ExArgs)
+    of "self":
       return new_expr(parent, ExSelf)
-    elif node.symbol == "return":
+    of "return":
       return new_expr(parent, ExReturnRef)
-    elif node.symbol == "_":
+    of "_":
       return new_literal_expr(parent, GenePlaceholder)
     else:
       return new_symbol_expr(parent, node.symbol)

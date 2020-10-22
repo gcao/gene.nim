@@ -80,6 +80,20 @@ test_interpreter """
   ((new B) .test)
 """, "A.test"
 
+# test_interpreter """
+#   (class A
+#     (method test a
+#       a
+#     )
+#   )
+#   (class B < A
+#     (method test a
+#       (super ...)
+#     )
+#   )
+#   ((new B) .test 1)
+# """, 1
+
 test_interpreter """
   (mixin M
     (method test _

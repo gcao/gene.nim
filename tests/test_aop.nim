@@ -1,11 +1,11 @@
-# AOP / Design by Contract:
+# AOP(Aspect Oriented Programming):
+#
 # 
 # * before
-# * before_check / precondition
+# * before_check
 # * after
-# * after_check / postcondition
+# * after_check
 # * around
-# * invariant
 #
 # * Can alter arguments
 # * Can alter result
@@ -14,5 +14,17 @@
 # * ...
 #
 # * AOP for OOP
+#   Can be applied to classes and methods
+#
 # * AOP for functions
+#   Can be applied to existing functions (not macros and blocks)
+#
+# Aspects should be grouped, but how?
+# * OOP: on class level
+# * Functions: ?
+#
+# Design by Contract - can be implemented with AOP
+# * precondition
+# * postcondition
+# * invariant
 #

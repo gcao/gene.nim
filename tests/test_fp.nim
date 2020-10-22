@@ -114,3 +114,9 @@ test_interpreter """
   )
   (f)
 """, 1
+
+test_interpreter """
+  (fn f _ $args)
+  (f 1)
+""", proc(r: GeneValue) =
+  check r.gene.data[0] == 1
