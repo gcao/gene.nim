@@ -52,17 +52,18 @@ import ./helpers
 
 # test_interpreter """
 #   # aspect: define aspects that are applicable to functions
-#   (aspect A
-#     (before a
-#       ($set $args 0 (a + 1)) # have to update the args object
-#     )
+#   (aspect A [target arg]
+#     (before target (fnx a
+#       ($set $args 0 (a + arg)) # have to update the args object
+#     ))
 #   )
 #   (fn f a
 #     a
 #   )
-#   (A f) # will re-define f in current scope / namespace
+#   (var f (A f 2)) # re-define f in current scope
 #   (f 1)
-# """, 2
+#   # (f .unwrap) # return the function that was wrapped
+# """, 3
 
 # test_interpreter """
 #   (class A
