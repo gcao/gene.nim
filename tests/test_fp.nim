@@ -142,3 +142,13 @@ test_interpreter """
   )
   (f)
 """, 1
+
+# test_interpreter """
+#   (fn f _ 1)
+#   (var f
+#     (fnx _
+#       ((f) + 1)
+#     )
+#   )
+#   (f)
+# """, 2

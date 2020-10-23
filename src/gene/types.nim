@@ -56,7 +56,12 @@ type
     class*: Class
     value*: GeneValue
 
+  AspectKind* = enum
+    AspClass
+    AspFunction
+
   Aspect* = ref object
+    kind*: AspectKind
     ns*: Namespace
     name*: string
     matcher*: RootMatcher
@@ -69,20 +74,59 @@ type
     target*: GeneValue
     # active*: bool
 
-  # # Order of execution:
-  # # before 1
-  # # invariant 1
-  # # before 2
-  # # invariant 2
-  # # around 1
-  # # around 2
-  # # method
-  # # around 2
-  # # around 1
-  # # after 1
-  # # after 2
-  # # invariant 1
-  # # invariant 2
+  # Order of execution:
+  # wrap 1
+  # wrap 2
+  # before 1
+  # before 2
+  # invariant 1
+  # invariant 2
+  # around 1
+  # around 2
+  # target
+  # around 2
+  # around 1
+  # after 1
+  # after 2
+  # invariant 1
+  # invariant 2
+  # wrap 2
+  # wrap 1
+  AdviceKind* = enum
+    AdBefore         # run before target
+    Adafter          # run after target
+    AdAround         # wrap around target
+    AdCatch          # catch exception
+    AdEnsure         # try...finally to ensure resources are released
+    AdInvariant      # code get executed before and after, false -> throws InvariantError
+
+  AdviceOptionKind* = enum
+    # applicable to before
+    AoPreCondition      # false -> throw PreconditionError
+    AoPreCheck          # false -> stop further execution
+    AoReplaceArgs       # result will be used as new args
+    # applicable to around
+    AoWrapAdvices       # true -> wrap advices and target
+    # applicable to after
+    AoPostCondition     # false -> throw PostConditionError
+    AoResultAsFirstArg
+    AoReplaceResult
+
+  # How do we make `before` advice to return a result? by throwing a special exception?
+  Advice* = ref object
+    owner*: AspectInstance
+    kind*: AdviceKind
+    options*: Table[AdviceOptionKind, GeneValue]
+    logic*: Function
+
+  TargetWithAdvices* = ref object
+    target: GeneValue
+    before_advices*: seq[Advice]
+    after_advices*:  seq[Advice]
+    around_advices*: seq[Advice]
+    wrap_advices*:   seq[Advice] # wrap all advices and target
+    # invariants*:     seq[Advice] # invariants are added to before/after advices list
+
   # ClassAdviceKind* = enum
   #   ClPreProcess
   #   ClPreCondition  # if false is returned, throw PreconditionError
@@ -104,30 +148,31 @@ type
   #   logic*: Function
   #   expr*: Expr
 
-  AdviceKind* = enum
-    AdPreProcess
-    AdPreCondition   # if false is returned, throw PreconditionError
-    AdPostProcess
-    AdPostCleanup    # does not affect result
-    AdPostCondition  # if false is returned, throw PostconditionError
-    AdCatchException # like Around advice, will catch specified exception
-    AdAround         # wrap around the method
-    AdInvariant      # executed before and after (not like around advices)
-                     # if false is returned, throw InvariantError
+  # # some can be replaced with options, option key should be from some enum
+  # AdviceKind* = enum
+  #   AdPreProcess
+  #   AdProcessArgs    # args will be replaced with advice result
+  #   AdPreCondition   # if false is returned, throw PreconditionError
+  #   AdPostProcess
+  #   AdPostCleanup    # does not affect result
+  #   AdPostCondition  # if false is returned, throw PostconditionError
+  #   AdCatchException # like Around advice, will catch specified exception
+  #   AdAround         # wrap around the method
+  #   AdInvariant      # executed before and after (not like around advices)
+  #                    # if false is returned, throw InvariantError
 
-  Advice* = ref object
-    parent*: AspectInstance
-    kind*: AdviceKind
-    name*: string # Optional name for better debugging
-    logic*: Function
-    active*: bool
+  # PointCutKind* = enum
+  #   PcMethod
+  #   PcFunction
 
-  FunctionWithAdvices* = ref object
-    fn: Function
-    before_advices*: seq[Advice]
-    after_advices*:  seq[Advice]
-    around_advices*: seq[Advice]
-    invariants*:     seq[Advice]
+  # PointCut* = ref object
+  #   case kind*: PointCutKind
+  #   of PcMethod:
+  #     `include`*: seq[string]
+  #     # include_pattern*:
+  #     exclude*: seq[string]
+  #   else:
+  #     discard
 
   Function* = ref object
     ns*: Namespace
@@ -167,7 +212,7 @@ type
     GeneNamespace
     GeneAspect
     GeneAdvice
-    GeneFnWithAdvices
+    GeneTargetWithAdvices
     GeneExplode
     GeneNativeProc
 
@@ -195,8 +240,8 @@ type
       aspect*: Aspect
     of GeneAdvice:
       advice*: Advice
-    of GeneFnWithAdvices:
-      fn_with_advices*: FunctionWithAdvices
+    of GeneTargetWithAdvices:
+      twa*: TargetWithAdvices
     of GeneExplode:
       explode*: GeneValue
     of GeneNativeProc:
@@ -898,9 +943,9 @@ proc new_advice*(kind: AdviceKind, logic: Function): Advice =
     logic: logic,
   )
 
-proc new_fn_with_advices*(fn: Function): FunctionWithAdvices =
-  return FunctionWithAdvices(
-    fn: fn,
+proc new_target_with_advices*(target: GeneValue): TargetWithAdvices =
+  return TargetWithAdvices(
+    target: target,
   )
 
 ## ============== NEW OBJ FACTORIES =================
