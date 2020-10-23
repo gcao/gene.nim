@@ -37,7 +37,9 @@ type
 
   Scope* = ref object
     parent*: Scope
-    members*: Table[NameIndexModule, GeneValue]
+    parent_index_max*: NameIndexScope
+    members*:  seq[GeneValue]
+    mappings*: Table[NameIndexModule, seq[NameIndexScope]]
     usage*: int
 
   Class* = ref object
@@ -700,8 +702,10 @@ proc parse*(self: var RootMatcher, v: GeneValue)
 
 #################### Converters ##################
 
-converter convert*(v: int): NameIndexModule = cast[NameIndexModule](v)
-converter convert*(v: NameIndexModule): int = cast[int](v)
+converter int_to_module_index*(v: int): NameIndexModule = cast[NameIndexModule](v)
+converter module_index_to_int*(v: NameIndexModule): int = cast[int](v)
+converter int_to_scope_index*(v: int): NameIndexScope = cast[NameIndexScope](v)
+converter scope_index_to_int*(v: NameIndexScope): int = cast[int](v)
 
 #################### Module ######################
 
@@ -763,32 +767,40 @@ proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
 #################### Scope #######################
 
 proc new_scope*(): Scope = Scope(
-  members: Table[NameIndexModule, GeneValue](),
+  members: @[],
+  mappings: Table[NameIndexModule, seq[NameIndexScope]](),
   usage: 1,
 )
 
 proc reset*(self: var Scope) {.inline.} =
   self.parent = nil
-  self.members.clear()
+  self.members.setLen(0)
 
-proc hasKey*(self: Scope, key: int): bool {.inline.} =
-  if self.members.hasKey(key):
+proc hasKey*(self: Scope, key: NameIndexModule): bool {.inline.} =
+  if self.mappings.hasKey(key):
     return true
   elif self.parent != nil:
     return self.parent.hasKey(key)
 
-proc def_member*(self: var Scope, key: int, val: GeneValue) {.inline.} =
-  self.members[key] = val
+proc def_member*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline.} =
+  var index = self.members.len
+  self.members.add(val)
+  if self.mappings.hasKey(key):
+    self.mappings[key].add(index)
+  else:
+    self.mappings[key] = @[cast[NameIndexScope](index)]
 
-proc `[]`*(self: Scope, key: int): GeneValue {.inline.} =
-  if self.members.hasKey(key):
-    return self.members[key]
+proc `[]`*(self: Scope, key: NameIndexModule): GeneValue {.inline.} =
+  if self.mappings.hasKey(key):
+    var i: int = self.mappings[key][^1]
+    return self.members[i]
   elif self.parent != nil:
     return self.parent[key]
 
-proc `[]=`*(self: var Scope, key: int, val: GeneValue) {.inline.} =
-  if self.members.hasKey(key):
-    self.members[key] = val
+proc `[]=`*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline.} =
+  if self.mappings.hasKey(key):
+    var i: int = self.mappings[key][^1]
+    self.members[i] = val
   elif self.parent != nil:
     self.parent[key] = val
   else:
