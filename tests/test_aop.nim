@@ -46,23 +46,23 @@ import ./helpers
 #       a
 #     )
 #   )
-#   (A C "test")
+#   (var applied (A C "test")) # save the reference to disable later
 #   ((new C) .test 1)
 # """, 2
 
-test_interpreter """
-  # aspect: define aspects that are applicable to functions
-  (aspect A
-    (before a
-      ($set $args 0 (a + 1)) # have to update the args object
-    )
-  )
-  (fn f a
-    a
-  )
-  (A f) # will re-define f in current scope / namespace
-  (f 1)
-""", 2
+# test_interpreter """
+#   # aspect: define aspects that are applicable to functions
+#   (aspect A
+#     (before a
+#       ($set $args 0 (a + 1)) # have to update the args object
+#     )
+#   )
+#   (fn f a
+#     a
+#   )
+#   (A f) # will re-define f in current scope / namespace
+#   (f 1)
+# """, 2
 
 # test_interpreter """
 #   (class A

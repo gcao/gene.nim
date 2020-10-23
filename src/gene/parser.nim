@@ -4,17 +4,18 @@ import ./types
 
 type
   TokenKind* = enum
-    tkError,
-    tkEof,
-    tkString,
-    tkInt,
+    tkError
+    tkEof
+    tkString
+    tkInt
     tkFloat
 
   GeneError* = enum
-    errNone,
-    errInvalidToken,
-    errEofExpected,
+    errNone
+    errInvalidToken
+    errEofExpected
     errQuoteExpected
+    errRegexEndExpected
 
   CommentsHandling* = enum
     discardComments, keepComments
@@ -592,8 +593,71 @@ proc hash*(node: GeneValue): Hash =
   result = !$h
 
 proc read_regex(p: var Parser): GeneValue =
-  let s = read_string(p)
-  result = GeneValue(kind: GeneRegex, regex: s.str)
+  var pos = p.bufpos
+  var buf = p.buf
+  while true:
+    case buf[pos]
+    of '\0':
+      p.err = errRegexEndExpected
+    of '/':
+      inc(pos)
+      break;
+    of '\\':
+      case buf[pos+1]
+      of '\\', '/':
+        add(p.a, buf[pos+1])
+        inc(pos, 2)
+      of 'b':
+        add(p.a, '\b')
+        inc(pos, 2)
+      of 'f':
+        add(p.a, '\b')
+        inc(pos, 2)
+      of 'n':
+        add(p.a, '\L')
+        inc(pos, 2)
+      of 'r':
+        add(p.a, '\C')
+        inc(pos, 2)
+      of 't':
+        add(p.a, '\t')
+        inc(pos, 2)
+      of 'u':
+        inc(pos, 2)
+        var r = parse_escaped_utf16(buf, pos)
+        if r < 0:
+          p.err = errInvalidToken
+          break
+        # deal with surrogates
+        if (r and 0xfc00) == 0xd800:
+          if buf[pos] & buf[pos + 1] != "\\u":
+            p.err = errInvalidToken
+            break
+          inc(pos, 2)
+          var s = parse_escaped_utf16(buf, pos)
+          if (s and 0xfc00) == 0xdc00 and s > 0:
+            r = 0x10000 + (((r - 0xd800) shl 10) or (s - 0xdc00))
+          else:
+            p.err = errInvalidToken
+            break
+        add(p.a, toUTF8(Rune(r)))
+      else:
+        # don't bother with the error
+        add(p.a, buf[pos])
+        inc(pos)
+    of '\c':
+      pos = lexbase.handleCR(p, pos)
+      buf = p.buf
+      add(p.a, '\c')
+    of '\L':
+      pos = lexbase.handleLF(p, pos)
+      buf = p.buf
+      add(p.a, '\L')
+    else:
+      add(p.a, buf[pos])
+      inc(pos)
+  p.bufpos = pos
+  result = GeneValue(kind: GeneRegex, regex: p.a)
 
 proc read_unmatched_delimiter(p: var Parser): GeneValue =
   raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
@@ -637,7 +701,8 @@ proc init_dispatch_macro_array() =
   # dispatch_macros[':'] = read_ns_map
   # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard
-  dispatch_macros['"'] = read_regex
+  # dispatch_macros['"'] = read_regex
+  dispatch_macros['/'] = read_regex
 
 proc init_gene_readers() =
   init_macro_array()

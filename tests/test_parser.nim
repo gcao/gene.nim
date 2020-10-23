@@ -31,6 +31,8 @@ test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
 test_parser("\\true", new_gene_symbol("true"))
 test_parser("^a", new_gene_symbol("^a"))
 
+test_parser("#/a/", new_gene_regex("a"))
+
 test_parser("{}", Table[string, GeneValue]())
 test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)
 
@@ -193,9 +195,6 @@ test "Parser":
     check false
   except ParseError:
     discard
-
-  node = read("#\".*\"")
-  check node.kind == GeneRegex
 
 # TODO
 # test "Parse document":

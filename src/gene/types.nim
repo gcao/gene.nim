@@ -954,6 +954,9 @@ proc new_gene_symbol*(name: string): GeneValue =
 proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
   return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
 
+proc new_gene_regex*(regex: string): GeneValue =
+  return GeneValue(kind: GeneRegex, regex: regex)
+
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneVector,
