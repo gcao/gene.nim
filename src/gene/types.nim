@@ -9,6 +9,11 @@ const BINARY_OPS* = [
 ]
 
 type
+  # index of a name in a module, namespace uses this index too
+  NameIndexModule* = distinct int
+  # index of a name in a scope
+  NameIndexScope* = distinct int
+
   ## This is the root of a running application
   Application* = ref object
     name*: string
@@ -20,30 +25,30 @@ type
   Module* = ref object
     name*: string
     root_ns*: Namespace
-    name_mappings*: Table[string, int]
+    name_mappings*: Table[string, NameIndexModule]
     names*: seq[string]
 
   Namespace* = ref object
     module*: Module
     parent*: Namespace
     name*: string
-    name_key*: int
-    members*: Table[int, GeneValue]
+    name_key*: NameIndexModule
+    members*: Table[NameIndexModule, GeneValue]
 
   Scope* = ref object
     parent*: Scope
-    members*: Table[int, GeneValue]
+    members*: Table[NameIndexModule, GeneValue]
     usage*: int
 
   Class* = ref object
     parent*: Class
     name*: string
-    name_key*: int
+    name_key*: NameIndexModule
     methods*: Table[string, Method]
 
   Mixin* = ref object
     name*: string
-    name_key*: int
+    name_key*: NameIndexModule
     methods*: Table[string, Method]
 
   Method* = ref object
@@ -693,6 +698,11 @@ proc new_match_matcher*(): RootMatcher
 proc new_arg_matcher*(): RootMatcher
 proc parse*(self: var RootMatcher, v: GeneValue)
 
+#################### Converters ##################
+
+converter convert*(v: int): NameIndexModule = cast[NameIndexModule](v)
+converter convert*(v: NameIndexModule): int = cast[int](v)
+
 #################### Module ######################
 
 proc new_module*(name: string): Module =
@@ -704,7 +714,7 @@ proc new_module*(name: string): Module =
 proc new_module*(): Module =
   result = new_module("<unknown>")
 
-proc get_index*(self: var Module, name: string): int =
+proc get_index*(self: var Module, name: string): NameIndexModule =
   if self.name_mappings.hasKey(name):
     return self.name_mappings[name]
   else:
@@ -718,14 +728,14 @@ proc new_namespace*(module: Module): Namespace =
   return Namespace(
     module: module,
     name: "<root>",
-    members: Table[int, GeneValue](),
+    members: Table[NameIndexModule, GeneValue](),
   )
 
 proc new_namespace*(module: Module, name: string): Namespace =
   return Namespace(
     module: module,
     name: name,
-    members: Table[int, GeneValue](),
+    members: Table[NameIndexModule, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace, name: string): Namespace =
@@ -733,7 +743,7 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
     module: parent.module,
     parent: parent,
     name: name,
-    members: Table[int, GeneValue](),
+    members: Table[NameIndexModule, GeneValue](),
   )
 
 proc hasKey*(self: Namespace, key: string): bool {.inline.} =
@@ -753,7 +763,7 @@ proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
 #################### Scope #######################
 
 proc new_scope*(): Scope = Scope(
-  members: Table[int, GeneValue](),
+  members: Table[NameIndexModule, GeneValue](),
   usage: 1,
 )
 
