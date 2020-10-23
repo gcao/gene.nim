@@ -129,10 +129,10 @@ test_interpreter """
 """, 2
 
 test_interpreter """
-  (var i 1)
+  (var i 1) # first i
   (fn f _
-    i
+    i       # reference to first i
   )
-  (var i 2)
+  (var i 2) # second i
   (f)
 """, 1

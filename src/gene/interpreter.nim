@@ -260,6 +260,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
         )
       of GeneAspect:
         result = self.call_aspect(frame, target.internal.aspect, expr)
+      of GeneAspectInstance:
+        todo()
       else:
         todo()
     else:
@@ -370,7 +372,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       val: val,
     )
   of ExReturnRef:
-    result = new_gene_internal(Return(frame: frame))
+    result = Return(frame: frame)
   of ExAspect:
     var aspect = expr.aspect.internal.aspect
     aspect.ns = frame.ns
@@ -378,9 +380,15 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     frame.ns[key] = expr.aspect
     result = expr.aspect
   of ExAdvice:
-    todo()
-    # Create advice
-    # Apply it immediately
+    var kind: AdviceKind
+    case expr.advice.gene.op.symbol:
+    of "before":
+      kind = AdBefore
+    else:
+      todo()
+    var logic = self.eval(frame, new_expr(expr, expr.advice.gene.data[1]))
+    var advice = new_advice(kind, logic.internal.fn)
+    advice.owner = frame.self.internal.aspect_instance
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -410,7 +418,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExSelf:
     return frame.self
   of ExGlobal:
-    return new_gene_internal(self.app.ns)
+    return self.app.ns
   of ExImport:
     var ns = self.modules[expr.import_module]
     for name in expr.import_mappings:
@@ -491,7 +499,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = p(args)
   of ExGetClass:
     var val = self.eval(frame, expr.get_class_val)
-    result = new_gene_internal(self.get_class(val))
+    result = self.get_class(val)
   of ExEval:
     for e in expr.eval_args:
       result = self.eval(frame, new_expr(expr, self.eval(frame, e)))
@@ -566,8 +574,8 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
   var meth = class.get_method(method_name)
   if meth != nil:
     var options = Table[FnOption, GeneValue]()
-    options[FnClass] = new_gene_internal(class)
-    options[FnMethod] = new_gene_internal(meth)
+    options[FnClass] = class
+    options[FnMethod] = meth
     result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
     case method_name:
@@ -701,20 +709,29 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
   var new_scope = ScopeMgr.get()
   var new_frame = FrameMgr.get(FrAspect, aspect.ns, new_scope)
   new_frame.parent = frame
-  new_frame.self = GeneNil # TODO: aspect instance
 
-  new_frame.args = expr.gene
+  new_frame.args = new_gene_gene(GeneNil)
+  for e in expr.gene_data:
+    var v = self.eval(frame, e)
+    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
+      new_frame.args.merge(v.internal.explode)
+    else:
+      new_frame.args.gene.data.add(v)
   var module = aspect.ns.module
   self.process_args(new_frame, module, aspect.matcher)
+
+  var target = new_frame.args[0]
+  result = new_aspect_instance(aspect, target)
+  new_frame.self = result
 
   var blk: seq[Expr] = @[]
   for item in aspect.body:
     blk.add(new_expr(aspect.expr, item))
   try:
     for e in blk:
-      result = self.eval(new_frame, e)
-  except Return as r:
-    result = r.val
+      discard self.eval(new_frame, e)
+  except Return:
+    discard
 
   ScopeMgr.free(new_scope)
 
@@ -1027,7 +1044,7 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExFn,
     parent: parent,
     module: parent.module,
-    fn: new_gene_internal(fn),
+    fn: fn,
   )
   fn.expr = result
   fn.update_matchers(fn.matcher.children)
@@ -1039,7 +1056,7 @@ proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExMacro,
     parent: parent,
     module: parent.module,
-    mac: new_gene_internal(mac),
+    mac: mac,
   )
   mac.expr = result
 
@@ -1049,7 +1066,7 @@ proc new_block_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExBlock,
     parent: parent,
     module: parent.module,
-    blk: new_gene_internal(blk),
+    blk: blk,
   )
   blk.expr = result
 
@@ -1068,7 +1085,7 @@ proc new_aspect_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExAspect,
     parent: parent,
     module: parent.module,
-    aspect: new_gene_internal(aspect),
+    aspect: aspect,
   )
   aspect.expr = result
   # TODO: convert default values to expressions like below
@@ -1080,8 +1097,7 @@ proc new_advice_expr*(parent: Expr, val: GeneValue): Expr =
     parent: parent,
     module: parent.module,
   )
-  todo()
-  # result.advice = ?
+  result.advice = val
 
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   var ns = new_namespace(parent.module, val.gene.data[0].symbol)
@@ -1090,7 +1106,7 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExNamespace,
     parent: parent,
     module: parent.module,
-    ns: new_gene_internal(ns),
+    ns: ns,
   )
   var body: seq[Expr] = @[]
   for i in 1..<val.gene.data.len:
@@ -1123,7 +1139,7 @@ proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExClass,
     parent: parent,
     module: parent.module,
-    class: new_gene_internal(class),
+    class: class,
     class_name: name,
   )
   var body_start = 1
@@ -1151,7 +1167,7 @@ proc new_mixin_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExMixin,
     parent: parent,
     module: parent.module,
-    mix: new_gene_internal(mix),
+    mix: mix,
     mix_name: name,
   )
   var body: seq[Expr] = @[]
@@ -1194,7 +1210,7 @@ proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExMethod,
     parent: parent,
     module: parent.module,
-    meth: new_gene_internal(meth),
+    meth: meth,
   )
   fn.expr = result
 

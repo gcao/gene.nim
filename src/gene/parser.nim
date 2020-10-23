@@ -192,7 +192,8 @@ proc read_comment(p: var Parser): GeneValue =
         pos = lexbase.handleCR(p, pos)
         break
       of EndOfFile:
-        raise new_exception(ParseError, "EOF while reading comment")
+        break
+        # raise new_exception(ParseError, "EOF while reading comment")
       else:
         add(p.a, buf[pos])
         inc(pos)
@@ -209,7 +210,8 @@ proc read_comment(p: var Parser): GeneValue =
         pos = lexbase.handleCR(p, pos)
         break
       of EndOfFile:
-        raise new_exception(ParseError, "EOF while reading comment")
+        break
+        # raise new_exception(ParseError, "EOF while reading comment")
       else:
         inc(pos)
     p.bufpos = pos

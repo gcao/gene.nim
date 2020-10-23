@@ -221,6 +221,7 @@ type
     GeneNamespace
     GeneAspect
     GeneAdvice
+    GeneAspectInstance
     GeneTargetWithAdvices
     GeneExplode
     GeneNativeProc
@@ -249,6 +250,8 @@ type
       aspect*: Aspect
     of GeneAdvice:
       advice*: Advice
+    of GeneAspectInstance:
+      aspect_instance*: AspectInstance
     of GeneTargetWithAdvices:
       twa*: TargetWithAdvices
     of GeneExplode:
@@ -485,7 +488,7 @@ type
     of ExAspect:
       aspect*: GeneValue
     of ExAdvice:
-      advice: GeneValue
+      advice*: GeneValue
     of ExClass:
       super_class*: Expr
       class*: GeneValue
@@ -1007,6 +1010,12 @@ proc new_aspect*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Aspe
     body: body,
   )
 
+proc new_aspect_instance*(aspect: Aspect, target: GeneValue): AspectInstance =
+  return AspectInstance(
+    aspect: aspect,
+    target: target,
+  )
+
 proc new_advice*(kind: AdviceKind, logic: Function): Advice =
   return Advice(
     kind: kind,
@@ -1110,35 +1119,35 @@ proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: vararg
     gene: Gene(op: op, props: props, data: @data),
   )
 
-proc new_gene_internal*(value: Internal): GeneValue =
-  return GeneValue(kind: GeneInternal, internal: value)
-
-proc new_gene_internal*(fn: Function): GeneValue =
+converter new_gene_internal*(fn: Function): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneFunction, fn: fn),
   )
 
-proc new_gene_internal*(mac: Macro): GeneValue =
+converter new_gene_internal*(mac: Macro): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneMacro, mac: mac),
   )
 
-proc new_gene_internal*(blk: Block): GeneValue =
+converter new_gene_internal*(blk: Block): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneBlock, blk: blk),
   )
 
-proc new_gene_internal*(ret: Return): GeneValue =
+converter new_gene_internal*(ret: Return): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneReturn, ret: ret),
   )
 
-proc new_gene_internal*(value: NativeProc): GeneValue =
-  return GeneValue(kind: GeneInternal, internal: Internal(kind: GeneNativeProc, native_proc: value))
+converter new_gene_internal*(value: NativeProc): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneNativeProc, native_proc: value),
+  )
 
 proc new_class*(name: string): Class =
   return Class(name: name)
@@ -1149,37 +1158,43 @@ proc new_mixin*(name: string): Mixin =
 proc new_instance*(class: Class): Instance =
   return Instance(value: new_gene_gene(GeneNil), class: class)
 
-proc new_gene_internal*(aspect: Aspect): GeneValue =
+converter new_gene_internal*(aspect: Aspect): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneAspect, aspect: aspect),
   )
 
-proc new_gene_internal*(class: Class): GeneValue =
+converter new_gene_internal*(v: AspectInstance): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneAspectInstance, aspect_instance: v),
+  )
+
+converter new_gene_internal*(class: Class): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneClass, class: class),
   )
 
-proc new_gene_internal*(mix: Mixin): GeneValue =
+converter new_gene_internal*(mix: Mixin): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneMixin, mix: mix),
   )
 
-proc new_gene_internal*(meth: Method): GeneValue =
+converter new_gene_internal*(meth: Method): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneMethod, meth: meth),
   )
 
-proc new_gene_instance*(instance: Instance): GeneValue =
+converter new_gene_instance*(instance: Instance): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneInstance, instance: instance),
   )
 
-proc new_gene_internal*(ns: Namespace): GeneValue =
+converter new_gene_internal*(ns: Namespace): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneNamespace, ns: ns),
@@ -1404,21 +1419,30 @@ converter to_aspect*(node: GeneValue): Aspect =
   return new_aspect(name, matcher, body)
 
 converter to_function*(node: GeneValue): Function =
-  var first = node.gene.data[0]
-  var name: string
-  if first.kind == GeneSymbol:
-    name = first.symbol
-  elif first.kind == GeneComplexSymbol:
-    name = first.csymbol.rest[^1]
+  case node.kind:
+  of GeneInternal:
+    if node.internal.kind == GeneFunction:
+      return node.internal.fn
+    else:
+      not_allowed()
+  of GeneGene:
+    var first = node.gene.data[0]
+    var name: string
+    if first.kind == GeneSymbol:
+      name = first.symbol
+    elif first.kind == GeneComplexSymbol:
+      name = first.csymbol.rest[^1]
 
-  var matcher = new_arg_matcher()
-  matcher.parse(node.gene.data[1])
+    var matcher = new_arg_matcher()
+    matcher.parse(node.gene.data[1])
 
-  var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene.data.len:
-    body.add node.gene.data[i]
+    var body: seq[GeneValue] = @[]
+    for i in 2..<node.gene.data.len:
+      body.add node.gene.data[i]
 
-  return new_fn(name, matcher, body)
+    return new_fn(name, matcher, body)
+  else:
+    not_allowed()
 
 converter to_macro*(node: GeneValue): Macro =
   var first = node.gene.data[0]
@@ -1536,7 +1560,7 @@ proc parse*(self: var RootMatcher, v: GeneValue) =
 
 #################### Matching ####################
 
-proc `[]`(self: GeneValue, i: int): GeneValue =
+proc `[]`*(self: GeneValue, i: int): GeneValue =
   case self.kind:
   of GeneGene:
     return self.gene.data[i]

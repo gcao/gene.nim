@@ -143,12 +143,12 @@ test_interpreter """
   (f)
 """, 1
 
-# test_interpreter """
-#   (fn f _ 1)
-#   (var f
-#     (fnx _
-#       ((f) + 1)
-#     )
-#   )
-#   (f)
-# """, 2
+test_interpreter """
+  (fn f _ 1)    # first f in namespace
+  (var f        # second f in scope
+    (fnx _
+      ((f) + 1) # reference to first f because second f is defined after the anonymous function
+    )
+  )
+  (f)           # second f
+""", 2
