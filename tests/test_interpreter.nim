@@ -128,11 +128,11 @@ test_interpreter """
   ($get a 0)
 """, 2
 
-# test_interpreter """
-#   (var i 1)
-#   (fn f _
-#     i
-#   )
-#   (var i 2)
-#   (f)
-# """, 1
+test_interpreter """
+  (var i 1)
+  (fn f _
+    i
+  )
+  (var i 2)
+  (f)
+""", 1

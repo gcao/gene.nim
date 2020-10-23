@@ -184,6 +184,7 @@ type
   Function* = ref object
     ns*: Namespace
     parent_scope*: Scope
+    parent_scope_max*: NameIndexScope
     name*: string
     name_key*: int
     matcher*: RootMatcher
@@ -194,6 +195,7 @@ type
   Block* = ref object
     ns*: Namespace
     parent_scope*: Scope
+    parent_scope_max*: NameIndexScope
     matcher*: RootMatcher
     body*: seq[GeneValue]
     expr*: Expr # The expression that will be the parent of body
@@ -772,15 +774,32 @@ proc new_scope*(): Scope = Scope(
   usage: 1,
 )
 
+proc max*(self: Scope): NameIndexScope {.inline.} =
+  return self.members.len
+
+proc set_parent*(self: var Scope, parent: Scope, max: NameIndexScope) {.inline.} =
+  parent.usage += 1
+  self.parent = parent
+  self.parent_index_max = max
+
 proc reset*(self: var Scope) {.inline.} =
   self.parent = nil
   self.members.setLen(0)
+
+proc hasKey(self: Scope, key: NameIndexModule, max: int): bool {.inline.} =
+  if self.mappings.hasKey(key):
+    # If first >= max, all others will be >= max
+    if self.mappings[key][0] < max:
+      return true
+
+  if self.parent != nil:
+    return self.parent.hasKey(key, self.parent_index_max)
 
 proc hasKey*(self: Scope, key: NameIndexModule): bool {.inline.} =
   if self.mappings.hasKey(key):
     return true
   elif self.parent != nil:
-    return self.parent.hasKey(key)
+    return self.parent.hasKey(key, self.parent_index_max)
 
 proc def_member*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline.} =
   var index = self.members.len
@@ -790,19 +809,48 @@ proc def_member*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline
   else:
     self.mappings[key] = @[cast[NameIndexScope](index)]
 
+proc `[]`(self: Scope, key: NameIndexModule, max: int): GeneValue {.inline.} =
+  if self.mappings.hasKey(key):
+    var found = self.mappings[key]
+    var i = found.len - 1
+    while i >= 0:
+      var index: int = found[i]
+      if index < max:
+        return self.members[index]
+      i -= 1
+
+  if self.parent != nil:
+    return self.parent[key, self.parent_index_max]
+
 proc `[]`*(self: Scope, key: NameIndexModule): GeneValue {.inline.} =
   if self.mappings.hasKey(key):
     var i: int = self.mappings[key][^1]
     return self.members[i]
   elif self.parent != nil:
-    return self.parent[key]
+    return self.parent[key, self.parent_index_max]
+
+proc `[]=`(self: var Scope, key: NameIndexModule, val: GeneValue, max: int) {.inline.} =
+  if self.mappings.hasKey(key):
+    var found = self.mappings[key]
+    var i = found.len - 1
+    while i >= 0:
+      var index: int = found[i]
+      if index < max:
+        self.members[i] = val
+        return
+      i -= 1
+
+  if self.parent != nil:
+    self.parent.`[]=`(key, val, self.parent_index_max)
+  else:
+    not_allowed()
 
 proc `[]=`*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline.} =
   if self.mappings.hasKey(key):
     var i: int = self.mappings[key][^1]
     self.members[i] = val
   elif self.parent != nil:
-    self.parent[key] = val
+    self.parent.`[]=`(key, val, self.parent_index_max)
   else:
     not_allowed()
 
