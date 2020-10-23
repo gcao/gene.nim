@@ -62,12 +62,15 @@ proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
 
-proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: seq[Expr]): GeneValue
-proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args_blk: seq[Expr], options: Table[FnOption, GeneValue]): GeneValue
+proc eval_args*(self: VM, frame: Frame, args: seq[Expr]): GeneValue
+
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue
+proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: Table[FnOption, GeneValue]): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
 proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
+proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, expr: Expr): GeneValue
 
 #################### Frame #######################
 
@@ -241,7 +244,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       case target.internal.kind:
       of GeneFunction:
         var options = Table[FnOption, GeneValue]()
-        result = self.call_fn(frame, GeneNil, target.internal.fn, expr.gene_data, options)
+        var args = self.eval_args(frame, expr.gene_data)
+        result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
       of GeneMacro:
         result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
       of GeneBlock:
@@ -261,7 +265,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       of GeneAspect:
         result = self.call_aspect(frame, target.internal.aspect, expr)
       of GeneAspectInstance:
-        todo()
+        result = self.call_aspect_instance(frame, target.internal.aspect_instance, expr)
       else:
         todo()
     else:
@@ -570,12 +574,13 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
   result = self.cur_module.root_ns
   self.modules[name] = result
 
-proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: seq[Expr]): GeneValue =
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
   if meth != nil:
     var options = Table[FnOption, GeneValue]()
     options[FnClass] = class
     options[FnMethod] = meth
+    var args = self.eval_args(frame, args_blk)
     result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
     case method_name:
@@ -583,6 +588,15 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
       discard
     else:
       todo("Method is missing: " & method_name)
+
+proc eval_args*(self: VM, frame: Frame, args: seq[Expr]): GeneValue =
+  result = new_gene_gene(GeneNil)
+  for e in args:
+    var v = self.eval(frame, e)
+    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
+      result.merge(v.internal.explode)
+    else:
+      result.gene.data.add(v)
 
 proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatcher) =
   var match_result = matcher.match(frame.args)
@@ -601,7 +615,7 @@ proc call_fn*(
   frame: Frame,
   target: GeneValue,
   fn: Function,
-  args_blk: seq[Expr],
+  args: GeneValue,
   options: Table[FnOption, GeneValue]
 ): GeneValue =
   var module = fn.expr.module
@@ -628,13 +642,7 @@ proc call_fn*(
   new_frame.parent = frame
   new_frame.self = target
 
-  new_frame.args = new_gene_gene(GeneNil)
-  for e in args_blk:
-    var v = self.eval(frame, e)
-    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
-      new_frame.args.merge(v.internal.explode)
-    else:
-      new_frame.args.gene.data.add(v)
+  new_frame.args = args
   self.process_args(new_frame, module, fn.matcher)
 
   if fn.body_blk.len == 0:
@@ -732,6 +740,27 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
       discard self.eval(new_frame, e)
   except Return:
     discard
+
+  ScopeMgr.free(new_scope)
+
+proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, expr: Expr): GeneValue =
+  var aspect = instance.aspect
+  var new_scope = ScopeMgr.get()
+  var new_frame = FrameMgr.get(FrAspect, aspect.ns, new_scope)
+  new_frame.parent = frame
+
+  new_frame.args = new_gene_gene(GeneNil)
+  for e in expr.gene_data:
+    var v = self.eval(frame, e)
+    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
+      new_frame.args.merge(v.internal.explode)
+    else:
+      new_frame.args.gene.data.add(v)
+
+  # invoke before advices
+  # invoke target
+  # self.call_fn(instance.target)
+  # invoke after advices
 
   ScopeMgr.free(new_scope)
 
