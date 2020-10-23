@@ -67,6 +67,8 @@ proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args_blk:
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
+proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
+
 #################### Frame #######################
 
 proc new_frame*(): Frame = Frame(
@@ -228,10 +230,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     target.gene.data[index.int] = value
   of ExGene:
     var target = self.eval(frame, expr.gene_op)
-    var processed = false
     case target.kind:
     of GeneSymbol:
-      processed = true
       result = new_gene_gene(target)
       for e in expr.gene_props:
         result.gene.props[e.map_key] = self.eval(frame, e.map_val)
@@ -240,17 +240,13 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     of GeneInternal:
       case target.internal.kind:
       of GeneFunction:
-        processed = true
         var options = Table[FnOption, GeneValue]()
         result = self.call_fn(frame, GeneNil, target.internal.fn, expr.gene_data, options)
       of GeneMacro:
-        processed = true
         result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
       of GeneBlock:
-        processed = true
         result = self.call_block(frame, GeneNil, target.internal.blk, expr)
       of GeneReturn:
-        processed = true
         var val = GeneNil
         if expr.gene_data.len == 0:
           discard
@@ -262,6 +258,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
           frame: target.internal.ret.frame,
           val: val,
         )
+      of GeneAspect:
+        result = self.call_aspect(frame, target.internal.aspect, expr)
       else:
         todo()
     else:
@@ -699,6 +697,27 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
 
   ScopeMgr.free(blk_scope)
 
+proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue =
+  var new_scope = ScopeMgr.get()
+  var new_frame = FrameMgr.get(FrAspect, aspect.ns, new_scope)
+  new_frame.parent = frame
+  new_frame.self = GeneNil # TODO: aspect instance
+
+  new_frame.args = expr.gene
+  var module = aspect.ns.module
+  self.process_args(new_frame, module, aspect.matcher)
+
+  var blk: seq[Expr] = @[]
+  for item in aspect.body:
+    blk.add(new_expr(aspect.expr, item))
+  try:
+    for e in blk:
+      result = self.eval(new_frame, e)
+  except Return as r:
+    result = r.val
+
+  ScopeMgr.free(new_scope)
+
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   if name.first == "global":
     result = GLOBAL_NS
@@ -894,9 +913,9 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         result.not_allowed = new_expr(result, node.gene.data[0])
         return result
       else:
-        discard
+        discard # will continue below
     else:
-      discard
+      discard # will continue below
     result = new_gene_expr(parent, node)
     result.gene_op = new_expr(result, node.gene.op)
     for k, v in node.gene.props:
@@ -1051,6 +1070,7 @@ proc new_aspect_expr*(parent: Expr, val: GeneValue): Expr =
     module: parent.module,
     aspect: new_gene_internal(aspect),
   )
+  aspect.expr = result
   # TODO: convert default values to expressions like below
   # fn.update_matchers(fn.matcher.children)
 
@@ -1061,6 +1081,7 @@ proc new_advice_expr*(parent: Expr, val: GeneValue): Expr =
     module: parent.module,
   )
   todo()
+  # result.advice = ?
 
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   var ns = new_namespace(parent.module, val.gene.data[0].symbol)

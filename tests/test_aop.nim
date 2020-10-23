@@ -35,7 +35,8 @@ import ./helpers
 #
 
 # test_interpreter """
-#   (aspect A [_ m]   # target is required, m is the matcher for arguments passed in when applied
+#   # claspect: define aspects that are applicable to classes
+#   (claspect A [target m] # target is required, m is the matcher for arguments passed in when applied
 #     (before m (fnx a
 #       ($set $args 0 (a + 1)) # have to update the args object
 #     ))
@@ -48,6 +49,20 @@ import ./helpers
 #   (A C "test")
 #   ((new C) .test 1)
 # """, 2
+
+test_interpreter """
+  # aspect: define aspects that are applicable to functions
+  (aspect A
+    (before a
+      ($set $args 0 (a + 1)) # have to update the args object
+    )
+  )
+  (fn f a
+    a
+  )
+  (A f) # will re-define f in current scope / namespace
+  (f 1)
+""", 2
 
 # test_interpreter """
 #   (class A

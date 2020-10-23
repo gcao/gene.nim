@@ -61,7 +61,13 @@ type
     name*: string
     matcher*: RootMatcher
     body*: seq[GeneValue]
+    # active*: bool
     expr*: Expr
+
+  AspectInstance* = ref object
+    aspect*: Aspect
+    target*: GeneValue
+    # active*: bool
 
   # # Order of execution:
   # # before 1
@@ -110,7 +116,8 @@ type
                      # if false is returned, throw InvariantError
 
   Advice* = ref object
-    kind: AdviceKind
+    parent*: AspectInstance
+    kind*: AdviceKind
     name*: string # Optional name for better debugging
     logic*: Function
     active*: bool
