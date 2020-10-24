@@ -82,6 +82,10 @@ test "Parser":
   check node.gene.props == {"a": GeneTrue}.toTable
   check node.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
+  node = read("(f ^a 1)")
+  check node.kind == GeneGene
+  check node.gene.props == {"a": new_gene_int(1)}.toTable
+
   node = read("(1 ^!a 2 3)")
   check node.kind == GeneGene
   check node.gene.props == {"a": GeneFalse}.toTable
