@@ -50,6 +50,21 @@ import ./helpers
 #   ((new C) .test 1)
 # """, 2
 
+test_interpreter """
+  # aspect: define aspects that are applicable to functions
+  (aspect A [target arg]
+    (before target (fnx a
+      ($set $args 0 (a + arg)) # have to update the args object
+    ))
+  )
+  (fn f a
+    a
+  )
+  (var f (A f 2)) # re-define f in current scope
+  (f 1)
+  # (f .unwrap) # return the function that was wrapped
+""", 3
+
 # test_interpreter """
 #   # aspect: define aspects that are applicable to functions
 #   (aspect A [target arg]
@@ -61,9 +76,9 @@ import ./helpers
 #     a
 #   )
 #   (var f (A f 2)) # re-define f in current scope
+#   (var f (A f 3)) # re-define f in current scope
 #   (f 1)
-#   # (f .unwrap) # return the function that was wrapped
-# """, 3
+# """, 6
 
 # test_interpreter """
 #   (class A
@@ -75,14 +90,4 @@ import ./helpers
 #     ))
 #   )
 #   ((new A) .test 1)
-# """, 2
-
-# test_interpreter """
-#   (fn f a a)
-#   # `f` will be replaced with a new pseudo function which can invoke
-#   # the original function
-#   (before f (fnx a
-#     ($set $args 0 (a + 1)) # have to update the args object
-#   ))
-#   (f 1)
 # """, 2

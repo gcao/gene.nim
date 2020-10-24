@@ -80,6 +80,10 @@ type
     aspect*: Aspect
     target*: GeneValue
     # active*: bool
+    before_advices*: seq[Advice]
+    after_advices*:  seq[Advice]
+    around_advices*: seq[Advice]
+    wrap_advices*:   seq[Advice] # wrap all advices and target
 
   # Order of execution:
   # wrap 1

@@ -384,15 +384,17 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     frame.ns[key] = expr.aspect
     result = expr.aspect
   of ExAdvice:
-    var kind: AdviceKind
+    var instance = frame.self.internal.aspect_instance
+    var advice: Advice
+    var logic = self.eval(frame, new_expr(expr, expr.advice.gene.data[1]))
     case expr.advice.gene.op.symbol:
     of "before":
-      kind = AdBefore
+      advice = new_advice(AdBefore, logic.internal.fn)
+      instance.before_advices.add(advice)
     else:
       todo()
-    var logic = self.eval(frame, new_expr(expr, expr.advice.gene.data[1]))
-    var advice = new_advice(kind, logic.internal.fn)
-    advice.owner = frame.self.internal.aspect_instance
+    advice.owner = instance
+
   of ExUnknown:
     var parent = expr.parent
     case parent.kind:
@@ -758,8 +760,11 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, exp
       new_frame.args.gene.data.add(v)
 
   # invoke before advices
+  var options = Table[FnOption, GeneValue]()
+  for advice in instance.before_advices:
+    discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
   # invoke target
-  # self.call_fn(instance.target)
+  result = self.call_fn(new_frame, frame.self, instance.target, new_frame.args, options)
   # invoke after advices
 
   ScopeMgr.free(new_scope)
