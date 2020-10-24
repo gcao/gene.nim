@@ -24,6 +24,11 @@ proc test_parser*(code: string, callback: proc(result: GeneValue)) =
   test "Parser / read: " & code:
     callback read(code)
 
+proc test_read_all*(code: string, result: seq[GeneValue]) =
+  var code = cleanup(code)
+  test "Parser / read_all: " & code:
+    check read_all(code) == result
+
 proc test_read_all*(code: string, callback: proc(result: seq[GeneValue])) =
   var code = cleanup(code)
   test "Parser / read_all: " & code:

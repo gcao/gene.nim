@@ -12,6 +12,7 @@ test_parser("true", true)
 test_parser("false", false)
 
 test_parser("10", 10)
+test_parser("-1", -1)
 test_parser("10e10", 10e10)
 test_parser("+5.0E5", +5.0E5)
 
@@ -30,6 +31,8 @@ test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
 test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
 test_parser("\\true", new_gene_symbol("true"))
 test_parser("^a", new_gene_symbol("^a"))
+test_parser("symbol-👋", new_gene_symbol("symbol-👋"))
+test_parser("+foo+", new_gene_symbol("+foo+"))
 
 test_parser("#/a/", new_gene_regex("a"))
 
@@ -55,98 +58,60 @@ test_read_all "a,b", proc(r: seq[GeneValue]) =
   check r[0] == new_gene_symbol("a")
   check r[1] == new_gene_symbol("b")
 
+test_read_all "1 2", @[new_gene_int(1), new_gene_int(2)]
+
+test_parser "1 2 3", 1
+
+test_parser "()", proc(r: GeneValue) =
+  check r.gene.op == nil
+  check r.gene.props.len == 0
+  check r.gene.data.len == 0
+
+test_parser "(())", proc(r: GeneValue) =
+  check r.kind == GeneGene
+  check r.gene.data.len == 0
+  check r.gene.op.kind == GeneGene
+  check r.gene.op.gene.data.len == 0
+
+test_parser "(1 2 3)", proc(r: GeneValue) =
+  check r.gene.op == 1
+  check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
+
+test_parser "(1 ^a 2 3 4)", proc(r: GeneValue) =
+  check r.gene.op == 1
+  check r.gene.props == {"a": new_gene_int(2)}.toTable
+  check r.gene.data == @[new_gene_int(3), new_gene_int(4)]
+
+test_parser "(1 ^^a 2 3)", proc(r: GeneValue) =
+  check r.gene.op == 1
+  check r.gene.props == {"a": GeneTrue}.toTable
+  check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
+
+test_parser "(1 ^!a 2 3)", proc(r: GeneValue) =
+  check r.gene.op == 1
+  check r.gene.props == {"a": GeneFalse}.toTable
+  check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
+
+test_parser """
+  (
+    ;; comment in a list
+  )
+""", proc(r: GeneValue) =
+  check r.kind == GeneGene
+
+test_parser """
+  {^^x ^!y ^^z}
+""", proc(r: GeneValue) =
+  check r.kind == GeneMap
+  check r.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
+
+test_parser ":foo", proc(r: GeneValue) = # -> (quote foo)
+  check r.kind == GeneGene
+  check r.gene.op == new_gene_symbol("quote")
+  check r.gene.data == @[new_gene_symbol("foo")]
+
 test "Parser":
   var node: GeneValue
-  var nodes: seq[GeneValue]
-
-  nodes = read_all("10 11")
-  check nodes.len == 2
-  check nodes[0].int == 10
-  check nodes[1].int == 11
-
-  node = read("1 2 3")
-  check node.kind == GeneInt
-  check node.int == 1
-
-  node = read("(1 2 3)")
-  check node.kind == GeneGene
-  check node.gene.data.len == 2
-
-  node = read("(1 ^a 1 2 3)")
-  check node.kind == GeneGene
-  check node.gene.props == {"a": new_gene_int(1)}.toTable
-  check node.gene.data == @[new_gene_int(2), new_gene_int(3)]
-
-  node = read("(1 ^^a 2 3)")
-  check node.kind == GeneGene
-  check node.gene.props == {"a": GeneTrue}.toTable
-  check node.gene.data == @[new_gene_int(2), new_gene_int(3)]
-
-  node = read("(f ^a 1)")
-  check node.kind == GeneGene
-  check node.gene.props == {"a": new_gene_int(1)}.toTable
-
-  node = read("(1 ^!a 2 3)")
-  check node.kind == GeneGene
-  check node.gene.props == {"a": GeneFalse}.toTable
-  check node.gene.data == @[new_gene_int(2), new_gene_int(3)]
-
-  node = read("""
-    (
-      ;; comment in a list
-    )
-  """)
-  check node.kind == GeneGene
-
-  node = read("""
-    {^^x ^!y ^^z}
-  """)
-  check node.kind == GeneMap
-  check node.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
-
-  node = read("1")
-  check node.kind == GeneInt
-  check node.int == 1
-
-  node = read("-1")
-  check node.kind == GeneInt
-  check node.int == -1
-
-  node = read("()")
-  check node.gene.op == nil
-  check node.kind == GeneGene
-  check node.gene.data.len == 0
-
-  node = read("(1)")
-  check node.gene.op == GeneValue(kind: GeneInt, int: 1)
-  check node.kind == GeneGene
-  check node.gene.data.len == 0
-
-  node = read("(())")
-  check node.kind == GeneGene
-  check node.gene.data.len == 0
-  check node.gene.op.kind == GeneGene
-  check node.gene.op.gene.data.len == 0
-
-  node = read("nil")
-  check node.kind == GeneNilKind
-
-  node = read("symbol-👋") #emoji
-  check node.kind == GeneSymbol
-  check node.symbol == "symbol-👋"
-
-  node = read("+foo+")
-  check node.kind == GeneSymbol
-  check node.symbol == "+foo+"
-
-  # TODO
-  # node = read("moo/bar")
-  # check node.kind == GeneComplexSymbol
-  # check node.csymbol == ("moo", "bar")
-
-  node = read(":foo") # -> (quote foo)
-  check node.kind == GeneGene
-  check node.gene.op == new_gene_symbol("quote")
 
   node = read("{}")
   check node.kind == GeneMap
@@ -163,11 +128,6 @@ test "Parser":
   node = read("[1 2 , 3,4]")
   check node.kind == GeneVector
   check node.vec.len == 4
-
-  node = read("\"foo\"")
-  check node.kind == GeneString
-  check node.str == "foo"
-  check node.str.len == 3
 
   node = read("#_ [foo bar]")
   check node == nil
