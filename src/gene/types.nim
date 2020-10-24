@@ -1520,14 +1520,19 @@ proc calc_min_left*(self: var RootMatcher) =
 proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
   case v.kind:
   of GeneSymbol:
-    var m = new_matcher(self, MatchData)
-    group.add(m)
-    if v.symbol != "_":
-      if v.symbol.endsWith("..."):
-        m.name = v.symbol[0..^4]
-        m.splat = true
-      else:
-        m.name = v.symbol
+    if v.symbol[0] == '^':
+      var m = new_matcher(self, MatchProp)
+      m.name = v.symbol[1..^1]
+      group.add(m)
+    else:
+      var m = new_matcher(self, MatchData)
+      group.add(m)
+      if v.symbol != "_":
+        if v.symbol.endsWith("..."):
+          m.name = v.symbol[0..^4]
+          m.splat = true
+        else:
+          m.name = v.symbol
   of GeneVector:
     var i = 0
     while i < v.vec.len:
@@ -1606,6 +1611,30 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
     var child_state = MatchState()
     for child in self.children:
       child.match(value, child_state, r)
+  of MatchProp:
+    var name = self.name
+    var value: GeneValue
+    var value_expr: Expr
+    if self.splat:
+      todo()
+      # value = new_gene_vec()
+      # for i in state.data_index..<input.len - self.min_left:
+      #   value.vec.add(input[i])
+      #   state.data_index += 1
+    elif input.gene.props.hasKey(name):
+      value = input.gene.props[name]
+    else:
+      if self.default_value == nil:
+        r.kind = MatchMissingFields
+        r.missing.add(self.name)
+        return
+      elif self.default_value_expr != nil:
+        value_expr = self.default_value_expr
+      else:
+        value = self.default_value # Default value
+    var matched_field = new_matched_field(name, value)
+    matched_field.value_expr = value_expr
+    r.fields.add(matched_field)
   else:
     todo()
 
