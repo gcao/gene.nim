@@ -62,7 +62,7 @@ proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
 
-proc eval_args*(self: VM, frame: Frame, args: seq[Expr]): GeneValue
+proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: Table[FnOption, GeneValue]): GeneValue
@@ -221,7 +221,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     for e in expr.map:
       result.map[e.map_key] = self.eval(frame, e.map_val)
   of ExMapChild:
-    discard
+    result = self.eval(frame, expr.map_val)
+    # Assign the value to map/gene should be handled by evaluation of parent expression
   of ExGet:
     var target = self.eval(frame, expr.get_target)
     var index = self.eval(frame, expr.get_index)
@@ -244,7 +245,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       case target.internal.kind:
       of GeneFunction:
         var options = Table[FnOption, GeneValue]()
-        var args = self.eval_args(frame, expr.gene_data)
+        var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
         result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
       of GeneMacro:
         result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
@@ -265,7 +266,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       of GeneAspect:
         result = self.call_aspect(frame, target.internal.aspect, expr)
       of GeneAspectInstance:
-        var args = self.eval_args(frame, expr.gene_data)
+        var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
         result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
       else:
         todo()
@@ -586,7 +587,7 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     var options = Table[FnOption, GeneValue]()
     options[FnClass] = class
     options[FnMethod] = meth
-    var args = self.eval_args(frame, args_blk)
+    var args = self.eval_args(frame, @[], args_blk)
     result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
     case method_name:
@@ -595,9 +596,12 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     else:
       todo("Method is missing: " & method_name)
 
-proc eval_args*(self: VM, frame: Frame, args: seq[Expr]): GeneValue =
+proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue =
   result = new_gene_gene(GeneNil)
-  for e in args:
+  for e in props:
+    var v = self.eval(frame, e)
+    result.gene.props[e.map_key] = v
+  for e in data:
     var v = self.eval(frame, e)
     if v.kind == GeneInternal and v.internal.kind == GeneExplode:
       result.merge(v.internal.explode)

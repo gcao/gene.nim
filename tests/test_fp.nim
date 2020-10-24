@@ -152,3 +152,8 @@ test_interpreter """
   )
   (f)           # second f
 """, 2
+
+test_interpreter """
+  (fn f [^a] a)
+  (f ^a 1)
+""", 1

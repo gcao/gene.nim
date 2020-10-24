@@ -246,3 +246,7 @@ test_arg_matching "[^a = 1 b]", "(_ 2)", proc(r: MatchResult) =
   check r.fields[0].value == 1
   check r.fields[1].name == "b"
   check r.fields[1].value == 2
+
+test_arg_matching "[^a]", "()", proc(r: MatchResult) =
+  check r.kind == MatchMissingFields
+  check r.missing[0] == "a"
