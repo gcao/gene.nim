@@ -83,11 +83,8 @@ type
     before_advices*: seq[Advice]
     after_advices*:  seq[Advice]
     around_advices*: seq[Advice]
-    wrap_advices*:   seq[Advice] # wrap all advices and target
 
   # Order of execution:
-  # wrap 1
-  # wrap 2
   # before 1
   # before 2
   # invariant 1
@@ -101,8 +98,6 @@ type
   # after 2
   # invariant 1
   # invariant 2
-  # wrap 2
-  # wrap 1
   AdviceKind* = enum
     AdBefore         # run before target
     Adafter          # run after target
@@ -116,8 +111,6 @@ type
     AoPreCondition      # false -> throw PreconditionError
     AoPreCheck          # false -> stop further execution
     AoReplaceArgs       # result will be used as new args
-    # applicable to around
-    AoWrapAdvices       # true -> wrap advices and target
     # applicable to after
     AoPostCondition     # false -> throw PostConditionError
     AoResultAsFirstArg
@@ -135,7 +128,6 @@ type
     before_advices*: seq[Advice]
     after_advices*:  seq[Advice]
     around_advices*: seq[Advice]
-    wrap_advices*:   seq[Advice] # wrap all advices and target
     # invariants*:     seq[Advice] # invariants are added to before/after advices list
 
   # ClassAdviceKind* = enum

@@ -70,7 +70,7 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
 proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
-proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, expr: Expr): GeneValue
+proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue
 
 #################### Frame #######################
 
@@ -265,7 +265,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       of GeneAspect:
         result = self.call_aspect(frame, target.internal.aspect, expr)
       of GeneAspectInstance:
-        result = self.call_aspect_instance(frame, target.internal.aspect_instance, expr)
+        var args = self.eval_args(frame, expr.gene_data)
+        result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
       else:
         todo()
     else:
@@ -391,6 +392,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     of "before":
       advice = new_advice(AdBefore, logic.internal.fn)
       instance.before_advices.add(advice)
+    of "after":
+      advice = new_advice(AdAfter, logic.internal.fn)
+      instance.after_advices.add(advice)
     else:
       todo()
     advice.owner = instance
@@ -745,27 +749,30 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
 
   ScopeMgr.free(new_scope)
 
-proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, expr: Expr): GeneValue =
+proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue =
   var aspect = instance.aspect
   var new_scope = ScopeMgr.get()
   var new_frame = FrameMgr.get(FrAspect, aspect.ns, new_scope)
   new_frame.parent = frame
-
-  new_frame.args = new_gene_gene(GeneNil)
-  for e in expr.gene_data:
-    var v = self.eval(frame, e)
-    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
-      new_frame.args.merge(v.internal.explode)
-    else:
-      new_frame.args.gene.data.add(v)
+  new_frame.args = args
 
   # invoke before advices
   var options = Table[FnOption, GeneValue]()
   for advice in instance.before_advices:
     discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
+
   # invoke target
-  result = self.call_fn(new_frame, frame.self, instance.target, new_frame.args, options)
+  case instance.target.internal.kind:
+  of GeneFunction:
+    result = self.call_fn(new_frame, frame.self, instance.target, new_frame.args, options)
+  of GeneAspectInstance:
+    result = self.call_aspect_instance(new_frame, instance.target.internal.aspect_instance, new_frame.args)
+  else:
+    todo()
+
   # invoke after advices
+  for advice in instance.after_advices:
+    discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
 
   ScopeMgr.free(new_scope)
 
@@ -906,7 +913,7 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_return_expr(parent, node)
       of "aspect":
         return new_aspect_expr(parent, node)
-      of "before":
+      of "before", "after":
         return new_advice_expr(parent, node)
       of "ns":
         return new_ns_expr(parent, node)
