@@ -5,6 +5,7 @@ import ./types
 proc init_native_procs*() =
   NativeProcs.add_only "str_len", proc(args: seq[GeneValue]): GeneValue = 
     return args[0].str.len
+
   NativeProcs.add_only "str_substr", proc(args: seq[GeneValue]): GeneValue = 
     case args.len:
     of 2:
@@ -41,10 +42,47 @@ proc init_native_procs*() =
       for part in parts:
         result.vec.add(part)
     of 3:
-      var limit = args[2].int
-      var parts = self.split(separator, limit)
+      var maxsplit = args[2].int - 1
+      var parts = self.split(separator, maxsplit)
       result = new_gene_vec()
       for part in parts:
         result.vec.add(part)
     else:
       not_allowed("split expects 1 or 2 arguments")
+
+  NativeProcs.add_only "str_index", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    var substr = args[1].str
+    result = self.find(substr)
+
+  NativeProcs.add_only "str_rindex", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    var substr = args[1].str
+    result = self.rfind(substr)
+
+  NativeProcs.add_only "str_char_at", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    var i = args[1].int
+    result = self[i]
+
+  NativeProcs.add_only "str_trim", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    result = self.strip
+
+  NativeProcs.add_only "str_starts_with", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    var substr = args[1].str
+    result = self.startsWith(substr)
+
+  NativeProcs.add_only "str_ends_with", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    var substr = args[1].str
+    result = self.endsWith(substr)
+
+  NativeProcs.add_only "str_to_upper_case", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    result = self.toUpper
+
+  NativeProcs.add_only "str_to_lower_case", proc(args: seq[GeneValue]): GeneValue = 
+    var self = args[0].str
+    result = self.toLower

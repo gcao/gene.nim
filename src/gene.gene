@@ -9,7 +9,6 @@
   )
 
   (class String
-    # Support: size, substr, split, index, rindex, trim, startsWith, endsWith
     (method size _
       (call_native "str_len" self)
     )
@@ -32,6 +31,42 @@
       else
         (call_native "str_split" self sep)
       )
+    )
+
+    (method index s
+      (call_native "str_index" self s)
+    )
+
+    (method rindex s
+      (call_native "str_rindex" self s)
+    )
+
+    (method char_at i
+      (call_native "str_char_at" self i)
+    )
+
+    (method trim _
+      (call_native "str_trim" self)
+    )
+
+    (method starts_with s
+      (call_native "str_starts_with" self s)
+    )
+
+    (method ends_with s
+      (call_native "str_ends_with" self s)
+    )
+
+    (method ends_with s
+      (call_native "str_ends_with" self s)
+    )
+
+    (method to_upper_case _
+      (call_native "str_to_upper_case" self)
+    )
+
+    (method to_lower_case _
+      (call_native "str_to_lower_case" self)
     )
   )
 )
