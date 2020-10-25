@@ -14,19 +14,23 @@
       (call_native "str_len" self)
     )
 
-    (method substr [start end]
-      (if (start == nil)
-        (if (end == nil)
-          (not_allowed "Both start and end index are not given")
+    (method substr [start end = nil]
+      (if start
+        (if end
+          (call_native "str_substr" self start end)
         else
-          (call_native "str_substr" self 0 end)
+          (call_native "str_substr" self start)
         )
       else
-        (if (end == nil)
-          (call_native "str_substr" self start)
-        else
-          (call_native "str_substr" self start end)
-        )
+        (not_allowed "Start index is required")
+      )
+    )
+
+    (method split [sep limit = nil]
+      (if limit
+        (call_native "str_split" self sep limit)
+      else
+        (call_native "str_split" self sep)
       )
     )
   )

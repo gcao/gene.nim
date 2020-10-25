@@ -696,12 +696,20 @@ proc not_allowed*() =
 
 #################### Interfaces ##################
 
+proc new_gene_string*(s: string): GeneValue
+proc new_gene_string_move*(s: string): GeneValue
+proc new_gene_vec*(items: seq[GeneValue]): GeneValue
 proc new_namespace*(module: Module): Namespace
 proc new_match_matcher*(): RootMatcher
 proc new_arg_matcher*(): RootMatcher
 proc parse*(self: var RootMatcher, v: GeneValue)
 
 #################### Converters ##################
+
+converter biggest_to_int*(v: BiggestInt): int = cast[int](v)
+
+converter seq_to_gene*(v: seq[GeneValue]): GeneValue = new_gene_vec(v)
+converter str_to_gene*(v: string): GeneValue = new_gene_string(v)
 
 converter int_to_module_index*(v: int): NameIndexModule = cast[NameIndexModule](v)
 converter module_index_to_int*(v: NameIndexModule): int = cast[int](v)
@@ -1384,16 +1392,10 @@ converter to_bool*(v: GeneValue): bool =
   if v.isNil:
     return false
   case v.kind:
+  of GeneNilKind:
+    return false
   of GeneBool:
     return v.bool
-  of GeneInt:
-    return v.int != 0
-  of GeneFloat:
-    return v.float != 0
-  of GeneString:
-    return v.str.len != 0
-  of GeneVector:
-    return v.vec.len != 0
   else:
     true
 
