@@ -105,3 +105,40 @@ test_interpreter """
   )
   ((new A) .test)
 """, 1
+
+# # Single inheritance with flexibility of changing class, overwriting methods
+# test_interpreter """
+#   (class A
+#     (method test _
+#       1
+#     )
+#   )
+#   (class B
+#     (method test _
+#       2
+#     )
+#   )
+#   (var a (new A))
+#   ((a as B) .test)
+# """, 2
+
+# test_interpreter """
+#   (class A
+#     (method test _
+#       1
+#     )
+#   )
+#   (class B
+#     (method test _
+#       2
+#     )
+#   )
+#   (var a (new A))
+#   ((a as
+#     (class < B
+#       (method test _
+#         3
+#       )
+#     )
+#    ) .test)
+# """, 3

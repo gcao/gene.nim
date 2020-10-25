@@ -98,7 +98,7 @@ proc parse_string(p: var Parser): TokenKind =
       p.err = errQuoteExpected
     of '"':
       inc(pos)
-      break;
+      break
     of '\\':
       case buf[pos+1]
       of '\\', '"', '\'', '/':

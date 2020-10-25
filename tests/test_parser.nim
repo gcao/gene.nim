@@ -3,62 +3,48 @@
 import unittest, options, tables, unicode
 
 import gene/types
-import gene/parser
 
 import ./helpers
 
-test_parser("nil", GeneNil)
-test_parser("true", true)
-test_parser("false", false)
+test_parser "nil", GeneNil
+test_parser "true", true
+test_parser "false", false
 
-test_parser("10", 10)
-test_parser("-1", -1)
-test_parser("10e10", 10e10)
-test_parser("+5.0E5", +5.0E5)
+test_parser "10", 10
+test_parser "-1", -1
+test_parser "10e10", 10e10
+test_parser "+5.0E5", +5.0E5
 
-test_parser("'t", 't')
-test_parser("'t,", 't')
-test_parser("'\\t", '\t')
-test_parser("'\\tab", '\t')
-test_parser("'中", "中".runeAt(0))
+test_parser "'t", 't'
+test_parser "'t,", 't'
+test_parser "'\\t", '\t'
+test_parser "'\\tab", '\t'
+test_parser "'中", "中".runeAt(0)
 
-test_parser("\"test\"", "test")
-test_parser(",\"test\",", "test")
+test_parser "\"test\"", "test"
+test_parser ",\"test\",", "test"
 
-test_parser("a", new_gene_symbol("a"))
-test_parser("A", new_gene_symbol("A"))
-test_parser("n/A", new_gene_complex_symbol("n", @["A"]))
-test_parser("n/m/A", new_gene_complex_symbol("n", @["m", "A"]))
-test_parser("\\true", new_gene_symbol("true"))
-test_parser("^a", new_gene_symbol("^a"))
-test_parser("symbol-👋", new_gene_symbol("symbol-👋"))
-test_parser("+foo+", new_gene_symbol("+foo+"))
+test_parser "a", new_gene_symbol("a")
+test_parser "A", new_gene_symbol("A")
+test_parser "n/A", new_gene_complex_symbol("n", @["A"])
+test_parser "n/m/A", new_gene_complex_symbol("n", @["m", "A"])
+test_parser "\\true", new_gene_symbol("true")
+test_parser "^a", new_gene_symbol("^a")
+test_parser "symbol-👋", new_gene_symbol("symbol-👋")
+test_parser "+foo+", new_gene_symbol("+foo+")
 
-test_parser("#/a/", new_gene_regex("a"))
+test_parser "#/a/", new_gene_regex("a")
 
-test_parser("{}", Table[string, GeneValue]())
-test_parser("{^a 1}", {"a": new_gene_int(1)}.toTable)
+test_parser "{}", Table[string, GeneValue]()
+test_parser "{^a 1}", {"a": new_gene_int(1)}.toTable
 
 test_parser "[]", new_gene_vec()
 test_parser "[,]", new_gene_vec()
 test_parser "[1 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
 test_parser "[1, 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
 
-test_parser(",a", new_gene_symbol("a"))
-test_parser("a,", new_gene_symbol("a"))
-
-test_read_all """
-  1 # comment
-  2
-""", proc(r: seq[GeneValue]) =
-  check r[0] == 1
-  check r[1] == 2
-
-test_read_all "a,b", proc(r: seq[GeneValue]) =
-  check r[0] == new_gene_symbol("a")
-  check r[1] == new_gene_symbol("b")
-
-test_read_all "1 2", @[new_gene_int(1), new_gene_int(2)]
+test_parser ",a", new_gene_symbol("a")
+test_parser "a,", new_gene_symbol("a")
 
 test_parser "1 2 3", 1
 
@@ -99,9 +85,7 @@ test_parser """
 """, proc(r: GeneValue) =
   check r.kind == GeneGene
 
-test_parser """
-  {^^x ^!y ^^z}
-""", proc(r: GeneValue) =
+test_parser "{^^x ^!y ^^z}", proc(r: GeneValue) =
   check r.kind == GeneMap
   check r.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
 
@@ -110,55 +94,32 @@ test_parser ":foo", proc(r: GeneValue) = # -> (quote foo)
   check r.gene.op == new_gene_symbol("quote")
   check r.gene.data == @[new_gene_symbol("foo")]
 
-test "Parser":
-  var node: GeneValue
+test_parser "#_ [foo bar]", proc(r: GeneValue) =
+  check r == nil
 
-  node = read("{}")
-  check node.kind == GeneMap
-  check node.map.len == 0
+test_parser "1/2", proc(r: GeneValue) =
+  check r.kind == GeneRatio
+  check r.ratio == (BiggestInt(1), BiggestInt(2))
 
-  node = read("{^A 1 ^B 2}")
-  check node.kind == GeneMap
-  check node.map.len == 2
+test_parser "{^ratio -1/2}", proc(r: GeneValue) =
+  check r.kind == GeneMap
+  check r.map["ratio"] == new_gene_ratio(-1, 2)
 
-  node = read("{^A 1, ^B 2}")
-  check node.kind == GeneMap
-  check node.map.len == 2
+test_parser_error "{^ratio 1/-2}"
+test_parser_error ";; foo bar"
 
-  node = read("[1 2 , 3,4]")
-  check node.kind == GeneVector
-  check node.vec.len == 4
+test_read_all """
+  1 # comment
+  2
+""", proc(r: seq[GeneValue]) =
+  check r[0] == 1
+  check r[1] == 2
 
-  node = read("#_ [foo bar]")
-  check node == nil
+test_read_all "a,b", proc(r: seq[GeneValue]) =
+  check r[0] == new_gene_symbol("a")
+  check r[1] == new_gene_symbol("b")
 
-  node = read("1/2")
-  check node.kind == GeneRatio
-  check node.ratio == (BiggestInt(1), BiggestInt(2))
-
-  node = read("{^ratio -1/2}")
-  check node.kind == GeneMap
-  check node.map["ratio"] == new_gene_ratio(-1, 2)
-
-  # let's set up conditional forms reading
-  var opts: ParseOptions
-  init_gene_readers(opts)
-
-  var opts1: ParseOptions
-  opts1.eof_is_error = true
-  opts1.suppress_read = false
-
-  try:
-    node = read("{^ratio 1/-2}")
-    check node.kind == GeneMap
-  except ParseError:
-    discard
-
-  try:
-    node = read(";; foo bar")
-    check false
-  except ParseError:
-    discard
+test_read_all "1 2", @[new_gene_int(1), new_gene_int(2)]
 
 # TODO
 # test "Parse document":
