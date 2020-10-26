@@ -37,6 +37,7 @@ proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_break_expr*(parent: Expr, val: GeneValue): Expr
 proc new_while_expr*(parent: Expr, val: GeneValue): Expr
+proc new_for_expr*(parent: Expr, val: GeneValue): Expr
 proc new_explode_expr*(parent: Expr, val: GeneValue): Expr
 proc new_range_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
@@ -350,6 +351,17 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
         cond = self.eval(frame, expr.while_cond)
     except Break as b:
       result = b.val
+  of ExFor:
+    try:
+      var for_in = self.eval(frame, expr.for_in)
+      var key = frame.ns.module.get_index(expr.for_vars.symbol)
+      frame.scope.def_member(key, GeneNil)
+      for i in for_in.range_start.int..for_in.range_end.int:
+        frame.scope[key] = i
+        for e in expr.for_blk:
+          discard self.eval(frame, e)
+    except Break:
+      discard
   of ExExplode:
     var val = self.eval(frame, expr.explode)
     result = new_gene_explode(val)
@@ -914,6 +926,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_break_expr(parent, node)
       of "while":
         return new_while_expr(parent, node)
+      of "for":
+        return new_for_expr(parent, node)
       of "range":
         return new_range_expr(parent, node)
       of "fn":
@@ -1031,6 +1045,18 @@ proc new_while_expr*(parent: Expr, val: GeneValue): Expr =
   for i in 1..<val.gene.data.len:
     var node = val.gene.data[i]
     result.while_blk.add(new_expr(result, node))
+
+proc new_for_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExFor,
+    parent: parent,
+    module: parent.module,
+  )
+  result.for_vars = val.gene.data[0]
+  result.for_in = new_expr(result, val.gene.data[2])
+  for i in 3..<val.gene.data.len:
+    var node = val.gene.data[i]
+    result.for_blk.add(new_expr(result, node))
 
 proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
   result = Expr(

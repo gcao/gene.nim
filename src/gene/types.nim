@@ -381,6 +381,7 @@ type
     ExLoop
     ExBreak
     ExWhile
+    ExFor
     ExExplode
     ExFn
     ExArgs
@@ -479,6 +480,10 @@ type
     of ExWhile:
       while_cond*: Expr
       while_blk*: seq[Expr]
+    of ExFor:
+      for_vars*: GeneValue
+      for_in*: Expr
+      for_blk*: seq[Expr]
     of ExExplode:
       explode*: Expr
     of ExFn:
@@ -708,6 +713,7 @@ proc not_allowed*() =
 
 #################### Interfaces ##################
 
+proc new_gene_int*(val: BiggestInt): GeneValue
 proc new_gene_string*(s: string): GeneValue
 proc new_gene_string_move*(s: string): GeneValue
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue
@@ -718,6 +724,8 @@ proc parse*(self: var RootMatcher, v: GeneValue)
 
 #################### Converters ##################
 
+converter int_to_gene*(v: int): GeneValue = new_gene_int(v)
+converter int_to_gene*(v: int64): GeneValue = new_gene_int(v)
 converter biggest_to_int*(v: BiggestInt): int = cast[int](v)
 
 converter seq_to_gene*(v: seq[GeneValue]): GeneValue = new_gene_vec(v)
@@ -1356,14 +1364,6 @@ proc normalize*(self: GeneValue) =
       self.gene.op = new_gene_symbol("fn")
       self.gene.data.insert(new_gene_symbol("_"), 0)
       self.gene.data.insert(new_gene_symbol("_"), 0)
-    elif op.symbol == "for":
-      self.gene.props["init"]   = self.gene.data[0]
-      self.gene.props["guard"]  = self.gene.data[1]
-      self.gene.props["update"] = self.gene.data[2]
-      var body: seq[GeneValue] = @[]
-      for i in 3..<self.gene.data.len:
-        body.add(self.gene.data[i])
-      self.gene.data = body
 
   if self.gene.data.len == 0:
     return

@@ -112,13 +112,13 @@ test_interpreter """
   i
 """, 3
 
-# test_interpreter """
-#   (var sum 0)
-#   (for i in (range 0 100)
-#     (sum += i)
-#   )
-#   sum
-# """, 5050
+test_interpreter """
+  (var sum 0)
+  (for i in (range 0 100)
+    (sum += i)
+  )
+  sum
+""", 5050
 
 test_interpreter "self", GeneNil
 
