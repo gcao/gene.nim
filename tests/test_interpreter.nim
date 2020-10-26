@@ -24,6 +24,10 @@ test_interpreter "(:test 1 2)", proc(r: GeneValue) =
   check r.gene.data[0] == 1
   check r.gene.data[1] == 2
 
+test_interpreter "(range 0 100)", proc(r: GeneValue) =
+  check r.range_start == 0
+  check r.range_end == 100
+
 test_interpreter "(1 + 2)", 3
 test_interpreter "(1 - 2)", -1
 
@@ -107,6 +111,14 @@ test_interpreter """
   )
   i
 """, 3
+
+# test_interpreter """
+#   (var sum 0)
+#   (for i in (range 0 100)
+#     (sum += i)
+#   )
+#   sum
+# """, 5050
 
 test_interpreter "self", GeneNil
 

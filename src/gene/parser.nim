@@ -1,4 +1,4 @@
-import lexbase, streams, strutils, unicode, hashes, tables
+import lexbase, streams, strutils, unicode, tables
 
 import ./types
 
@@ -552,48 +552,6 @@ proc read_vector(p: var Parser): GeneValue =
   let list_result = read_delimited_list(p, ']', true)
   result.vec = list_result.list
   discard maybe_add_comments(result, list_result)
-
-proc hash*(node: GeneValue): Hash =
-  var h: Hash = 0
-  h = h !& hash(node.kind)
-  case node.kind
-  of GeneAny:
-    todo()
-  of GeneNilKind, GenePlaceholderKind:
-    discard
-  of GeneBool:
-    h = h !& hash(node.bool)
-  of GeneChar:
-    h = h !& hash(node.char)
-  of GeneInt:
-    h = h !& hash(node.int)
-  of GeneRatio:
-    h = h !& hash(node.ratio)
-  of GeneFloat:
-    h = h !& hash(node.float)
-  of GeneString:
-    h = h !& hash(node.str)
-  of GeneSymbol:
-    h = h !& hash(node.symbol)
-  of GeneComplexSymbol:
-    h = h !& hash(node.csymbol.first & "/" & node.csymbol.rest.join("/"))
-  of GeneGene:
-    if node.gene.op != nil:
-      h = h !& hash(node.gene.op)
-    h = h !& hash(node.gene.data)
-  of GeneMap:
-    for key, val in node.map:
-      h = h !& hash(key)
-      h = h !& hash(val)
-  of GeneVector:
-    h = h !& hash(node.vec)
-  of GeneCommentLine:
-    h = h !& hash(node.comment)
-  of GeneRegex:
-    h = h !& hash(node.regex)
-  of GeneInternal:
-    todo($node.internal.kind)
-  result = !$h
 
 proc read_regex(p: var Parser): GeneValue =
   var pos = p.bufpos

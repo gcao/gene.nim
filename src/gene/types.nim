@@ -1,4 +1,4 @@
-import strutils, tables, dynlib, unicode
+import strutils, tables, dynlib, unicode, hashes
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -287,6 +287,7 @@ type
     GeneSymbol
     GeneComplexSymbol
     GeneRegex
+    GeneRange
     GeneMap
     GeneVector
     GeneGene
@@ -326,6 +327,11 @@ type
       csymbol*: ComplexSymbol
     of GeneRegex:
       regex*: string
+    of GeneRange:
+      range_start*: GeneValue
+      range_end*: GeneValue
+      range_incl_start*: bool
+      range_incl_end*: bool
     of GeneMap:
       map*: Table[string, GeneValue]
     of GeneVector:
@@ -360,6 +366,7 @@ type
     ExMapChild
     ExArray
     ExGene
+    ExRange
     ExGet
     ExSet
     ExGroup
@@ -435,6 +442,11 @@ type
       gene_op*: Expr
       gene_props*: seq[Expr]
       gene_data*: seq[Expr]
+    of ExRange:
+      range_start*: Expr
+      range_end*: Expr
+      range_incl_start*: bool
+      range_incl_end*: bool
     of ExGet:
       get_target*: Expr
       get_index*: Expr
@@ -951,12 +963,61 @@ proc `==`*(this, that: GeneValue): bool =
       return this.comment == that.comment
     of GeneRegex:
       return this.regex == that.regex
+    of GeneRange:
+      return this.range_start      == that.range_start      and
+             this.range_end        == that.range_end        and
+             this.range_incl_start == that.range_incl_start and
+             this.range_incl_end   == that.range_incl_end
     of GeneInternal:
       case this.internal.kind:
       of GeneNamespace:
         return this.internal.ns == that.internal.ns
       else:
         return this.internal == that.internal
+
+proc hash*(node: GeneValue): Hash =
+  var h: Hash = 0
+  h = h !& hash(node.kind)
+  case node.kind
+  of GeneAny:
+    todo()
+  of GeneNilKind, GenePlaceholderKind:
+    discard
+  of GeneBool:
+    h = h !& hash(node.bool)
+  of GeneChar:
+    h = h !& hash(node.char)
+  of GeneInt:
+    h = h !& hash(node.int)
+  of GeneRatio:
+    h = h !& hash(node.ratio)
+  of GeneFloat:
+    h = h !& hash(node.float)
+  of GeneString:
+    h = h !& hash(node.str)
+  of GeneSymbol:
+    h = h !& hash(node.symbol)
+  of GeneComplexSymbol:
+    h = h !& hash(node.csymbol.first & "/" & node.csymbol.rest.join("/"))
+  of GeneGene:
+    if node.gene.op != nil:
+      h = h !& hash(node.gene.op)
+    h = h !& hash(node.gene.data)
+  of GeneMap:
+    for key, val in node.map:
+      h = h !& hash(key)
+      h = h !& hash(val)
+  of GeneVector:
+    h = h !& hash(node.vec)
+  of GeneCommentLine:
+    h = h !& hash(node.comment)
+  of GeneRegex:
+    h = h !& hash(node.regex)
+  of GeneRange:
+    h = h !& hash(node.range_start) !& hash(node.range_end)
+  of GeneInternal:
+    todo($node.internal.kind)
+  result = !$h
 
 proc is_literal*(self: GeneValue): bool =
   case self.kind:
@@ -1084,6 +1145,15 @@ proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
 
 proc new_gene_regex*(regex: string): GeneValue =
   return GeneValue(kind: GeneRegex, regex: regex)
+
+proc new_gene_range*(rstart: GeneValue, rend: GeneValue): GeneValue =
+  return GeneValue(
+    kind: GeneRange,
+    range_start: rstart,
+    range_end: rend,
+    range_incl_start: true,
+    range_incl_end: false,
+  )
 
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
   return GeneValue(

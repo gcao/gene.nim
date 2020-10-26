@@ -38,6 +38,7 @@ proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_break_expr*(parent: Expr, val: GeneValue): Expr
 proc new_while_expr*(parent: Expr, val: GeneValue): Expr
 proc new_explode_expr*(parent: Expr, val: GeneValue): Expr
+proc new_range_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr
 proc new_block_expr*(parent: Expr, val: GeneValue): Expr
@@ -232,6 +233,10 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var index = self.eval(frame, expr.set_index)
     var value = self.eval(frame, expr.set_value)
     target.gene.data[index.int] = value
+  of ExRange:
+    var range_start = self.eval(frame, expr.range_start)
+    var range_end = self.eval(frame, expr.range_end)
+    result = new_gene_range(range_start, range_end)
   of ExGene:
     var target = self.eval(frame, expr.gene_op)
     case target.kind:
@@ -909,6 +914,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_break_expr(parent, node)
       of "while":
         return new_while_expr(parent, node)
+      of "range":
+        return new_range_expr(parent, node)
       of "fn":
         return new_fn_expr(parent, node)
       of "macro":
@@ -1081,6 +1088,17 @@ proc new_explode_expr*(parent: Expr, val: GeneValue): Expr =
     module: parent.module,
   )
   result.explode = new_expr(parent, val)
+
+proc new_range_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExRange,
+    parent: parent,
+    module: parent.module,
+  )
+  result.range_start = new_expr(result, val.gene.data[0])
+  result.range_end = new_expr(result, val.gene.data[1])
+  result.range_incl_start = true
+  result.range_incl_end = false
 
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val
