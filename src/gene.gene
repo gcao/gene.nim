@@ -1,11 +1,28 @@
 (ns gene
   (class Object
-    (method class []
+    (method class _
       ($get_class self)
+    )
+
+    (method to_s _
+      (call_native "gene_to_s" self)
     )
   )
 
   (class Class
+    (method name _
+      (call_native "class_name" self)
+    )
+
+    (method parent _
+      (call_native "class_parent" self)
+    )
+  )
+
+  (class Nil
+  )
+
+  (class Bool
   )
 
   (class Int
@@ -16,9 +33,12 @@
     )
   )
 
+  (class Char
+  )
+
   (class String
     (method size _
-      (call_native "str_len" self)
+      (call_native "str_size" self)
     )
 
     (method substr [start end = nil]
@@ -75,6 +95,61 @@
 
     (method to_lower_case _
       (call_native "str_to_lower_case" self)
+    )
+  )
+
+  (class Symbol
+  )
+
+  (class Array
+    (method size _
+      (call_native "array_size" self)
+    )
+
+    (method get i
+      (call_native "array_get" self i)
+    )
+
+    (method set [i item]
+      (call_native "array_set" self i item)
+    )
+
+    (method add item
+      (call_native "array_add" self item)
+    )
+
+    (method del i
+      (call_native "array_del" self i)
+    )
+
+    (method each block
+      (for item in self (block item))
+    )
+
+    (method map block
+      (var result [])
+      (for item in self
+        (result .add (block item))
+      )
+      result
+    )
+
+    (method filter block
+      (var result [])
+      (for item in self
+        (if (block item) (result .add item))
+      )
+      result
+    )
+  )
+
+  (class Map
+    (method size _
+      (call_native "map_size" self)
+    )
+
+    (method each block
+      (for [k v] in self (block k v))
     )
   )
 )

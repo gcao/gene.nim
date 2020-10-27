@@ -120,10 +120,26 @@ test_interpreter """
   sum
 """, 6 # 0 + 1 + 2 + 3
 
+test_interpreter """
+  (var sum 0)
+  (for i in [1 2 3]
+    (sum += i)
+  )
+  sum
+""", 6
+
+# test_interpreter """
+#   (var sum)
+#   (for [k v] in {^a 1 ^b 2}
+#     (sum += v)
+#   )
+#   sum
+# """, 3
+
 test_interpreter "self", GeneNil
 
 test_interpreter """
-  (call_native "str_len" "test")
+  (call_native "str_size" "test")
 """, 4
 
 test_interpreter """
