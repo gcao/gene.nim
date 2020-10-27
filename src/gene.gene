@@ -25,9 +25,9 @@
 )
 
 (class gene/Int
-  (method times blk
+  (method times block
     (for i in (range 0 self)
-      (blk i)
+      (block i)
     )
   )
 )
@@ -122,7 +122,9 @@
   )
 
   (method each block
-    (for item in self (block item))
+    (for item in self
+      (block item)
+    )
   )
 
   (method map block
@@ -136,7 +138,9 @@
   (method filter block
     (var result [])
     (for item in self
-      (if (block item) (result .add item))
+      (if (block item)
+        (result .add item)
+      )
     )
     result
   )
@@ -147,8 +151,26 @@
     (call_native "map_size" self)
   )
 
+  (method keys _
+    (var result [])
+    (for [k _] in self
+      (result .add k)
+    )
+    result
+  )
+
+  (method map block
+    (var result [])
+    (for [k v] in self
+      (result .add (block k v))
+    )
+    result
+  )
+
   (method each block
-    (for [k v] in self (block k v))
+    (for [k v] in self
+      (block k v)
+    )
   )
 )
 

@@ -67,7 +67,7 @@ proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
 proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue
-proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: Table[FnOption, GeneValue]): GeneValue
+proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: OrderedTable[FnOption, GeneValue]): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
@@ -254,7 +254,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     of GeneInternal:
       case target.internal.kind:
       of GeneFunction:
-        var options = Table[FnOption, GeneValue]()
+        var options = OrderedTable[FnOption, GeneValue]()
         var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
         result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
       of GeneMacro:
@@ -358,21 +358,52 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExFor:
     try:
       var for_in = self.eval(frame, expr.for_in)
-      var name = expr.for_vars.symbol
-      frame.scope.def_member(name, GeneNil)
-      case for_in.kind:
-      of GeneRange:
-        for i in for_in.range_start.int..<for_in.range_end.int:
-          frame.scope[name] = i
-          for e in expr.for_blk:
-            discard self.eval(frame, e)
+      var first, second: GeneValue
+      case expr.for_vars.kind:
+      of GeneSymbol:
+        first = expr.for_vars
       of GeneVector:
-        for i in for_in.vec:
-          frame.scope[name] = i
-          for e in expr.for_blk:
-            discard self.eval(frame, e)
+        first = expr.for_vars.vec[0]
+        second = expr.for_vars.vec[1]
       else:
-        todo()
+        not_allowed()
+
+      if second == nil:
+        var val = first.symbol
+        frame.scope.def_member(val, GeneNil)
+        case for_in.kind:
+        of GeneRange:
+          for i in for_in.range_start.int..<for_in.range_end.int:
+            frame.scope[val] = i
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+        of GeneVector:
+          for i in for_in.vec:
+            frame.scope[val] = i
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+        else:
+          todo()
+      else:
+        var key = first.symbol
+        var val = second.symbol
+        frame.scope.def_member(key, GeneNil)
+        frame.scope.def_member(val, GeneNil)
+        case for_in.kind:
+        of GeneVector:
+          for k, v in for_in.vec:
+            frame.scope[key] = k
+            frame.scope[val] = v
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+        of GeneMap:
+          for k, v in for_in.map:
+            frame.scope[key] = k
+            frame.scope[val] = v
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+        else:
+          todo()
     except Break:
       discard
   of ExExplode:
@@ -625,7 +656,7 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
   if meth != nil:
-    var options = Table[FnOption, GeneValue]()
+    var options = OrderedTable[FnOption, GeneValue]()
     options[FnClass] = class
     options[FnMethod] = meth
     var args = self.eval_args(frame, @[], args_blk)
@@ -666,7 +697,7 @@ proc call_fn*(
   target: GeneValue,
   fn: Function,
   args: GeneValue,
-  options: Table[FnOption, GeneValue]
+  options: OrderedTable[FnOption, GeneValue]
 ): GeneValue =
   var module = fn.expr.module
   var fn_scope = ScopeMgr.get()
@@ -799,7 +830,7 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
   new_frame.args = args
 
   # invoke before advices
-  var options = Table[FnOption, GeneValue]()
+  var options = OrderedTable[FnOption, GeneValue]()
   for advice in instance.before_advices:
     discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
 

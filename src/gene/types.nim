@@ -18,7 +18,7 @@ type
     ns*: Namespace
     program*: string
     args*: seq[string]
-    namespaces*: Table[string, Namespace]
+    namespaces*: OrderedTable[string, Namespace]
 
   Module* = ref object
     name*: string
@@ -28,23 +28,23 @@ type
     module*: Module
     parent*: Namespace
     name*: string
-    members*: Table[string, GeneValue]
+    members*: OrderedTable[string, GeneValue]
 
   Scope* = ref object
     parent*: Scope
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
-    mappings*: Table[string, seq[NameIndexScope]]
+    mappings*: OrderedTable[string, seq[NameIndexScope]]
     usage*: int
 
   Class* = ref object
     parent*: Class
     name*: string
-    methods*: Table[string, Method]
+    methods*: OrderedTable[string, Method]
 
   Mixin* = ref object
     name*: string
-    methods*: Table[string, Method]
+    methods*: OrderedTable[string, Method]
 
   Method* = ref object
     class*: Class
@@ -113,7 +113,7 @@ type
   Advice* = ref object
     owner*: AspectInstance
     kind*: AdviceKind
-    options*: Table[AdviceOptionKind, GeneValue]
+    options*: OrderedTable[AdviceOptionKind, GeneValue]
     logic*: Function
 
   TargetWithAdvices* = ref object
@@ -260,7 +260,7 @@ type
 
   Gene* {.acyclic.} = ref object
     op*: GeneValue
-    props*: Table[string, GeneValue]
+    props*: OrderedTable[string, GeneValue]
     data*: seq[GeneValue]
     # A gene can be normalized to match expected format
     # Example: (a = 1) => (= a 1)
@@ -324,7 +324,7 @@ type
       range_incl_start*: bool
       range_incl_end*: bool
     of GeneMap:
-      map*: Table[string, GeneValue]
+      map*: OrderedTable[string, GeneValue]
     of GeneVector:
       vec*: seq[GeneValue]
     of GeneGene:
@@ -548,7 +548,7 @@ type
     app*: Application
     cur_frame*: Frame
     cur_module*: Module
-    modules*: Table[string, Namespace]
+    modules*: OrderedTable[string, Namespace]
 
   FrameManager* = ref object
     cache*: seq[Frame]
@@ -674,7 +674,7 @@ type
     data_index*: int
   NativeProcsType* = ref object
     procs*: seq[NativeProc]
-    name_mappings*: Table[string, int]
+    name_mappings*: OrderedTable[string, int]
 
 let
   GeneNil*   = GeneValue(kind: GeneNilKind)
@@ -740,14 +740,14 @@ proc new_namespace*(module: Module): Namespace =
   return Namespace(
     module: module,
     name: "<root>",
-    members: Table[string, GeneValue](),
+    members: OrderedTable[string, GeneValue](),
   )
 
 proc new_namespace*(module: Module, name: string): Namespace =
   return Namespace(
     module: module,
     name: name,
-    members: Table[string, GeneValue](),
+    members: OrderedTable[string, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace, name: string): Namespace =
@@ -755,7 +755,7 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
     module: parent.module,
     parent: parent,
     name: name,
-    members: Table[string, GeneValue](),
+    members: OrderedTable[string, GeneValue](),
   )
 
 proc hasKey*(self: Namespace, key: string): bool {.inline.} =
@@ -770,7 +770,7 @@ proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
 
 proc new_scope*(): Scope = Scope(
   members: @[],
-  mappings: Table[string, seq[NameIndexScope]](),
+  mappings: OrderedTable[string, seq[NameIndexScope]](),
   usage: 1,
 )
 
@@ -906,6 +906,10 @@ proc `==`*(this, that: ComplexSymbol): bool =
 
 #################### GeneValue ###################
 
+proc table_equals*(this, that: OrderedTable): bool =
+  return this.len == 0 and that.len == 0 or
+    this.len > 0 and that.len > 0 and this == that
+
 proc `==`*(this, that: GeneValue): bool =
   if this.is_nil:
     if that.is_nil: return true
@@ -935,9 +939,11 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneComplexSymbol:
       return this.csymbol == that.csymbol
     of GeneGene:
-      return this.gene.op == that.gene.op and this.gene.data == that.gene.data and this.gene.props == that.gene.props
+      return this.gene.op == that.gene.op and
+        this.gene.data == that.gene.data and
+        table_equals(this.gene.props, that.gene.props)
     of GeneMap:
-      return this.map == that.map
+      return table_equals(this.map, that.map)
     of GeneVector:
       return this.vec == that.vec
     of GeneCommentLine:
@@ -1147,10 +1153,10 @@ proc new_gene_vec*(items: varargs[GeneValue]): GeneValue = new_gene_vec(@items)
 proc new_gene_map*(): GeneValue =
   return GeneValue(
     kind: GeneMap,
-    map: Table[string, GeneValue](),
+    map: OrderedTable[string, GeneValue](),
   )
 
-proc new_gene_map*(map: Table[string, GeneValue]): GeneValue =
+proc new_gene_map*(map: OrderedTable[string, GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneMap,
     map: map,
@@ -1168,7 +1174,7 @@ proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
     gene: Gene(op: op, data: @data),
   )
 
-proc new_gene_gene*(op: GeneValue, props: Table[string, GeneValue], data: varargs[GeneValue]): GeneValue =
+proc new_gene_gene*(op: GeneValue, props: OrderedTable[string, GeneValue], data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
     gene: Gene(op: op, props: props, data: @data),
@@ -1426,7 +1432,7 @@ converter to_gene*(v: float): GeneValue                    = new_gene_float(v)
 converter to_gene*(v: string): GeneValue                   = new_gene_string(v)
 converter to_gene*(v: char): GeneValue                     = new_gene_char(v)
 converter to_gene*(v: Rune): GeneValue                     = new_gene_char(v)
-converter to_gene*(v: Table[string, GeneValue]): GeneValue = new_gene_map(v)
+converter to_gene*(v: OrderedTable[string, GeneValue]): GeneValue = new_gene_map(v)
 
 # Below converter causes problem with the hash function
 # converter to_gene*(v: seq[GeneValue]): GeneValue           = new_gene_vec(v)
@@ -1440,7 +1446,7 @@ converter to_bool*(v: GeneValue): bool =
   of GeneBool:
     return v.bool
   else:
-    true
+    return true
 
 converter to_aspect*(node: GeneValue): Aspect =
   var first = node.gene.data[0]
@@ -1717,8 +1723,8 @@ proc get*(self: var NativeProcsType, index: int): NativeProc =
 
 #################### Dynamic #####################
 
-proc load_dynamic*(path:string, names: seq[string]): Table[string, NativeProc] =
-  result = Table[string, NativeProc]()
+proc load_dynamic*(path:string, names: seq[string]): OrderedTable[string, NativeProc] =
+  result = OrderedTable[string, NativeProc]()
   let lib = loadLib(path)
   for name in names:
     var s = name

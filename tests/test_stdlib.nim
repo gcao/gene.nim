@@ -5,6 +5,6 @@ import gene/interpreter
 
 import ./helpers
 
-# test_core """
-#   ((nil .class).name)
-# """, "Nil"
+test_core """
+  ((nil .class).name)
+""", "Nil"

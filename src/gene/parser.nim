@@ -472,8 +472,8 @@ type
     Key
     Value
 
-proc read_map(p: var Parser, part_of_gene: bool): Table[string, GeneValue] =
-  result = Table[string, GeneValue]()
+proc read_map(p: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue] =
+  result = OrderedTable[string, GeneValue]()
   var ch: char
   var key: string
   var state = PropState.Key

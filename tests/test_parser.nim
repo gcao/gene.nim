@@ -35,8 +35,8 @@ test_parser "+foo+", new_gene_symbol("+foo+")
 
 test_parser "#/a/", new_gene_regex("a")
 
-test_parser "{}", Table[string, GeneValue]()
-test_parser "{^a 1}", {"a": new_gene_int(1)}.toTable
+test_parser "{}", OrderedTable[string, GeneValue]()
+test_parser "{^a 1}", {"a": new_gene_int(1)}.toOrderedTable
 
 test_parser "[]", new_gene_vec()
 test_parser "[,]", new_gene_vec()
@@ -65,17 +65,17 @@ test_parser "(1 2 3)", proc(r: GeneValue) =
 
 test_parser "(1 ^a 2 3 4)", proc(r: GeneValue) =
   check r.gene.op == 1
-  check r.gene.props == {"a": new_gene_int(2)}.toTable
+  check r.gene.props == {"a": new_gene_int(2)}.toOrderedTable
   check r.gene.data == @[new_gene_int(3), new_gene_int(4)]
 
 test_parser "(1 ^^a 2 3)", proc(r: GeneValue) =
   check r.gene.op == 1
-  check r.gene.props == {"a": GeneTrue}.toTable
+  check r.gene.props == {"a": GeneTrue}.toOrderedTable
   check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
 test_parser "(1 ^!a 2 3)", proc(r: GeneValue) =
   check r.gene.op == 1
-  check r.gene.props == {"a": GeneFalse}.toTable
+  check r.gene.props == {"a": GeneFalse}.toOrderedTable
   check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
 test_parser """
@@ -87,7 +87,7 @@ test_parser """
 
 test_parser "{^^x ^!y ^^z}", proc(r: GeneValue) =
   check r.kind == GeneMap
-  check r.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toTable
+  check r.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toOrderedTable
 
 test_parser ":foo", proc(r: GeneValue) = # -> (quote foo)
   check r.kind == GeneGene
