@@ -114,11 +114,11 @@ test_interpreter """
 
 test_interpreter """
   (var sum 0)
-  (for i in (range 0 100)
+  (for i in (range 0 4)
     (sum += i)
   )
   sum
-""", 5050
+""", 6 # 0 + 1 + 2 + 3
 
 test_interpreter "self", GeneNil
 

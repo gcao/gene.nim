@@ -356,7 +356,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       var for_in = self.eval(frame, expr.for_in)
       var key = frame.ns.module.get_index(expr.for_vars.symbol)
       frame.scope.def_member(key, GeneNil)
-      for i in for_in.range_start.int..for_in.range_end.int:
+      for i in for_in.range_start.int..<for_in.range_end.int:
         frame.scope[key] = i
         for e in expr.for_blk:
           discard self.eval(frame, e)
@@ -584,6 +584,8 @@ proc get_class*(self: VM, val: GeneValue): Class =
       return val.internal.instance.class
     else:
       todo()
+  of GeneInt:
+    return GENE_NS.internal.ns["Int"].internal.class
   of GeneString:
     return GENE_NS.internal.ns["String"].internal.class
   else:

@@ -8,6 +8,14 @@
   (class Class
   )
 
+  (class Int
+    (method times blk
+      (for i in (range 0 self)
+        (blk i)
+      )
+    )
+  )
+
   (class String
     (method size _
       (call_native "str_len" self)
