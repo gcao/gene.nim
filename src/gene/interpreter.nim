@@ -16,7 +16,7 @@ init_native_procs()
 
 #################### Interfaces ##################
 
-proc `[]`*(self: Frame, key: int): GeneValue {.inline.}
+proc `[]`*(self: Frame, name: string): GeneValue {.inline.}
 proc new_expr*(parent: Expr, kind: ExprKind): Expr
 proc get*(self: var ScopeManager): Scope {.inline.}
 proc import_module*(self: VM, name: string, code: string): Namespace
@@ -86,11 +86,11 @@ proc reset*(self: var Frame) {.inline.} =
   self.scope = nil
   self.extra = nil
 
-proc `[]`*(self: Frame, key: int): GeneValue {.inline.} =
-  if self.scope.hasKey(key):
-    return self.scope[key]
+proc `[]`*(self: Frame, name: string): GeneValue {.inline.} =
+  if self.scope.hasKey(name):
+    return self.scope[name]
   else:
-    return self.ns[key]
+    return self.ns[name]
 
 #################### ScopeManager ################
 
@@ -137,13 +137,11 @@ proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
   )
 
 proc new_symbol_expr*(parent: Expr, s: string): Expr =
-  var key = parent.module.get_index(s)
   return Expr(
     kind: ExSymbol,
     parent: parent,
     module: parent.module,
     symbol: s,
-    symbol_key: key,
   )
 
 proc new_complex_symbol_expr*(parent: Expr, node: GeneValue): Expr =
@@ -208,7 +206,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExLiteral:
     result = expr.literal
   of ExSymbol:
-    result = frame[expr.symbol_key]
+    result = frame[expr.symbol]
   of ExComplexSymbol:
     result = self.get_member(frame, expr.csymbol)
   of ExGroup:
@@ -315,11 +313,11 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else: todo()
   of ExVar:
     var val = self.eval(frame, expr.var_val)
-    frame.scope.def_member(expr.var_key, val)
+    frame.scope.def_member(expr.var_name, val)
     result = GeneNil
   of ExAssignment:
     var val = self.eval(frame, expr.var_val)
-    frame.scope[expr.var_key] = val
+    frame.scope[expr.var_name] = val
     result = GeneNil
   of ExIf:
     var v = self.eval(frame, expr.if_cond)
@@ -354,17 +352,17 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExFor:
     try:
       var for_in = self.eval(frame, expr.for_in)
-      var key = frame.ns.module.get_index(expr.for_vars.symbol)
-      frame.scope.def_member(key, GeneNil)
+      var name = expr.for_vars.symbol
+      frame.scope.def_member(name, GeneNil)
       case for_in.kind:
       of GeneRange:
         for i in for_in.range_start.int..<for_in.range_end.int:
-          frame.scope[key] = i
+          frame.scope[name] = i
           for e in expr.for_blk:
             discard self.eval(frame, e)
       of GeneVector:
         for i in for_in.vec:
-          frame.scope[key] = i
+          frame.scope[name] = i
           for e in expr.for_blk:
             discard self.eval(frame, e)
       else:
@@ -378,7 +376,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     expr.fn.internal.fn.ns = frame.ns
     expr.fn.internal.fn.parent_scope = frame.scope
     expr.fn.internal.fn.parent_scope_max = frame.scope.max
-    frame.ns[expr.fn.internal.fn.name_key] = expr.fn
+    frame.ns[expr.fn.internal.fn.name] = expr.fn
     result = expr.fn
   of ExArgs:
     case frame.extra.kind:
@@ -388,7 +386,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       not_allowed()
   of ExMacro:
     expr.mac.internal.mac.ns = frame.ns
-    frame.ns[expr.mac.internal.mac.name_key] = expr.mac
+    frame.ns[expr.mac.internal.mac.name] = expr.mac
     result = expr.mac
   of ExBlock:
     expr.blk.internal.blk.ns = frame.ns
@@ -408,8 +406,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExAspect:
     var aspect = expr.aspect.internal.aspect
     aspect.ns = frame.ns
-    var key = frame.ns.module.get_index(aspect.name)
-    frame.ns[key] = expr.aspect
+    frame.ns[aspect.name] = expr.aspect
     result = expr.aspect
   of ExAdvice:
     var instance = frame.self.internal.aspect_instance
@@ -440,7 +437,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else:
       todo($expr.unknown)
   of ExNamespace:
-    frame.ns[expr.ns.internal.ns.name_key] = expr.ns
+    frame.ns[expr.ns.internal.ns.name] = expr.ns
     var old_self = frame.self
     var old_ns = frame.ns
     try:
@@ -459,8 +456,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExImport:
     var ns = self.modules[expr.import_module]
     for name in expr.import_mappings:
-      var key = expr.module.get_index(name)
-      frame.ns.members[key] = ns[name]
+      frame.ns.members[name] = ns[name]
   of ExClass:
     self.set_member(frame, expr.class_name, expr.class, true)
     var super_class: Class
@@ -515,8 +511,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = self.call_method(frame, instance, class, expr.invoke_meth, expr.invoke_args)
   of ExSuper:
     var instance = frame.self
-    var method_key = frame.ns.module.get_index("$method")
-    var meth = frame.scope[method_key].internal.meth
+    var meth = frame.scope["$method"].internal.meth
     var class = meth.class
     result = self.call_method(frame, instance, class.parent, meth.name, expr.super_args)
   of ExGetProp:
@@ -652,11 +647,10 @@ proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatc
   var match_result = matcher.match(frame.args)
   if match_result.kind == MatchSuccess:
     for field in match_result.fields:
-      var key = module.get_index(field.name)
       if field.value_expr != nil:
-        frame.scope.def_member(key, self.eval(frame, field.value_expr))
+        frame.scope.def_member(field.name, self.eval(frame, field.value_expr))
       else:
-        frame.scope.def_member(key, field.value)
+        frame.scope.def_member(field.name, field.value)
   else:
     todo()
 
@@ -682,11 +676,9 @@ proc call_fn*(
   var new_frame: Frame
   if options.hasKey(FnMethod):
     new_frame = FrameMgr.get(FrMethod, ns, fn_scope)
-    var class_key = module.get_index("$class")
-    fn_scope.def_member(class_key, options[FnClass])
-    var method_key = module.get_index("$method")
+    fn_scope.def_member("$class", options[FnClass])
     var meth = options[FnMethod]
-    fn_scope.def_member(method_key, meth)
+    fn_scope.def_member("$method", meth)
   else:
     new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
   new_frame.parent = frame
@@ -826,19 +818,17 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   elif name.first == "gene":
     result = GENE_NS
   else:
-    var key = frame.ns.module.get_index(name.first)
-    result = frame[key]
+    result = frame[name.first]
   for name in name.rest:
     result = result.internal.ns[name]
 
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
   case name.kind:
   of GeneSymbol:
-    var key = self.cur_module.get_index(name.symbol)
     if in_ns:
-      frame.ns[key] = value
+      frame.ns[name.symbol] = value
     else:
-      frame.scope[key] = value
+      frame.scope[name.symbol] = value
   of GeneComplexSymbol:
     var ns: Namespace
     if name.csymbol.first == "global":
@@ -846,14 +836,13 @@ proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
     elif name.csymbol.first == "gene":
       ns = GENE_NS.internal.ns
     else:
-      var key = self.cur_module.get_index(name.csymbol.first)
-      ns = frame[key].internal.ns
+      var s = name.csymbol.first
+      ns = frame[s].internal.ns
     for i in 0..<(name.csymbol.rest.len - 1):
       var name = name.csymbol.rest[i]
       ns = ns[name].internal.ns
     var base_name = name.csymbol.rest[^1]
-    var key = ns.module.get_index(base_name)
-    ns[key] = value
+    ns[base_name] = value
   else:
     not_allowed()
 
@@ -861,20 +850,18 @@ proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: Ma
   case pattern.kind:
   of GeneSymbol:
     var name = pattern.symbol
-    var key = frame.ns.module.get_index(name)
     case mode:
     of MatchArgs:
-      frame.scope.def_member(key, val.gene.data[0])
+      frame.scope.def_member(name, val.gene.data[0])
     else:
-      frame.scope.def_member(key, val)
+      frame.scope.def_member(name, val)
   of GeneVector:
     for i in 0..<pattern.vec.len:
       var name = pattern.vec[i].symbol
-      var key = frame.ns.module.get_index(name)
       if i < val.gene.data.len:
-        frame.scope.def_member(key, val.gene.data[i])
+        frame.scope.def_member(name, val.gene.data[i])
       else:
-        frame.scope.def_member(key, GeneNil)
+        frame.scope.def_member(name, GeneNil)
   else:
     todo()
 
@@ -1091,24 +1078,20 @@ proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
   result.map_val = new_expr(result, val)
 
 proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr =
-  var key = parent.module.get_index(name)
   result = Expr(
     kind: ExVar,
     parent: parent,
     module: parent.module,
-    # var_name: name,
-    var_key: key,
+    var_name: name,
   )
   result.var_val = new_expr(result, val)
 
 proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr =
-  var key = parent.module.get_index(name)
   result = Expr(
     kind: ExAssignment,
     parent: parent,
     module: parent.module,
-    # var_name: name,
-    var_key: key,
+    var_name: name,
   )
   result.var_val = new_expr(result, val)
 
@@ -1151,7 +1134,6 @@ proc new_range_expr*(parent: Expr, val: GeneValue): Expr =
 
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val
-  fn.name_key = parent.module.get_index(fn.name)
   result = Expr(
     kind: ExFn,
     parent: parent,
@@ -1163,7 +1145,6 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
 
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
   var mac: Macro = val
-  mac.name_key = parent.module.get_index(mac.name)
   result = Expr(
     kind: ExMacro,
     parent: parent,
@@ -1213,7 +1194,6 @@ proc new_advice_expr*(parent: Expr, val: GeneValue): Expr =
 
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   var ns = new_namespace(parent.module, val.gene.data[0].symbol)
-  ns.name_key = parent.module.get_index(ns.name)
   result = Expr(
     kind: ExNamespace,
     parent: parent,
@@ -1246,7 +1226,6 @@ proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   else:
     not_allowed()
   var class = new_class(s)
-  class.name_key = parent.module.get_index(s)
   result = Expr(
     kind: ExClass,
     parent: parent,
@@ -1274,7 +1253,6 @@ proc new_mixin_expr*(parent: Expr, val: GeneValue): Expr =
   else:
     not_allowed()
   var mix = new_mixin(s)
-  mix.name_key = parent.module.get_index(s)
   result = Expr(
     kind: ExMixin,
     parent: parent,

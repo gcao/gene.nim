@@ -9,8 +9,6 @@ const BINARY_OPS* = [
 ]
 
 type
-  # index of a name in a module, namespace uses this index too
-  NameIndexModule* = distinct int
   # index of a name in a scope
   NameIndexScope* = distinct int
 
@@ -25,32 +23,27 @@ type
   Module* = ref object
     name*: string
     root_ns*: Namespace
-    name_mappings*: Table[string, NameIndexModule]
-    names*: seq[string]
 
   Namespace* = ref object
     module*: Module
     parent*: Namespace
     name*: string
-    name_key*: NameIndexModule
-    members*: Table[NameIndexModule, GeneValue]
+    members*: Table[string, GeneValue]
 
   Scope* = ref object
     parent*: Scope
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
-    mappings*: Table[NameIndexModule, seq[NameIndexScope]]
+    mappings*: Table[string, seq[NameIndexScope]]
     usage*: int
 
   Class* = ref object
     parent*: Class
     name*: string
-    name_key*: NameIndexModule
     methods*: Table[string, Method]
 
   Mixin* = ref object
     name*: string
-    name_key*: NameIndexModule
     methods*: Table[string, Method]
 
   Method* = ref object
@@ -182,7 +175,6 @@ type
     parent_scope*: Scope
     parent_scope_max*: NameIndexScope
     name*: string
-    name_key*: int
     matcher*: RootMatcher
     body*: seq[GeneValue]
     expr*: Expr # The function expression that will be the parent of body
@@ -200,7 +192,6 @@ type
   Macro* = ref object
     ns*: Namespace
     name*: string
-    name_key*: int
     matcher*: RootMatcher
     body*: seq[GeneValue]
     expr*: Expr # The expression that will be the parent of body
@@ -426,7 +417,6 @@ type
       literal*: GeneValue
     of ExSymbol:
       symbol*: string
-      symbol_key*: int
     of ExComplexSymbol:
       csymbol*: ComplexSymbol
     of ExUnknown:
@@ -458,8 +448,7 @@ type
     of ExGroup:
       group*: seq[Expr]
     of ExVar, ExAssignment:
-      # var_name*: string
-      var_key*: int
+      var_name*: string
       var_val*: Expr
     of ExBinary:
       bin_op*: BinOps
@@ -731,8 +720,6 @@ converter biggest_to_int*(v: BiggestInt): int = cast[int](v)
 converter seq_to_gene*(v: seq[GeneValue]): GeneValue = new_gene_vec(v)
 converter str_to_gene*(v: string): GeneValue = new_gene_string(v)
 
-converter int_to_module_index*(v: int): NameIndexModule = cast[NameIndexModule](v)
-converter module_index_to_int*(v: NameIndexModule): int = cast[int](v)
 converter int_to_scope_index*(v: int): NameIndexScope = cast[NameIndexScope](v)
 converter scope_index_to_int*(v: NameIndexScope): int = cast[int](v)
 
@@ -747,28 +734,20 @@ proc new_module*(name: string): Module =
 proc new_module*(): Module =
   result = new_module("<unknown>")
 
-proc get_index*(self: var Module, name: string): NameIndexModule =
-  if self.name_mappings.hasKey(name):
-    return self.name_mappings[name]
-  else:
-    result = self.names.len
-    self.names.add(name)
-    self.name_mappings[name] = result
-
 #################### Namespace ###################
 
 proc new_namespace*(module: Module): Namespace =
   return Namespace(
     module: module,
     name: "<root>",
-    members: Table[NameIndexModule, GeneValue](),
+    members: Table[string, GeneValue](),
   )
 
 proc new_namespace*(module: Module, name: string): Namespace =
   return Namespace(
     module: module,
     name: name,
-    members: Table[NameIndexModule, GeneValue](),
+    members: Table[string, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace, name: string): Namespace =
@@ -776,28 +755,22 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
     module: parent.module,
     parent: parent,
     name: name,
-    members: Table[NameIndexModule, GeneValue](),
+    members: Table[string, GeneValue](),
   )
 
 proc hasKey*(self: Namespace, key: string): bool {.inline.} =
-  return self.members.hasKey(self.module.get_index(key))
+  return self.members.hasKey(key)
 
-# proc def_member*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
-#   self.members[key] = val
+proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} = self.members[key]
 
-proc `[]`*(self: Namespace, key: int): GeneValue {.inline.} = self.members[key]
-
-proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
-  return self[self.module.get_index(key)]
-
-proc `[]=`*(self: var Namespace, key: int, val: GeneValue) {.inline.} =
+proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
   self.members[key] = val
 
 #################### Scope #######################
 
 proc new_scope*(): Scope = Scope(
   members: @[],
-  mappings: Table[NameIndexModule, seq[NameIndexScope]](),
+  mappings: Table[string, seq[NameIndexScope]](),
   usage: 1,
 )
 
@@ -813,7 +786,7 @@ proc reset*(self: var Scope) {.inline.} =
   self.parent = nil
   self.members.setLen(0)
 
-proc hasKey(self: Scope, key: NameIndexModule, max: int): bool {.inline.} =
+proc hasKey(self: Scope, key: string, max: int): bool {.inline.} =
   if self.mappings.hasKey(key):
     # If first >= max, all others will be >= max
     if self.mappings[key][0] < max:
@@ -822,13 +795,13 @@ proc hasKey(self: Scope, key: NameIndexModule, max: int): bool {.inline.} =
   if self.parent != nil:
     return self.parent.hasKey(key, self.parent_index_max)
 
-proc hasKey*(self: Scope, key: NameIndexModule): bool {.inline.} =
+proc hasKey*(self: Scope, key: string): bool {.inline.} =
   if self.mappings.hasKey(key):
     return true
   elif self.parent != nil:
     return self.parent.hasKey(key, self.parent_index_max)
 
-proc def_member*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline.} =
+proc def_member*(self: var Scope, key: string, val: GeneValue) {.inline.} =
   var index = self.members.len
   self.members.add(val)
   if self.mappings.hasKey(key):
@@ -836,7 +809,7 @@ proc def_member*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline
   else:
     self.mappings[key] = @[cast[NameIndexScope](index)]
 
-proc `[]`(self: Scope, key: NameIndexModule, max: int): GeneValue {.inline.} =
+proc `[]`(self: Scope, key: string, max: int): GeneValue {.inline.} =
   if self.mappings.hasKey(key):
     var found = self.mappings[key]
     var i = found.len - 1
@@ -849,14 +822,14 @@ proc `[]`(self: Scope, key: NameIndexModule, max: int): GeneValue {.inline.} =
   if self.parent != nil:
     return self.parent[key, self.parent_index_max]
 
-proc `[]`*(self: Scope, key: NameIndexModule): GeneValue {.inline.} =
+proc `[]`*(self: Scope, key: string): GeneValue {.inline.} =
   if self.mappings.hasKey(key):
     var i: int = self.mappings[key][^1]
     return self.members[i]
   elif self.parent != nil:
     return self.parent[key, self.parent_index_max]
 
-proc `[]=`(self: var Scope, key: NameIndexModule, val: GeneValue, max: int) {.inline.} =
+proc `[]=`(self: var Scope, key: string, val: GeneValue, max: int) {.inline.} =
   if self.mappings.hasKey(key):
     var found = self.mappings[key]
     var i = found.len - 1
@@ -872,7 +845,7 @@ proc `[]=`(self: var Scope, key: NameIndexModule, val: GeneValue, max: int) {.in
   else:
     not_allowed()
 
-proc `[]=`*(self: var Scope, key: NameIndexModule, val: GeneValue) {.inline.} =
+proc `[]=`*(self: var Scope, key: string, val: GeneValue) {.inline.} =
   if self.mappings.hasKey(key):
     var i: int = self.mappings[key][^1]
     self.members[i] = val
