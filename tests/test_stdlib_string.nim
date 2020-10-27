@@ -5,6 +5,8 @@ import gene/interpreter
 
 import ./helpers
 
+test_core "((\"\" .class) .name)", "String"
+
 test_core "(\"abc\" .size)", 3
 
 test_core "(\"abc\" .substr 1)", "bc"

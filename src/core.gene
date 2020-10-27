@@ -2,3 +2,7 @@
 
 (ns gene)
 (ns genex)
+
+(fn global/with [this expr...]
+  (do ^self this expr...)
+)

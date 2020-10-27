@@ -125,3 +125,12 @@ test_read_all "1 2", @[new_gene_int(1), new_gene_int(2)]
 # test "Parse document":
 #   var doc: GeneDocument
 #   doc = read_document("1 2 3")
+
+# TODO:
+# test_parser """
+#   #
+#   # comment
+#   #
+#   1
+#   #
+# """, 1

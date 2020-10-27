@@ -159,6 +159,14 @@
     result
   )
 
+  (method values _
+    (var result [])
+    (for [_ v] in self
+      (result .add v)
+    )
+    result
+  )
+
   (method map block
     (var result [])
     (for [k v] in self
