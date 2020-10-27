@@ -34,6 +34,7 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr
 proc new_var_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr
 proc new_assignment_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr
 proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
+proc new_do_expr*(parent: Expr, node: GeneValue): Expr
 proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
 proc new_break_expr*(parent: Expr, val: GeneValue): Expr
@@ -216,6 +217,20 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       result = frame[expr.symbol]
   of ExComplexSymbol:
     result = self.get_member(frame, expr.csymbol)
+  of ExDo:
+    var old_self = frame.self
+    try:
+      for e in expr.do_props:
+        var val = self.eval(frame, e)
+        case e.map_key:
+        of "self":
+          frame.self = val
+        else:
+          todo()
+      for e in expr.do_body:
+        result = self.eval(frame, e)
+    finally:
+      frame.self = old_self
   of ExGroup:
     for e in expr.group:
       result = self.eval(frame, e)
@@ -995,7 +1010,7 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       of "if":
         return new_if_expr(parent, node)
       of "do":
-        return new_group_expr(parent, node.gene.data)
+        return new_do_expr(parent, node)
       of "loop":
         return new_loop_expr(parent, node)
       of "break":
@@ -1083,6 +1098,17 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       result.gene_data.add(new_expr(result, item))
   else:
     todo($node)
+
+proc new_do_expr*(parent: Expr, node: GeneValue): Expr =
+  result = Expr(
+    kind: ExDo,
+    parent: parent,
+    module: parent.module,
+  )
+  for k, v in node.gene.props:
+    result.do_props.add(new_map_key_expr(result, k, v))
+  for item in node.gene.data:
+    result.do_body.add(new_expr(result, item))
 
 proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
   result = Expr(

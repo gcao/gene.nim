@@ -360,6 +360,7 @@ type
     ExGet
     ExSet
     ExGroup
+    ExDo
     ExVar
     ExAssignment
     ExBinary
@@ -446,6 +447,9 @@ type
       set_value*: Expr
     of ExGroup:
       group*: seq[Expr]
+    of ExDo:
+      do_props*: seq[Expr]
+      do_body*: seq[Expr]
     of ExVar, ExAssignment:
       var_name*: GeneValue
       var_val*: Expr
