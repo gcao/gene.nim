@@ -1,4 +1,2 @@
-(ns genex
-  (class Regex
-  )
+(class genex/Http
 )

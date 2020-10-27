@@ -59,7 +59,7 @@ proc test_core*(code: string, result: GeneValue) =
   test "Interpreter / eval: " & code:
     var app = new_app()
     var interpreter = new_vm(app)
-    # interpreter.load_core_module()
+    interpreter.load_core_module()
     interpreter.load_gene_module()
     interpreter.load_genex_module()
     check interpreter.eval(code) == result
@@ -69,7 +69,7 @@ proc test_core*(code: string, callback: proc(result: GeneValue)) =
   test "Interpreter / eval: " & code:
     var app = new_app()
     var interpreter = new_vm(app)
-    # interpreter.load_core_module()
+    interpreter.load_core_module()
     interpreter.load_gene_module()
     interpreter.load_genex_module()
     callback interpreter.eval(code)

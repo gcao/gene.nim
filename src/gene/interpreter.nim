@@ -206,7 +206,13 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExLiteral:
     result = expr.literal
   of ExSymbol:
-    result = frame[expr.symbol]
+    case expr.symbol:
+    of "gene":
+      result = GENE_NS
+    of "genex":
+      result = GENEX_NS
+    else:
+      result = frame[expr.symbol]
   of ExComplexSymbol:
     result = self.get_member(frame, expr.csymbol)
   of ExGroup:
@@ -570,15 +576,15 @@ proc eval*(self: VM, code: string): GeneValue =
   return self.eval(frame, self.prepare(code))
 
 proc load_core_module*(self: VM) =
-  discard self.import_module("gene", readFile("src/core.gene"))
+  var ns = self.import_module("core", readFile("src/core.gene"))
+  GENE_NS = ns["gene"]
+  GENEX_NS = ns["genex"]
 
 proc load_gene_module*(self: VM) =
-  var ns = self.import_module("gene", readFile("src/gene.gene"))
-  GENE_NS = ns["gene"]
+  discard self.import_module("gene", readFile("src/gene.gene"))
 
 proc load_genex_module*(self: VM) =
-  var ns = self.import_module("genex", readFile("src/genex.gene"))
-  GENEX_NS = ns["genex"]
+  discard self.import_module("genex", readFile("src/genex.gene"))
 
 proc get_class*(self: VM, val: GeneValue): Class =
   case val.kind:
@@ -817,6 +823,8 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
     result = GLOBAL_NS
   elif name.first == "gene":
     result = GENE_NS
+  elif name.first == "genex":
+    result = GENEX_NS
   else:
     result = frame[name.first]
   for name in name.rest:
@@ -831,10 +839,13 @@ proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
       frame.scope[name.symbol] = value
   of GeneComplexSymbol:
     var ns: Namespace
-    if name.csymbol.first == "global":
+    case name.csymbol.first:
+    of "global":
       ns = GLOBAL_NS.internal.ns
-    elif name.csymbol.first == "gene":
+    of "gene":
       ns = GENE_NS.internal.ns
+    of "genex":
+      ns = GENEX_NS.internal.ns
     else:
       var s = name.csymbol.first
       ns = frame[s].internal.ns

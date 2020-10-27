@@ -1,3 +1,4 @@
-#
 # VM initialization etc goes here
-#
+
+(ns gene)
+(ns genex)

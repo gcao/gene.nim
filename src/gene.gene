@@ -1,155 +1,156 @@
-(ns gene
-  (class Object
-    (method class _
-      ($get_class self)
-    )
-
-    (method to_s _
-      (call_native "gene_to_s" self)
-    )
+(class gene/Object
+  (method class _
+    ($get_class self)
   )
 
-  (class Class
-    (method name _
-      (call_native "class_name" self)
+  (method to_s _
+    (call_native "gene_to_s" self)
+  )
+)
+
+(class gene/Class
+  (method name _
+    (call_native "class_name" self)
+  )
+
+  (method parent _
+    (call_native "class_parent" self)
+  )
+)
+
+(class gene/Nil
+)
+
+(class gene/Bool
+)
+
+(class gene/Int
+  (method times blk
+    (for i in (range 0 self)
+      (blk i)
     )
+  )
+)
 
-    (method parent _
-      (call_native "class_parent" self)
-    )
+(class gene/Char
+)
+
+(class gene/String
+  (method size _
+    (call_native "str_size" self)
   )
 
-  (class Nil
-  )
-
-  (class Bool
-  )
-
-  (class Int
-    (method times blk
-      (for i in (range 0 self)
-        (blk i)
-      )
-    )
-  )
-
-  (class Char
-  )
-
-  (class String
-    (method size _
-      (call_native "str_size" self)
-    )
-
-    (method substr [start end = nil]
-      (if start
-        (if end
-          (call_native "str_substr" self start end)
-        else
-          (call_native "str_substr" self start)
-        )
+  (method substr [start end = nil]
+    (if start
+      (if end
+        (call_native "str_substr" self start end)
       else
-        (not_allowed "Start index is required")
+        (call_native "str_substr" self start)
       )
-    )
-
-    (method split [sep limit = nil]
-      (if limit
-        (call_native "str_split" self sep limit)
-      else
-        (call_native "str_split" self sep)
-      )
-    )
-
-    (method index s
-      (call_native "str_index" self s)
-    )
-
-    (method rindex s
-      (call_native "str_rindex" self s)
-    )
-
-    (method char_at i
-      (call_native "str_char_at" self i)
-    )
-
-    (method trim _
-      (call_native "str_trim" self)
-    )
-
-    (method starts_with s
-      (call_native "str_starts_with" self s)
-    )
-
-    (method ends_with s
-      (call_native "str_ends_with" self s)
-    )
-
-    (method ends_with s
-      (call_native "str_ends_with" self s)
-    )
-
-    (method to_upper_case _
-      (call_native "str_to_upper_case" self)
-    )
-
-    (method to_lower_case _
-      (call_native "str_to_lower_case" self)
+    else
+      (not_allowed "Start index is required")
     )
   )
 
-  (class Symbol
-  )
-
-  (class Array
-    (method size _
-      (call_native "array_size" self)
-    )
-
-    (method get i
-      (call_native "array_get" self i)
-    )
-
-    (method set [i item]
-      (call_native "array_set" self i item)
-    )
-
-    (method add item
-      (call_native "array_add" self item)
-    )
-
-    (method del i
-      (call_native "array_del" self i)
-    )
-
-    (method each block
-      (for item in self (block item))
-    )
-
-    (method map block
-      (var result [])
-      (for item in self
-        (result .add (block item))
-      )
-      result
-    )
-
-    (method filter block
-      (var result [])
-      (for item in self
-        (if (block item) (result .add item))
-      )
-      result
+  (method split [sep limit = nil]
+    (if limit
+      (call_native "str_split" self sep limit)
+    else
+      (call_native "str_split" self sep)
     )
   )
 
-  (class Map
-    (method size _
-      (call_native "map_size" self)
-    )
-
-    (method each block
-      (for [k v] in self (block k v))
-    )
+  (method index s
+    (call_native "str_index" self s)
   )
+
+  (method rindex s
+    (call_native "str_rindex" self s)
+  )
+
+  (method char_at i
+    (call_native "str_char_at" self i)
+  )
+
+  (method trim _
+    (call_native "str_trim" self)
+  )
+
+  (method starts_with s
+    (call_native "str_starts_with" self s)
+  )
+
+  (method ends_with s
+    (call_native "str_ends_with" self s)
+  )
+
+  (method ends_with s
+    (call_native "str_ends_with" self s)
+  )
+
+  (method to_upper_case _
+    (call_native "str_to_upper_case" self)
+  )
+
+  (method to_lower_case _
+    (call_native "str_to_lower_case" self)
+  )
+)
+
+(class gene/Symbol
+)
+
+(class gene/Array
+  (method size _
+    (call_native "array_size" self)
+  )
+
+  (method get i
+    (call_native "array_get" self i)
+  )
+
+  (method set [i item]
+    (call_native "array_set" self i item)
+  )
+
+  (method add item
+    (call_native "array_add" self item)
+  )
+
+  (method del i
+    (call_native "array_del" self i)
+  )
+
+  (method each block
+    (for item in self (block item))
+  )
+
+  (method map block
+    (var result [])
+    (for item in self
+      (result .add (block item))
+    )
+    result
+  )
+
+  (method filter block
+    (var result [])
+    (for item in self
+      (if (block item) (result .add item))
+    )
+    result
+  )
+)
+
+(class gene/Map
+  (method size _
+    (call_native "map_size" self)
+  )
+
+  (method each block
+    (for [k v] in self (block k v))
+  )
+)
+
+(class gene/Regex
 )
