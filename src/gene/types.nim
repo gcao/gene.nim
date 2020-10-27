@@ -25,7 +25,6 @@ type
     root_ns*: Namespace
 
   Namespace* = ref object
-    module*: Module
     parent*: Namespace
     name*: string
     members*: OrderedTable[string, GeneValue]
@@ -448,7 +447,7 @@ type
     of ExGroup:
       group*: seq[Expr]
     of ExVar, ExAssignment:
-      var_name*: string
+      var_name*: GeneValue
       var_val*: Expr
     of ExBinary:
       bin_op*: BinOps
@@ -682,6 +681,10 @@ let
   GeneFalse* = GeneValue(kind: GeneBool, bool: false)
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
 
+var GLOBAL_NS*: GeneValue
+var GENE_NS*:   GeneValue
+var GENEX_NS*:  GeneValue
+
 var NativeProcs* = NativeProcsType()
 
 var GeneInts: array[111, GeneValue]
@@ -706,7 +709,8 @@ proc new_gene_int*(val: BiggestInt): GeneValue
 proc new_gene_string*(s: string): GeneValue
 proc new_gene_string_move*(s: string): GeneValue
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue
-proc new_namespace*(module: Module): Namespace
+proc new_namespace*(): Namespace
+proc new_namespace*(parent: Namespace): Namespace
 proc new_match_matcher*(): RootMatcher
 proc new_arg_matcher*(): RootMatcher
 proc parse*(self: var RootMatcher, v: GeneValue)
@@ -723,36 +727,42 @@ converter str_to_gene*(v: string): GeneValue = new_gene_string(v)
 converter int_to_scope_index*(v: int): NameIndexScope = cast[NameIndexScope](v)
 converter scope_index_to_int*(v: NameIndexScope): int = cast[int](v)
 
+converter gene_to_ns*(v: GeneValue): Namespace = v.internal.ns
+
 #################### Module ######################
 
 proc new_module*(name: string): Module =
   result = Module(
     name: name,
   )
-  result.root_ns = new_namespace(result)
+  result.root_ns = new_namespace(GLOBAL_NS)
 
 proc new_module*(): Module =
   result = new_module("<unknown>")
 
 #################### Namespace ###################
 
-proc new_namespace*(module: Module): Namespace =
+proc new_namespace*(): Namespace =
   return Namespace(
-    module: module,
     name: "<root>",
     members: OrderedTable[string, GeneValue](),
   )
 
-proc new_namespace*(module: Module, name: string): Namespace =
+proc new_namespace*(parent: Namespace): Namespace =
   return Namespace(
-    module: module,
+    parent: parent,
+    name: "<root>",
+    members: OrderedTable[string, GeneValue](),
+  )
+
+proc new_namespace*(name: string): Namespace =
+  return Namespace(
     name: name,
     members: OrderedTable[string, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace, name: string): Namespace =
   return Namespace(
-    module: parent.module,
     parent: parent,
     name: name,
     members: OrderedTable[string, GeneValue](),
@@ -761,7 +771,11 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
 proc hasKey*(self: Namespace, key: string): bool {.inline.} =
   return self.members.hasKey(key)
 
-proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} = self.members[key]
+proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
+  if self.hasKey(key):
+    return self.members[key]
+  else:
+    return self.parent[key]
 
 proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
   self.members[key] = val
@@ -1411,13 +1425,8 @@ proc new_doc*(data: seq[GeneValue]): GeneDocument =
 
 #################### Application #################
 
-var GLOBAL_NS*: GeneValue
-var GENE_NS*:   GeneValue
-var GENEX_NS*:  GeneValue
-
 proc new_app*(): Application =
-  var module = new_module("global")
-  GLOBAL_NS = new_gene_internal(new_namespace(module, "global"))
+  GLOBAL_NS = new_namespace("global")
   result = Application(
     ns: GLOBAL_NS.internal.ns,
   )

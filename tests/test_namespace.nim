@@ -28,3 +28,8 @@ test_interpreter """
   global/A
 """, proc(r: GeneValue) =
   check r.internal.class.name == "A"
+
+test_interpreter """
+  (var global/a 1)
+  a
+""", 1

@@ -24,14 +24,15 @@ proc load_core_module*(self: VM)
 proc load_gene_module*(self: VM)
 proc load_genex_module*(self: VM)
 proc get_class*(self: VM, val: GeneValue): Class
+proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
-proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
+proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue)
 proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: MatchMode): GeneValue
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
 proc new_if_expr*(parent: Expr, val: GeneValue): Expr
-proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr
-proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr
+proc new_var_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr
+proc new_assignment_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr
 proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr
 proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr
@@ -67,7 +68,7 @@ proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
 proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue
-proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: OrderedTable[FnOption, GeneValue]): GeneValue
+proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: Table[FnOption, GeneValue]): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
@@ -254,7 +255,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     of GeneInternal:
       case target.internal.kind:
       of GeneFunction:
-        var options = OrderedTable[FnOption, GeneValue]()
+        var options = Table[FnOption, GeneValue]()
         var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
         result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
       of GeneMacro:
@@ -319,11 +320,11 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else: todo()
   of ExVar:
     var val = self.eval(frame, expr.var_val)
-    frame.scope.def_member(expr.var_name, val)
+    self.def_member(frame, expr.var_name, val, false)
     result = GeneNil
   of ExAssignment:
     var val = self.eval(frame, expr.var_val)
-    frame.scope[expr.var_name] = val
+    self.set_member(frame, expr.var_name, val)
     result = GeneNil
   of ExIf:
     var v = self.eval(frame, expr.if_cond)
@@ -495,7 +496,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     for name in expr.import_mappings:
       frame.ns.members[name] = ns[name]
   of ExClass:
-    self.set_member(frame, expr.class_name, expr.class, true)
+    self.def_member(frame, expr.class_name, expr.class, true)
     var super_class: Class
     if expr.super_class == nil:
       if GENE_NS != nil and GENE_NS.internal.ns.hasKey("Object"):
@@ -511,7 +512,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
       discard self.eval(new_frame, e)
     result = expr.class
   of ExMixin:
-    self.set_member(frame, expr.mix_name, expr.mix, true)
+    self.def_member(frame, expr.mix_name, expr.mix, true)
     var ns = frame.ns
     var scope = new_scope()
     var new_frame = FrameMgr.get(FrMixin, ns, scope)
@@ -656,7 +657,7 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
   if meth != nil:
-    var options = OrderedTable[FnOption, GeneValue]()
+    var options = Table[FnOption, GeneValue]()
     options[FnClass] = class
     options[FnMethod] = meth
     var args = self.eval_args(frame, @[], args_blk)
@@ -680,7 +681,7 @@ proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): Gene
     else:
       result.gene.data.add(v)
 
-proc process_args*(self: VM, frame: Frame, module: var Module, matcher: RootMatcher) =
+proc process_args*(self: VM, frame: Frame, matcher: RootMatcher) =
   var match_result = matcher.match(frame.args)
   if match_result.kind == MatchSuccess:
     for field in match_result.fields:
@@ -697,9 +698,8 @@ proc call_fn*(
   target: GeneValue,
   fn: Function,
   args: GeneValue,
-  options: OrderedTable[FnOption, GeneValue]
+  options: Table[FnOption, GeneValue]
 ): GeneValue =
-  var module = fn.expr.module
   var fn_scope = ScopeMgr.get()
   var ns: Namespace
   case fn.expr.kind:
@@ -722,7 +722,7 @@ proc call_fn*(
   new_frame.self = target
 
   new_frame.args = args
-  self.process_args(new_frame, module, fn.matcher)
+  self.process_args(new_frame, fn.matcher)
 
   if fn.body_blk.len == 0:
     for item in fn.body:
@@ -746,8 +746,7 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
   new_frame.self = target
 
   new_frame.args = expr.gene
-  var module = mac.expr.module
-  self.process_args(new_frame, module, mac.matcher)
+  self.process_args(new_frame, mac.matcher)
 
   var blk: seq[Expr] = @[]
   for item in mac.body:
@@ -781,8 +780,7 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
       new_frame.args.merge(v.internal.explode)
     else:
       new_frame.args.gene.data.add(v)
-  var module = blk.expr.module
-  self.process_args(new_frame, module, blk.matcher)
+  self.process_args(new_frame, blk.matcher)
 
   var blk2: seq[Expr] = @[]
   for item in blk.body:
@@ -804,8 +802,7 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
       new_frame.args.merge(v.internal.explode)
     else:
       new_frame.args.gene.data.add(v)
-  var module = aspect.ns.module
-  self.process_args(new_frame, module, aspect.matcher)
+  self.process_args(new_frame, aspect.matcher)
 
   var target = new_frame.args[0]
   result = new_aspect_instance(aspect, target)
@@ -830,7 +827,7 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
   new_frame.args = args
 
   # invoke before advices
-  var options = OrderedTable[FnOption, GeneValue]()
+  var options = Table[FnOption, GeneValue]()
   for advice in instance.before_advices:
     discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
 
@@ -849,6 +846,33 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
 
   ScopeMgr.free(new_scope)
 
+proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
+  case name.kind:
+  of GeneSymbol:
+    if in_ns:
+      frame.ns[name.symbol] = value
+    else:
+      frame.scope.def_member(name.symbol, value)
+  of GeneComplexSymbol:
+    var ns: Namespace
+    case name.csymbol.first:
+    of "global":
+      ns = GLOBAL_NS.internal.ns
+    of "gene":
+      ns = GENE_NS.internal.ns
+    of "genex":
+      ns = GENEX_NS.internal.ns
+    else:
+      var s = name.csymbol.first
+      ns = frame[s].internal.ns
+    for i in 0..<(name.csymbol.rest.len - 1):
+      var name = name.csymbol.rest[i]
+      ns = ns[name].internal.ns
+    var base_name = name.csymbol.rest[^1]
+    ns[base_name] = value
+  else:
+    not_allowed()
+
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   if name.first == "global":
     result = GLOBAL_NS
@@ -861,13 +885,13 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   for name in name.rest:
     result = result.internal.ns[name]
 
-proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
+proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue) =
   case name.kind:
   of GeneSymbol:
-    if in_ns:
-      frame.ns[name.symbol] = value
-    else:
+    if frame.scope.hasKey(name.symbol):
       frame.scope[name.symbol] = value
+    else:
+      frame.ns[name.symbol] = value
   of GeneComplexSymbol:
     var ns: Namespace
     case name.csymbol.first:
@@ -953,13 +977,13 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
     of GeneSymbol:
       case node.gene.op.symbol:
       of "var":
-        var name = node.gene.data[0].symbol
+        var name = node.gene.data[0]
         var val = GeneNil
         if node.gene.data.len > 1:
           val = node.gene.data[1]
         return new_var_expr(parent, name, val)
       of "=":
-        var name = node.gene.data[0].symbol
+        var name = node.gene.data[0]
         var val = node.gene.data[1]
         return new_assignment_expr(parent, name, val)
       of "@":
@@ -1119,7 +1143,7 @@ proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
   )
   result.map_val = new_expr(result, val)
 
-proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr =
+proc new_var_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr =
   result = Expr(
     kind: ExVar,
     parent: parent,
@@ -1128,7 +1152,7 @@ proc new_var_expr*(parent: Expr, name: string, val: GeneValue): Expr =
   )
   result.var_val = new_expr(result, val)
 
-proc new_assignment_expr*(parent: Expr, name: string, val: GeneValue): Expr =
+proc new_assignment_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr =
   result = Expr(
     kind: ExAssignment,
     parent: parent,
@@ -1235,7 +1259,7 @@ proc new_advice_expr*(parent: Expr, val: GeneValue): Expr =
   result.advice = val
 
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
-  var ns = new_namespace(parent.module, val.gene.data[0].symbol)
+  var ns = new_namespace(val.gene.data[0].symbol)
   result = Expr(
     kind: ExNamespace,
     parent: parent,
