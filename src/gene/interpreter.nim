@@ -1,4 +1,4 @@
-import tables, strutils
+import tables, strutils, os
 
 import ./types
 import ./parser
@@ -65,6 +65,7 @@ proc new_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
+proc new_env_expr*(parent: Expr, val: GeneValue): Expr
 proc new_print_expr*(parent: Expr, val: GeneValue): Expr
 
 proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
@@ -599,6 +600,12 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
   of ExQuote:
     result = expr.quote_val
+  of ExEnv:
+    var env = self.eval(frame, expr.env)
+    result = get_env(env.str)
+    if result == nil:
+      result = $self.eval(frame, expr.env_default)
+
   of ExPrint:
     for e in expr.print:
       var v = self.eval(frame, e)
@@ -1099,6 +1106,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         result = new_expr(parent, ExNotAllowed)
         result.not_allowed = new_expr(result, node.gene.data[0])
         return result
+      of "env":
+        return new_env_expr(parent, node)
       of "print", "println":
         return new_print_expr(parent, node)
       else:
@@ -1488,6 +1497,16 @@ proc new_quote_expr*(parent: Expr, val: GeneValue): Expr =
     module: parent.module,
   )
   result.quote_val = val.gene.data[0]
+
+proc new_env_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExEnv,
+    parent: parent,
+    module: parent.module,
+  )
+  result.env = new_expr(result, val.gene.data[0])
+  if val.gene.data.len > 1:
+    result.env_default = new_expr(result, val.gene.data[1])
 
 proc new_print_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(

@@ -12,6 +12,9 @@ type
   # index of a name in a scope
   NameIndexScope* = distinct int
 
+  NotDefinedError* = object of CatchableError
+  GeneralError*    = object of CatchableError
+
   ## This is the root of a running application
   Application* = ref object
     name*: string
@@ -401,6 +404,7 @@ type
     ExEval
     ExCallerEval
     ExMatch
+    ExEnv
     ExPrint
 
   Expr* = ref object of RootObj
@@ -548,6 +552,9 @@ type
     of ExMatch:
       match_pattern*: GeneValue
       match_val*: Expr
+    of ExEnv:
+      env*: Expr
+      env_default*: Expr
     of ExPrint:
       print_and_return*: bool
       print_to*: Expr
@@ -786,6 +793,8 @@ proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
     return self.members[key]
   elif self.parent != nil:
     return self.parent[key]
+  else:
+    raise new_exception(NotDefinedError, key & " is not defined")
 
 proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
   self.members[key] = val

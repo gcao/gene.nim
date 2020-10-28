@@ -17,3 +17,16 @@ test "Interpreter / eval: import":
     n/f
   """
   check result.internal.fn.name == "f"
+
+# test "Interpreter / eval: import":
+#   var vm = new_vm()
+#   discard vm.import_module("file1", """
+#     (ns n
+#       (fn f a a)
+#     )
+#   """)
+#   var result = vm.eval """
+#     (import n/f from "file1")
+#     f
+#   """
+#   check result.internal.fn.name == "f"
