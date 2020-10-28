@@ -120,3 +120,6 @@ proc init_native_procs*() =
 
   NativeProcs.add_only "map_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].map.len
+
+  NativeProcs.add_only "file_read", proc(args: seq[GeneValue]): GeneValue =
+    return read_file(args[0].str)

@@ -40,3 +40,14 @@ test_interpreter """
   )
   (A/f 1)
 """, 1
+
+# test_interpreter """
+#   (ns n
+#     (member_missing
+#       (fnx [self name]
+#         "not found"
+#       )
+#     )
+#   )
+#   n/A  # only when a name is accessed using a/X or a/b/X, member_missing is triggered
+# """, "not found"

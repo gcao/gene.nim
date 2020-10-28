@@ -184,3 +184,9 @@
 
 (class gene/Regex
 )
+
+(class gene/File
+  (fn read name
+    (call_native "file_read" name)
+  )
+)

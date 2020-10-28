@@ -1110,6 +1110,12 @@ proc `$`*(node: GeneValue): string =
   else:
     result = $node.kind
 
+proc to_s*(self: GeneValue): string =
+  return case self.kind:
+    of GeneNilKind: ""
+    of GeneString: self.str
+    else: $self
+
 #################### AOP #########################
 
 proc new_aspect*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Aspect =

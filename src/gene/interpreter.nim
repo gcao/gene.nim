@@ -299,6 +299,11 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
         result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
       else:
         todo()
+    of GeneString:
+      var str = target.str
+      for item in expr.gene_data:
+        str &= self.eval(frame, item).to_s
+      result = new_gene_string_move(str)
     else:
       todo()
 
