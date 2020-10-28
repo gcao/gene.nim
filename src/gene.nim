@@ -32,6 +32,12 @@ proc error(message: string): string =
 proc prompt(message: string): string =
   return "\u001B[36m" & message & "\u001B[0m"
 
+proc init_vm(): VM =
+  result = new_vm()
+  result.load_core_module()
+  result.load_gene_module()
+  result.load_genex_module()
+
 proc main() =
   var options = parseOptions()
   setupLogger(options.debugging)
@@ -43,7 +49,7 @@ proc main() =
     if options.debugging:
       echo "The logger level is set to DEBUG."
 
-    var vm = new_vm()
+    var vm = init_vm()
     var input = ""
     while true:
       write(stdout, prompt("Gene> "))
@@ -77,12 +83,14 @@ proc main() =
         echo error("$#: $#" % [$e.name, $e.msg])
 
   else:
-    var vm = new_vm()
+    var vm = init_vm()
     var file = options.file
     let start = cpuTime()
     let result = vm.eval(readFile(file))
-    echo result
-    echo "Time: " & $(cpuTime() - start)
+    if options.print_result:
+      echo result
+    if options.benchmark:
+      echo "Time: " & $(cpuTime() - start)
 
 when isMainModule:
   main()

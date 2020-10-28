@@ -8,6 +8,8 @@ type
     repl*: bool
     file*: string
     args*: seq[string]
+    benchmark*: bool
+    print_result*: bool
 
 # When running like
 # <PROGRAM> --debug test.gene 1 2 3
@@ -38,6 +40,10 @@ proc parseOptions*(): Options =
       case key
       of "debug", "d":
         result.debugging = true
+      of "benchmark", "b":
+        result.benchmark = true
+      of "print_result", "p":
+        result.print_result = true
       of "":
         expect_args = true
       else:
