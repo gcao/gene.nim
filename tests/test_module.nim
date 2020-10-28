@@ -26,18 +26,18 @@ test "Interpreter / eval: import":
   """
   check result.internal.fn.name == "f"
 
-# test "Interpreter / eval: import":
-#   var vm = new_vm()
-#   discard vm.import_module("file1", """
-#     (ns n
-#       (fn f a a)
-#     )
-#   """)
-#   var result = vm.eval """
-#     (import n/f from "file1")
-#     f
-#   """
-#   check result.internal.fn.name == "f"
+test "Interpreter / eval: import":
+  var vm = new_vm()
+  discard vm.import_module("file1", """
+    (ns n
+      (fn f a a)
+    )
+  """)
+  var result = vm.eval """
+    (import n/f from "file1")
+    f
+  """
+  check result.internal.fn.name == "f"
 
 test_import_matcher "(import a b from \"module\")", proc(r: ImportMatcherRoot) =
   check r.from == "module"
@@ -58,3 +58,19 @@ test_import_matcher "(import a b/[c d])", proc(r: ImportMatcherRoot) =
   check r.children[1].children.len == 2
   check r.children[1].children[0].name == "c"
   check r.children[1].children[1].name == "d"
+
+test_import_matcher "(import a b/c)", proc(r: ImportMatcherRoot) =
+  check r.children.len == 2
+  check r.children[0].name == "a"
+  check r.children[1].name == "b"
+  check r.children[1].children.len == 1
+  check r.children[1].children[0].name == "c"
+
+# test_import_matcher "(import a: my_a b/c: my_c)", proc(r: ImportMatcherRoot) =
+#   check r.children.len == 2
+#   check r.children[0].name == "a"
+#   check r.children[0].as == "my_a"
+#   check r.children[1].name == "b"
+#   check r.children[1].children.len == 1
+#   check r.children[1].children[0].name == "c"
+#   check r.children[1].children[0].as == "my_c"

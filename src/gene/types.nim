@@ -547,8 +547,7 @@ type
     of ExSelf, ExGlobal:
       discard
     of ExImport:
-      import_module*: string
-      import_mappings*: seq[string]
+      import_matcher*: ImportMatcherRoot
     of ExCallNative:
       native_name*: string
       native_index*: int
@@ -1808,12 +1807,16 @@ proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatc
 
       var matcher: ImportMatcher
       var my_group = group
-      for name in names:
+      var j = 0
+      while j < names.len:
+        var name = names[j]
+        j += 1
         if name == "": # TODO: throw error if "" is not the last
           self.parse(data[i], matcher.children.addr)
           i += 1
         else:
           matcher = ImportMatcher(name: name)
+          matcher.children_only = j < names.len
           my_group[].add(matcher)
           my_group = matcher.children.addr
     else:

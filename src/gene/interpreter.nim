@@ -28,6 +28,7 @@ proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue)
 proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: MatchMode): GeneValue
+proc import_from_ns*(self: VM, frame: Frame, source: GeneValue, group: seq[ImportMatcher])
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
 proc new_if_expr*(parent: Expr, val: GeneValue): Expr
@@ -510,9 +511,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExGlobal:
     return self.app.ns
   of ExImport:
-    var ns = self.modules[expr.import_module]
-    for name in expr.import_mappings:
-      frame.ns.members[name] = ns[name]
+    var ns = self.modules[expr.import_matcher.from]
+    self.import_from_ns(frame, ns, expr.import_matcher.children)
   of ExClass:
     expr.class.internal.class.ns.parent = frame.ns
     self.def_member(frame, expr.class_name, expr.class, true)
@@ -884,6 +884,11 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
 
 proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
   case name.kind:
+  of GeneString:
+    if in_ns:
+      frame.ns[name.str] = value
+    else:
+      frame.scope.def_member(name.str, value)
   of GeneSymbol:
     if in_ns:
       frame.ns[name.symbol] = value
@@ -966,6 +971,14 @@ proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: Ma
         frame.scope.def_member(name, GeneNil)
   else:
     todo()
+
+proc import_from_ns*(self: VM, frame: Frame, source: GeneValue, group: seq[ImportMatcher]) =
+  for m in group:
+    var value = source.internal.ns[m.name]
+    if m.children_only:
+      self.import_from_ns(frame, value.internal.ns, m.children)
+    else:
+      self.def_member(frame, m.name, value, true)
 
 ##################################################
 
@@ -1328,10 +1341,8 @@ proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExImport,
     parent: parent,
     module: parent.module,
-    import_module: val.gene.props["module"].str,
+    import_matcher: new_import_matcher(val),
   )
-  for name in val.gene.props["names"].vec:
-    result.import_mappings.add(name.symbol)
 
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var name = val.gene.data[0]
