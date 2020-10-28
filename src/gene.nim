@@ -4,6 +4,14 @@
 # import nimprof
 # setSamplingFrequency(1)
 
+# TODO: readline support for REPL
+# https://stackoverflow.com/questions/61079605/how-to-write-a-text-prompt-in-nim-that-has-readline-style-line-editing
+# https://github.com/jangko/nim-noise
+#
+# TODO:
+# Ctrl-C to cancel current line
+# Ctrl-C Ctrl-C to exit
+
 import times, strutils, logging
 
 import gene/types

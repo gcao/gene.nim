@@ -27,6 +27,16 @@ type
     name*: string
     root_ns*: Namespace
 
+  ImportMatcherRoot* = ref object
+    children*: seq[ImportMatcher]
+    `from`*: string
+
+  ImportMatcher* = ref object
+    name*: string
+    `as`*: string
+    children*: seq[ImportMatcher]
+    children_only*: bool # true if self should not be imported
+
   Namespace* = ref object
     parent*: Namespace
     name*: string
@@ -1766,6 +1776,52 @@ proc get_index*(self: var NativeProcsType, name: string): int =
 
 proc get*(self: var NativeProcsType, index: int): NativeProc =
   return self.procs[index]
+
+#################### Import ######################
+
+proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatcher]) =
+  var data: seq[GeneValue]
+  case input.kind:
+  of GeneGene:
+    data = input.gene.data
+  of GeneVector:
+    data = input.vec
+  else:
+    todo()
+
+  var i = 0
+  while i < data.len:
+    var item = data[i]
+    i += 1
+    case item.kind:
+    of GeneSymbol:
+      if item.symbol == "from":
+        self.from = data[i].str
+        i += 1
+      else:
+        group[].add(ImportMatcher(name: item.symbol))
+    of GeneComplexSymbol:
+      var names: seq[string] = @[]
+      names.add(item.csymbol.first)
+      for item in item.csymbol.rest:
+        names.add(item)
+
+      var matcher: ImportMatcher
+      var my_group = group
+      for name in names:
+        if name == "": # TODO: throw error if "" is not the last
+          self.parse(data[i], matcher.children.addr)
+          i += 1
+        else:
+          matcher = ImportMatcher(name: name)
+          my_group[].add(matcher)
+          my_group = matcher.children.addr
+    else:
+      todo()
+
+proc new_import_matcher*(v: GeneValue): ImportMatcherRoot =
+  result = ImportMatcherRoot()
+  result.parse(v, result.children.addr)
 
 #################### Dynamic #####################
 

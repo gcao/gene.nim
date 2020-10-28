@@ -95,3 +95,10 @@ proc test_match*(pattern: string, input: string, callback: proc(result: MatchRes
     m.parse(p)
     var result = m.match(i)
     callback(result)
+
+proc test_import_matcher*(code: string, callback: proc(result: ImportMatcherRoot)) =
+  var code = cleanup(code)
+  test "Import: " & code:
+    var v = read(code)
+    var m = new_import_matcher(v)
+    callback m
