@@ -186,7 +186,21 @@
 )
 
 (class gene/File
+  (method new name
+    (.@name = name)
+  )
+
+  (method read _
+    (call_native "file_read" self)
+  )
+
   (fn read name
     (call_native "file_read" name)
+  )
+)
+
+(ns gene/os
+  (fn exec [cmd args...]
+    (call_native "os_exec" cmd args)
   )
 )

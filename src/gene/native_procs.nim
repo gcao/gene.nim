@@ -1,4 +1,4 @@
-import strutils, tables
+import strutils, tables, osproc
 
 import ./types
 
@@ -122,4 +122,27 @@ proc init_native_procs*() =
     return args[0].map.len
 
   NativeProcs.add_only "file_read", proc(args: seq[GeneValue]): GeneValue =
-    return read_file(args[0].str)
+    var file = args[0]
+    case file.kind:
+    of GeneString:
+      result = read_file(file.str)
+    else:
+      todo()
+      var internal = args[0].internal
+      case internal.kind:
+      of GeneFile:
+        return internal.file.read_all
+      of GeneInstance:
+        var instance = internal.instance
+        if instance.class == GENE_NS.internal.ns["File"]:
+          todo()
+        else:
+          not_allowed()
+      else:
+        todo()
+
+  NativeProcs.add_only "os_exec", proc(args: seq[GeneValue]): GeneValue =
+    var cmd = args[0].str
+    # var cmd_args = args[1].vec.map(proc(v: GeneValue):string = v.to_s)
+    var (output, _) = execCmdEx(cmd)
+    result = output

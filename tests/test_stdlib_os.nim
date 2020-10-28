@@ -1,4 +1,4 @@
-import unittest, tables, os
+import unittest, tables, os, osproc
 
 import gene/types
 import gene/interpreter
@@ -12,3 +12,7 @@ test_core """
 test_core """
   (gene/File/read "tests/fixtures/test.txt")
 """, "line1\nline2"
+
+test_core """
+  (gene/os/exec "pwd")
+""", execCmdEx("pwd")[0]

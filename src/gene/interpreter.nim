@@ -499,7 +499,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else:
       todo($expr.unknown)
   of ExNamespace:
-    frame.ns[expr.ns.internal.ns.name] = expr.ns
+    self.def_member(frame, expr.ns_name, expr.ns, true)
     var old_self = frame.self
     var old_ns = frame.ns
     try:
@@ -667,6 +667,8 @@ proc get_class*(self: VM, val: GeneValue): Class =
       return val.internal.instance.class
     of GeneClass:
       return GENE_NS.internal.ns["Class"].internal.class
+    of GeneFile:
+      return GENE_NS.internal.ns["File"].internal.class
     else:
       todo()
   of GeneNilKind:
@@ -1329,12 +1331,22 @@ proc new_advice_expr*(parent: Expr, val: GeneValue): Expr =
   result.advice = val
 
 proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
-  var ns = new_namespace(val.gene.data[0].symbol)
+  var name = val.gene.data[0]
+  var s: string
+  case name.kind:
+  of GeneSymbol:
+    s = name.symbol
+  of GeneComplexSymbol:
+    s = name.csymbol.rest[^1]
+  else:
+    not_allowed()
+  var ns = new_namespace(s)
   result = Expr(
     kind: ExNamespace,
     parent: parent,
     module: parent.module,
     ns: ns,
+    ns_name: name,
   )
   var body: seq[Expr] = @[]
   for i in 1..<val.gene.data.len:

@@ -225,6 +225,7 @@ type
     GeneAspectInstance
     GeneTargetWithAdvices
     GeneExplode
+    GeneFile
     GeneNativeProc
 
   Internal* = ref object
@@ -257,6 +258,8 @@ type
       twa*: TargetWithAdvices
     of GeneExplode:
       explode*: GeneValue
+    of GeneFile:
+      file*: File
     of GeneNativeProc:
       native_proc*: NativeProc
 
@@ -543,6 +546,7 @@ type
       set_prop_val*: Expr
     of ExNamespace:
       ns*: GeneValue
+      ns_name*: GeneValue # The simple name or complex name that is associated
       ns_body*: seq[Expr]
     of ExSelf, ExGlobal:
       discard
@@ -1142,7 +1146,7 @@ proc new_target_with_advices*(target: GeneValue): TargetWithAdvices =
     target: target,
   )
 
-## ============== NEW OBJ FACTORIES =================
+#################### Constructors ################
 
 proc new_gene_string*(s: string): GeneValue =
   return GeneValue(kind: GeneString, str: s)
@@ -1265,6 +1269,12 @@ converter new_gene_internal*(ret: Return): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneReturn, ret: ret),
+  )
+
+converter new_gene_internal*(file: File): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneFile, file: file),
   )
 
 converter new_gene_internal*(value: NativeProc): GeneValue =
@@ -1482,6 +1492,9 @@ proc new_app*(): Application =
   result = Application(
     ns: GLOBAL_NS.internal.ns,
   )
+  GLOBAL_NS.internal.ns["stdin"]  = stdin
+  GLOBAL_NS.internal.ns["stdout"] = stdout
+  GLOBAL_NS.internal.ns["stderr"] = stderr
 
 var APP* = new_app()
 
