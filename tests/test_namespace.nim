@@ -33,3 +33,10 @@ test_interpreter """
   (var global/a 1)
   a
 """, 1
+
+test_interpreter """
+  (class A
+    (fn f a a)
+  )
+  (A/f 1)
+""", 1

@@ -514,6 +514,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     for name in expr.import_mappings:
       frame.ns.members[name] = ns[name]
   of ExClass:
+    expr.class.internal.class.ns.parent = frame.ns
     self.def_member(frame, expr.class_name, expr.class, true)
     var super_class: Class
     if expr.super_class == nil:
@@ -522,7 +523,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     else:
       super_class = self.eval(frame, expr.super_class).internal.class
     expr.class.internal.class.parent = super_class
-    var ns = frame.ns
+    var ns = expr.class.internal.class.ns
     var scope = new_scope()
     var new_frame = FrameMgr.get(FrClass, ns, scope)
     new_frame.self = expr.class
@@ -918,7 +919,7 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   else:
     result = frame[name.first]
   for name in name.rest:
-    result = result.internal.ns[name]
+    result = result.get_member(name)
 
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue) =
   case name.kind:

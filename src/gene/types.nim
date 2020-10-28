@@ -43,10 +43,12 @@ type
     parent*: Class
     name*: string
     methods*: OrderedTable[string, Method]
+    ns*: Namespace # Class can act like a namespace
 
   Mixin* = ref object
     name*: string
     methods*: OrderedTable[string, Method]
+    # TODO: ns*: Namespace # Mixin can act like a namespace
 
   Method* = ref object
     class*: Class
@@ -939,6 +941,19 @@ proc `==`*(this, that: ComplexSymbol): bool =
 
 #################### GeneValue ###################
 
+proc get_member*(self: GeneValue, name: string): GeneValue =
+  case self.kind:
+  of GeneInternal:
+    case self.internal.kind:
+    of GeneNamespace:
+      return self.internal.ns[name]
+    of GeneClass:
+      return self.internal.class.ns[name]
+    else:
+      todo()
+  else:
+    todo()
+
 proc table_equals*(this, that: OrderedTable): bool =
   return this.len == 0 and that.len == 0 or
     this.len > 0 and that.len > 0 and this == that
@@ -1244,7 +1259,10 @@ converter new_gene_internal*(value: NativeProc): GeneValue =
   )
 
 proc new_class*(name: string): Class =
-  return Class(name: name)
+  return Class(
+    name: name,
+    ns: new_namespace(nil, name),
+  )
 
 proc new_mixin*(name: string): Mixin =
   return Mixin(name: name)
