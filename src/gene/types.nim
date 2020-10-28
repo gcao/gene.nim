@@ -401,6 +401,7 @@ type
     ExEval
     ExCallerEval
     ExMatch
+    ExPrint
 
   Expr* = ref object of RootObj
     module*: Module
@@ -480,6 +481,7 @@ type
       explode*: Expr
     of ExFn:
       fn*: GeneValue
+      fn_name*: GeneValue
     of ExArgs:
       discard
     of ExBlock:
@@ -546,6 +548,10 @@ type
     of ExMatch:
       match_pattern*: GeneValue
       match_val*: Expr
+    of ExPrint:
+      print_and_return*: bool
+      print_to*: Expr
+      print*: seq[Expr]
 
   VM* = ref object
     app*: Application
@@ -778,7 +784,7 @@ proc hasKey*(self: Namespace, key: string): bool {.inline.} =
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
   if self.hasKey(key):
     return self.members[key]
-  else:
+  elif self.parent != nil:
     return self.parent[key]
 
 proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =

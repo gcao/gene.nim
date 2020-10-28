@@ -65,6 +65,7 @@ proc new_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr
 proc new_match_expr*(parent: Expr, val: GeneValue): Expr
 proc new_quote_expr*(parent: Expr, val: GeneValue): Expr
+proc new_print_expr*(parent: Expr, val: GeneValue): Expr
 
 proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
 
@@ -429,6 +430,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     expr.fn.internal.fn.ns = frame.ns
     expr.fn.internal.fn.parent_scope = frame.scope
     expr.fn.internal.fn.parent_scope_max = frame.scope.max
+    self.def_member(frame, expr.fn_name, expr.fn, true)
     frame.ns[expr.fn.internal.fn.name] = expr.fn
     result = expr.fn
   of ExArgs:
@@ -587,7 +589,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = self.get_class(val)
   of ExEval:
     for e in expr.eval_args:
-      result = self.eval(frame, new_expr(expr, self.eval(frame, e)))
+      var init_result = self.eval(frame, e)
+      result = self.eval(frame, new_expr(expr, init_result))
   of ExCallerEval:
     var caller_frame = frame.parent
     for e in expr.caller_eval_args:
@@ -596,6 +599,16 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
   of ExQuote:
     result = expr.quote_val
+  of ExPrint:
+    for e in expr.print:
+      var v = self.eval(frame, e)
+      case v.kind:
+      of GeneString:
+        stdout.write v.str
+      else:
+        stdout.write $v
+    if expr.print_and_return:
+      stdout.write "\n"
   # else:
   #   todo($expr.kind)
 
@@ -1086,6 +1099,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         result = new_expr(parent, ExNotAllowed)
         result.not_allowed = new_expr(result, node.gene.data[0])
         return result
+      of "print", "println":
+        return new_print_expr(parent, node)
       else:
         discard # will continue below
     else:
@@ -1231,6 +1246,7 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
     parent: parent,
     module: parent.module,
     fn: fn,
+    fn_name: val.gene.data[0],
   )
   fn.expr = result
   fn.update_matchers(fn.matcher.children)
@@ -1472,6 +1488,16 @@ proc new_quote_expr*(parent: Expr, val: GeneValue): Expr =
     module: parent.module,
   )
   result.quote_val = val.gene.data[0]
+
+proc new_print_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExPrint,
+    parent: parent,
+    module: parent.module,
+    print_and_return: val.gene.op.symbol == "println",
+  )
+  for item in val.gene.data:
+    result.print.add(new_expr(result, item))
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene.data[1].is_literal:

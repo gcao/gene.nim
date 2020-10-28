@@ -170,3 +170,9 @@ test_interpreter """
   (var i 2) # second i
   (f)
 """, 1
+
+# test_core """
+#   (with 1
+#     self
+#   )
+# """, 1

@@ -1,3 +1,7 @@
 #!/usr/bin/env gene
-(print "test print")
+
 (println "test println")
+(print "test print")
+(print "test print2")
+(print "\n")
+(print "\n")
