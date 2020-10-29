@@ -212,16 +212,28 @@
 )
 
 (class gene/File
-  (method new name
-    (.@name = name)
+  (method new _
+    (not_allowed "File objects can not be created with (new File ...)")
   )
 
   (method read _
     (call_native "file_read" self)
   )
 
+  (method close _
+    (call_native "file_close" self)
+  )
+
+  (fn open name
+    (call_native "file_open" name)
+  )
+
   (fn read name
     (call_native "file_read" name)
+  )
+
+  (fn write [name content]
+    (call_native "file_write" name content)
   )
 )
 

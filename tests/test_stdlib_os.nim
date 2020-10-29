@@ -16,3 +16,14 @@ test_core """
 test_core """
   (gene/os/exec "pwd")
 """, execCmdEx("pwd")[0]
+
+test_core """
+  (var file "/tmp/test.txt")
+  (gene/File/write file "test")
+  (gene/File/read file)
+""", "test"
+
+test_core """
+  (var file (gene/File/open "tests/fixtures/test.txt"))
+  (file .read)
+""", "line1\nline2"

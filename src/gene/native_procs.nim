@@ -121,25 +121,27 @@ proc init_native_procs*() =
   NativeProcs.add_only "map_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].map.len
 
+  NativeProcs.add_only "file_open", proc(args: seq[GeneValue]): GeneValue =
+    var file = open(args[0].str)
+    result = file
+
+  NativeProcs.add_only "file_close", proc(args: seq[GeneValue]): GeneValue =
+    args[0].internal.file.close
+
   NativeProcs.add_only "file_read", proc(args: seq[GeneValue]): GeneValue =
     var file = args[0]
     case file.kind:
     of GeneString:
       result = read_file(file.str)
     else:
-      todo()
       var internal = args[0].internal
-      case internal.kind:
-      of GeneFile:
+      if internal.kind == GeneFile:
         return internal.file.read_all
-      of GeneInstance:
-        var instance = internal.instance
-        if instance.class == GENE_NS.internal.ns["File"]:
-          todo()
-        else:
-          not_allowed()
-      else:
-        todo()
+
+  NativeProcs.add_only "file_write", proc(args: seq[GeneValue]): GeneValue =
+    var file = args[0]
+    var content = args[1]
+    write_file(file.str, content.str)
 
   NativeProcs.add_only "os_exec", proc(args: seq[GeneValue]): GeneValue =
     var cmd = args[0].str
