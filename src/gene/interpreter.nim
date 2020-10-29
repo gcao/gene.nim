@@ -16,7 +16,6 @@ init_native_procs()
 
 #################### Interfaces ##################
 
-proc `[]`*(self: Frame, name: string): GeneValue {.inline.}
 proc new_expr*(parent: Expr, kind: ExprKind): Expr
 proc get*(self: var ScopeManager): Scope {.inline.}
 proc import_module*(self: VM, name: string, code: string): Namespace
@@ -32,6 +31,12 @@ proc import_from_ns*(self: VM, frame: Frame, source: GeneValue, group: seq[Impor
 proc explode_and_add*(parent: GeneValue, value: GeneValue)
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
+proc new_literal_expr*(parent: Expr, v: GeneValue): Expr
+proc new_symbol_expr*(parent: Expr, s: string): Expr
+proc new_complex_symbol_expr*(parent: Expr, node: GeneValue): Expr
+proc new_array_expr*(parent: Expr, v: GeneValue): Expr
+proc new_map_expr*(parent: Expr, v: GeneValue): Expr
+proc new_gene_expr*(parent: Expr, v: GeneValue): Expr
 proc new_if_expr*(parent: Expr, val: GeneValue): Expr
 proc new_var_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr
 proc new_assignment_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr
@@ -80,24 +85,6 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
 proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
 proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue
 
-#################### Frame #######################
-
-proc new_frame*(): Frame = Frame(
-  self: GeneNil,
-)
-
-proc reset*(self: var Frame) {.inline.} =
-  self.self = nil
-  self.ns = nil
-  self.scope = nil
-  self.extra = nil
-
-proc `[]`*(self: Frame, name: string): GeneValue {.inline.} =
-  if self.scope.hasKey(name):
-    return self.scope[name]
-  else:
-    return self.ns[name]
-
 #################### ScopeManager ################
 
 proc get*(self: var ScopeManager): Scope {.inline.} =
@@ -133,60 +120,6 @@ proc free*(self: var FrameManager, frame: var Frame) {.inline.} =
   self.cache.add(frame)
 
 #################### Implementations #############
-
-proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
-  return Expr(
-    kind: ExLiteral,
-    parent: parent,
-    literal: v,
-  )
-
-proc new_symbol_expr*(parent: Expr, s: string): Expr =
-  return Expr(
-    kind: ExSymbol,
-    parent: parent,
-    symbol: s,
-  )
-
-proc new_complex_symbol_expr*(parent: Expr, node: GeneValue): Expr =
-  return Expr(
-    kind: ExComplexSymbol,
-    parent: parent,
-    csymbol: node.csymbol,
-  )
-
-proc new_array_expr*(parent: Expr, v: GeneValue): Expr =
-  result = Expr(
-    kind: ExArray,
-    parent: parent,
-    array: @[],
-  )
-  for item in v.vec:
-    result.array.add(new_expr(result, item))
-
-proc new_map_expr*(parent: Expr, v: GeneValue): Expr =
-  result = Expr(
-    kind: ExMap,
-    parent: parent,
-    map: @[],
-  )
-  for key, val in v.map:
-    var e = new_map_key_expr(result, key, val)
-    result.map.add(e)
-
-proc new_gene_expr*(parent: Expr, v: GeneValue): Expr =
-  return Expr(
-    kind: ExGene,
-    parent: parent,
-    gene: v,
-  )
-
-proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
-  return Expr(
-    kind: ExUnknown,
-    parent: parent,
-    unknown: v,
-  )
 
 proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   case expr.kind:
@@ -484,11 +417,9 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     case parent.kind:
     of ExGroup:
       var e = new_expr(parent, expr.unknown)
-      parent.group[expr.posInParent] = e
       result = self.eval(frame, e)
     of ExLoop:
       var e = new_expr(parent, expr.unknown)
-      parent.loop_blk[expr.posInParent] = e
       result = self.eval(frame, e)
     else:
       todo($expr.unknown)
@@ -631,15 +562,24 @@ proc new_vm*(): VM =
 
 proc prepare*(self: VM, code: string): Expr =
   var parsed = read_all(code)
-  var root = Expr(
+  result = Expr(
     kind: ExRoot,
   )
-  return new_group_expr(root, parsed)
+  result.root = new_group_expr(result, parsed)
 
 proc eval*(self: VM, code: string): GeneValue =
   var module = new_module()
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   return self.eval(frame, self.prepare(code))
+
+proc import_module*(self: VM, name: string, code: string): Namespace =
+  if self.modules.hasKey(name):
+    return self.modules[name]
+  var module = new_module(name)
+  var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  discard self.eval(frame, self.prepare(code))
+  result = module.root_ns
+  self.modules[name] = result
 
 proc load_core_module*(self: VM) =
   var ns = self.import_module("core", readFile("src/core.gene"))
@@ -680,15 +620,6 @@ proc get_class*(self: VM, val: GeneValue): Class =
     return GENE_NS.internal.ns["Map"].internal.class
   else:
     todo()
-
-proc import_module*(self: VM, name: string, code: string): Namespace =
-  if self.modules.hasKey(name):
-    return self.modules[name]
-  var module = new_module(name)
-  self.cur_frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
-  discard self.eval(self.cur_frame, self.prepare(code))
-  result = module.root_ns
-  self.modules[name] = result
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
@@ -1166,6 +1097,60 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
       result.gene_data.add(new_expr(result, item))
   else:
     todo($node)
+
+proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
+  return Expr(
+    kind: ExLiteral,
+    parent: parent,
+    literal: v,
+  )
+
+proc new_symbol_expr*(parent: Expr, s: string): Expr =
+  return Expr(
+    kind: ExSymbol,
+    parent: parent,
+    symbol: s,
+  )
+
+proc new_complex_symbol_expr*(parent: Expr, node: GeneValue): Expr =
+  return Expr(
+    kind: ExComplexSymbol,
+    parent: parent,
+    csymbol: node.csymbol,
+  )
+
+proc new_array_expr*(parent: Expr, v: GeneValue): Expr =
+  result = Expr(
+    kind: ExArray,
+    parent: parent,
+    array: @[],
+  )
+  for item in v.vec:
+    result.array.add(new_expr(result, item))
+
+proc new_map_expr*(parent: Expr, v: GeneValue): Expr =
+  result = Expr(
+    kind: ExMap,
+    parent: parent,
+    map: @[],
+  )
+  for key, val in v.map:
+    var e = new_map_key_expr(result, key, val)
+    result.map.add(e)
+
+proc new_gene_expr*(parent: Expr, v: GeneValue): Expr =
+  return Expr(
+    kind: ExGene,
+    parent: parent,
+    gene: v,
+  )
+
+proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
+  return Expr(
+    kind: ExUnknown,
+    parent: parent,
+    unknown: v,
+  )
 
 proc new_do_expr*(parent: Expr, node: GeneValue): Expr =
   result = Expr(

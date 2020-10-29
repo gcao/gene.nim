@@ -17,11 +17,11 @@ type
 
   ## This is the root of a running application
   Application* = ref object
-    name*: string
+    name*: string         # default to base name of command
+    # package*: Package   # Entry package for the application
     ns*: Namespace
-    program*: string
+    cmd*: string          # full command
     args*: seq[string]
-    namespaces*: OrderedTable[string, Namespace]
 
   # Package* = ref object
   #   ns*: Namespace
@@ -433,7 +433,6 @@ type
 
   Expr* = ref object of RootObj
     parent*: Expr
-    posInParent*: int
     case kind*: ExprKind
     of ExTodo:
       todo*: Expr
@@ -585,7 +584,6 @@ type
 
   VM* = ref object
     app*: Application
-    cur_frame*: Frame
     modules*: OrderedTable[string, Namespace]
 
   FrameKind* = enum
@@ -910,6 +908,24 @@ proc `[]=`*(self: var Scope, key: string, val: GeneValue) {.inline.} =
     self.parent.`[]=`(key, val, self.parent_index_max)
   else:
     not_allowed()
+
+#################### Frame #######################
+
+proc new_frame*(): Frame = Frame(
+  self: GeneNil,
+)
+
+proc reset*(self: var Frame) {.inline.} =
+  self.self = nil
+  self.ns = nil
+  self.scope = nil
+  self.extra = nil
+
+proc `[]`*(self: Frame, name: string): GeneValue {.inline.} =
+  if self.scope.hasKey(name):
+    return self.scope[name]
+  else:
+    return self.ns[name]
 
 #################### Function ####################
 
