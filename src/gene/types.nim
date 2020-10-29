@@ -9,11 +9,11 @@ const BINARY_OPS* = [
 ]
 
 type
+  GeneralError*    = object of CatchableError
+  NotDefinedError* = object of CatchableError
+
   # index of a name in a scope
   NameIndexScope* = distinct int
-
-  NotDefinedError* = object of CatchableError
-  GeneralError*    = object of CatchableError
 
   ## This is the root of a running application
   Application* = ref object
@@ -22,6 +22,13 @@ type
     program*: string
     args*: seq[string]
     namespaces*: OrderedTable[string, Namespace]
+
+  # Package* = ref object
+  #   ns*: Namespace
+  #   name*: string
+  #   version*: string
+  #   source*: GeneValue # Git, Cenral repository, File system etc
+  #   dependencies*: seq[Package]
 
   Module* = ref object
     name*: string
@@ -357,8 +364,10 @@ type
     # comments*: seq[Comment]
 
   GeneDocument* = ref object
+    `type`: GeneValue
     name*: string
     path*: string
+    props*: OrderedTable[string, GeneValue]
     data*: seq[GeneValue]
 
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
@@ -423,7 +432,6 @@ type
     ExPrint
 
   Expr* = ref object of RootObj
-    module*: Module
     parent*: Expr
     posInParent*: int
     case kind*: ExprKind
@@ -578,18 +586,12 @@ type
   VM* = ref object
     app*: Application
     cur_frame*: Frame
-    cur_module*: Module
     modules*: OrderedTable[string, Namespace]
-
-  FrameManager* = ref object
-    cache*: seq[Frame]
-
-  ScopeManager* = ref object
-    cache*: seq[Scope]
 
   FrameKind* = enum
     FrFunction
     FrMacro
+    FrBlock # like a block passed to a method in Ruby
     FrMethod
     FrModule
     FrNamespace
@@ -597,7 +599,6 @@ type
     FrMixin
     FrAspect
     FrEval # the code passed to (eval)
-    FrBlock # like a block passed to a method in Ruby
 
   FrameExtra* = ref object
     case kind*: FrameKind
@@ -707,15 +708,17 @@ type
     procs*: seq[NativeProc]
     name_mappings*: OrderedTable[string, int]
 
+  FrameManager* = ref object
+    cache*: seq[Frame]
+
+  ScopeManager* = ref object
+    cache*: seq[Scope]
+
 let
   GeneNil*   = GeneValue(kind: GeneNilKind)
   GeneTrue*  = GeneValue(kind: GeneBool, bool: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool: false)
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
-
-var GLOBAL_NS*: GeneValue
-var GENE_NS*:   GeneValue
-var GENEX_NS*:  GeneValue
 
 var NativeProcs* = NativeProcsType()
 
@@ -723,17 +726,9 @@ var GeneInts: array[111, GeneValue]
 for i in 0..110:
   GeneInts[i] = GeneValue(kind: GeneInt, int: i - 10)
 
-proc todo*() =
-  raise newException(Exception, "TODO")
-
-proc todo*(message: string) =
-  raise newException(Exception, "TODO: " & message)
-
-proc not_allowed*(message: string) =
-  raise newException(Exception, message)
-
-proc not_allowed*() =
-  not_allowed("Error: should not arrive here.")
+var GLOBAL_NS*: GeneValue
+var GENE_NS*:   GeneValue
+var GENEX_NS*:  GeneValue
 
 #################### Interfaces ##################
 
@@ -746,6 +741,20 @@ proc new_namespace*(parent: Namespace): Namespace
 proc new_match_matcher*(): RootMatcher
 proc new_arg_matcher*(): RootMatcher
 proc parse*(self: var RootMatcher, v: GeneValue)
+
+##################################################
+
+proc todo*() =
+  raise newException(Exception, "TODO")
+
+proc todo*(message: string) =
+  raise newException(Exception, "TODO: " & message)
+
+proc not_allowed*(message: string) =
+  raise newException(Exception, message)
+
+proc not_allowed*() =
+  not_allowed("Error: should not arrive here.")
 
 #################### Converters ##################
 
@@ -766,8 +775,8 @@ converter gene_to_ns*(v: GeneValue): Namespace = v.internal.ns
 proc new_module*(name: string): Module =
   result = Module(
     name: name,
+    root_ns: new_namespace(GLOBAL_NS),
   )
-  result.root_ns = new_namespace(GLOBAL_NS)
 
 proc new_module*(): Module =
   result = new_module("<unknown>")
@@ -932,6 +941,12 @@ proc new_return*(): Return =
 
 #################### Class #######################
 
+proc new_class*(name: string): Class =
+  return Class(
+    name: name,
+    ns: new_namespace(nil, name),
+  )
+
 proc get_method*(self: Class, name: string): Method =
   if self.methods.hasKey(name):
     return self.methods[name]
@@ -948,6 +963,14 @@ proc new_method*(class: Class, name: string, fn: Function): Method =
   )
 
 #################### ComplexSymbol ###############
+
+proc all*(self: ComplexSymbol): seq[string] =
+  result = @[self.first]
+  for name in self.rest:
+    result.add(name)
+
+proc last*(self: ComplexSymbol): string =
+  return self.rest[^1]
 
 proc `==`*(this, that: ComplexSymbol): bool =
   return this.first == that.first and this.rest == that.rest
@@ -1097,18 +1120,24 @@ proc `$`*(node: GeneValue): string =
     result = "["
     result &= node.vec.join(" ")
     result &= "]"
-  # of GeneGene:
-  #   result = "("
-  #   if node.gene.op.isNil:
-  #     result &= "nil "
-  #   else:
-  #     result &= $node.gene.op & " "
-  #   # result &= node.gene.data.join(" ")
-  #   result &= ")"
+  of GeneGene:
+    result = "(" & $node.gene.op
+    if node.gene.props.len > 0:
+      for k, v in node.gene.props:
+        result &= " ^" & $k & " " & $v
+    if node.gene.data.len > 0:
+      result &= " " & node.gene.data.join(" ")
+    result &= ")"
   of GeneInternal:
     case node.internal.kind:
     of GeneFunction:
       result = "(fn $# ...)" % [node.internal.fn.name]
+    of GeneMacro:
+      result = "(macro $# ...)" % [node.internal.mac.name]
+    of GeneNamespace:
+      result = "(ns $# ...)" % [node.internal.ns.name]
+    of GeneClass:
+      result = "(class $# ...)" % [node.internal.class.name]
     else:
       result = "GeneInternal"
   else:
@@ -1281,12 +1310,6 @@ converter new_gene_internal*(value: NativeProc): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneNativeProc, native_proc: value),
-  )
-
-proc new_class*(name: string): Class =
-  return Class(
-    name: name,
-    ns: new_namespace(nil, name),
   )
 
 proc new_mixin*(name: string): Mixin =

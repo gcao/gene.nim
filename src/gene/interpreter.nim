@@ -138,7 +138,6 @@ proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
   return Expr(
     kind: ExLiteral,
     parent: parent,
-    module: parent.module,
     literal: v,
   )
 
@@ -146,7 +145,6 @@ proc new_symbol_expr*(parent: Expr, s: string): Expr =
   return Expr(
     kind: ExSymbol,
     parent: parent,
-    module: parent.module,
     symbol: s,
   )
 
@@ -154,7 +152,6 @@ proc new_complex_symbol_expr*(parent: Expr, node: GeneValue): Expr =
   return Expr(
     kind: ExComplexSymbol,
     parent: parent,
-    module: parent.module,
     csymbol: node.csymbol,
   )
 
@@ -162,7 +159,6 @@ proc new_array_expr*(parent: Expr, v: GeneValue): Expr =
   result = Expr(
     kind: ExArray,
     parent: parent,
-    module: parent.module,
     array: @[],
   )
   for item in v.vec:
@@ -172,7 +168,6 @@ proc new_map_expr*(parent: Expr, v: GeneValue): Expr =
   result = Expr(
     kind: ExMap,
     parent: parent,
-    module: parent.module,
     map: @[],
   )
   for key, val in v.map:
@@ -183,7 +178,6 @@ proc new_gene_expr*(parent: Expr, v: GeneValue): Expr =
   return Expr(
     kind: ExGene,
     parent: parent,
-    module: parent.module,
     gene: v,
   )
 
@@ -191,7 +185,6 @@ proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
   return Expr(
     kind: ExUnknown,
     parent: parent,
-    module: parent.module,
     unknown: v,
   )
 
@@ -640,13 +633,12 @@ proc prepare*(self: VM, code: string): Expr =
   var parsed = read_all(code)
   var root = Expr(
     kind: ExRoot,
-    module: self.cur_module,
   )
   return new_group_expr(root, parsed)
 
 proc eval*(self: VM, code: string): GeneValue =
-  self.cur_module = new_module()
-  var frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
+  var module = new_module()
+  var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   return self.eval(frame, self.prepare(code))
 
 proc load_core_module*(self: VM) =
@@ -692,10 +684,10 @@ proc get_class*(self: VM, val: GeneValue): Class =
 proc import_module*(self: VM, name: string, code: string): Namespace =
   if self.modules.hasKey(name):
     return self.modules[name]
-  self.cur_module = new_module(name)
-  self.cur_frame = FrameMgr.get(FrModule, self.cur_module.root_ns, new_scope())
-  discard self.eval(code)
-  result = self.cur_module.root_ns
+  var module = new_module(name)
+  self.cur_frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  discard self.eval(self.cur_frame, self.prepare(code))
+  result = module.root_ns
   self.modules[name] = result
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
@@ -1023,7 +1015,6 @@ proc new_expr*(parent: Expr, kind: ExprKind): Expr =
   result = Expr(
     kind: kind,
     parent: parent,
-    module: parent.module,
   )
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
@@ -1180,7 +1171,6 @@ proc new_do_expr*(parent: Expr, node: GeneValue): Expr =
   result = Expr(
     kind: ExDo,
     parent: parent,
-    module: parent.module,
   )
   for k, v in node.gene.props:
     result.do_props.add(new_map_key_expr(result, k, v))
@@ -1191,7 +1181,6 @@ proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
   result = Expr(
     kind: ExGroup,
     parent: parent,
-    module: parent.module,
   )
   for node in nodes:
     result.group.add(new_unknown_expr(result, node))
@@ -1200,7 +1189,6 @@ proc new_loop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExLoop,
     parent: parent,
-    module: parent.module,
   )
   for node in val.gene.data:
     result.loop_blk.add(new_expr(result, node))
@@ -1209,7 +1197,6 @@ proc new_break_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExBreak,
     parent: parent,
-    module: parent.module,
   )
   if val.gene.data.len > 0:
     result.break_val = new_expr(result, val.gene.data[0])
@@ -1218,7 +1205,6 @@ proc new_while_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExWhile,
     parent: parent,
-    module: parent.module,
   )
   result.while_cond = new_expr(result, val.gene.data[0])
   for i in 1..<val.gene.data.len:
@@ -1229,7 +1215,6 @@ proc new_for_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExFor,
     parent: parent,
-    module: parent.module,
   )
   result.for_vars = val.gene.data[0]
   result.for_in = new_expr(result, val.gene.data[2])
@@ -1241,7 +1226,6 @@ proc new_map_key_expr*(parent: Expr, key: string, val: GeneValue): Expr =
   result = Expr(
     kind: ExMapChild,
     parent: parent,
-    module: parent.module,
     map_key: key,
   )
   result.map_val = new_expr(result, val)
@@ -1250,7 +1234,6 @@ proc new_var_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr =
   result = Expr(
     kind: ExVar,
     parent: parent,
-    module: parent.module,
     var_name: name,
   )
   result.var_val = new_expr(result, val)
@@ -1259,7 +1242,6 @@ proc new_assignment_expr*(parent: Expr, name: GeneValue, val: GeneValue): Expr =
   result = Expr(
     kind: ExAssignment,
     parent: parent,
-    module: parent.module,
     var_name: name,
   )
   result.var_val = new_expr(result, val)
@@ -1268,7 +1250,6 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExIf,
     parent: parent,
-    module: parent.module,
   )
   if val.gene.data[0] == new_gene_symbol("not"):
     result.if_cond = new_expr(result, val.gene.data[1])
@@ -1290,7 +1271,6 @@ proc new_explode_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExExplode,
     parent: parent,
-    module: parent.module,
   )
   result.explode = new_expr(parent, val)
 
@@ -1298,7 +1278,6 @@ proc new_range_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExRange,
     parent: parent,
-    module: parent.module,
   )
   result.range_start = new_expr(result, val.gene.data[0])
   result.range_end = new_expr(result, val.gene.data[1])
@@ -1310,7 +1289,6 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExFn,
     parent: parent,
-    module: parent.module,
     fn: fn,
     fn_name: val.gene.data[0],
   )
@@ -1322,7 +1300,6 @@ proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExMacro,
     parent: parent,
-    module: parent.module,
     mac: mac,
   )
   mac.expr = result
@@ -1332,7 +1309,6 @@ proc new_block_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExBlock,
     parent: parent,
-    module: parent.module,
     blk: blk,
   )
   blk.expr = result
@@ -1341,7 +1317,6 @@ proc new_return_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExReturn,
     parent: parent,
-    module: parent.module,
   )
   if val.gene.data.len > 0:
     result.return_val = new_expr(result, val.gene.data[0])
@@ -1351,7 +1326,6 @@ proc new_aspect_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExAspect,
     parent: parent,
-    module: parent.module,
     aspect: aspect,
   )
   aspect.expr = result
@@ -1362,7 +1336,6 @@ proc new_advice_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExAdvice,
     parent: parent,
-    module: parent.module,
   )
   result.advice = val
 
@@ -1380,7 +1353,6 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExNamespace,
     parent: parent,
-    module: parent.module,
     ns: ns,
     ns_name: name,
   )
@@ -1393,7 +1365,6 @@ proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExImport,
     parent: parent,
-    module: parent.module,
     import_matcher: new_import_matcher(val),
   )
 
@@ -1411,7 +1382,6 @@ proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExClass,
     parent: parent,
-    module: parent.module,
     class: class,
     class_name: name,
   )
@@ -1438,7 +1408,6 @@ proc new_mixin_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExMixin,
     parent: parent,
-    module: parent.module,
     mix: mix,
     mix_name: name,
   )
@@ -1451,7 +1420,6 @@ proc new_include_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExInclude,
     parent: parent,
-    module: parent.module,
   )
   for item in val.gene.data:
     result.include_args.add(new_expr(result, item))
@@ -1460,7 +1428,6 @@ proc new_new_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExNew,
     parent: parent,
-    module: parent.module,
   )
   result.new_class = new_expr(parent, val.gene.data[0])
   for i in 1..<val.gene.data.len:
@@ -1470,7 +1437,6 @@ proc new_super_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExSuper,
     parent: parent,
-    module: parent.module,
   )
   for item in val.gene.data:
     result.super_args.add(new_expr(result, item))
@@ -1481,7 +1447,6 @@ proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExMethod,
     parent: parent,
-    module: parent.module,
     meth: meth,
   )
   fn.expr = result
@@ -1490,7 +1455,6 @@ proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExInvokeMethod,
     parent: parent,
-    module: parent.module,
     invoke_meth: val.gene.props["method"].str,
   )
   result.invoke_self = new_expr(result, val.gene.props["self"])
@@ -1501,7 +1465,6 @@ proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExGetProp,
     parent: parent,
-    module: parent.module,
     get_prop_name: val.gene.data[0].str,
   )
   result.get_prop_self = new_expr(result, val.gene.props["self"])
@@ -1510,7 +1473,6 @@ proc new_set_prop_expr*(parent: Expr, name: string, val: GeneValue): Expr =
   result = Expr(
     kind: ExSetProp,
     parent: parent,
-    module: parent.module,
     set_prop_name: name,
   )
   result.set_prop_val = new_expr(result, val)
@@ -1519,7 +1481,6 @@ proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExCallNative,
     parent: parent,
-    module: parent.module,
   )
   var name = val.gene.data[0].str
   var index = NativeProcs.get_index(name)
@@ -1532,7 +1493,6 @@ proc new_eval_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExEval,
     parent: parent,
-    module: parent.module,
   )
   for i in 0..<val.gene.data.len:
     result.eval_args.add(new_expr(result, val.gene.data[i]))
@@ -1541,7 +1501,6 @@ proc new_caller_eval_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExCallerEval,
     parent: parent,
-    module: parent.module,
   )
   for i in 0..<val.gene.data.len:
     result.caller_eval_args.add(new_expr(result, val.gene.data[i]))
@@ -1550,7 +1509,6 @@ proc new_match_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExMatch,
     parent: parent,
-    module: parent.module,
     match_pattern: val.gene.data[0],
   )
   result.match_val = new_expr(result, val.gene.data[1])
@@ -1559,7 +1517,6 @@ proc new_quote_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExQuote,
     parent: parent,
-    module: parent.module,
   )
   result.quote_val = val.gene.data[0]
 
@@ -1567,7 +1524,6 @@ proc new_env_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExEnv,
     parent: parent,
-    module: parent.module,
   )
   result.env = new_expr(result, val.gene.data[0])
   if val.gene.data.len > 1:
@@ -1577,7 +1533,6 @@ proc new_print_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExPrint,
     parent: parent,
-    module: parent.module,
     print_and_return: val.gene.op.symbol == "println",
   )
   for item in val.gene.data:
@@ -1588,7 +1543,6 @@ proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
     result = Expr(
       kind: ExBinImmediate,
       parent: parent,
-      module: parent.module,
     )
     result.bini_first = new_expr(result, val.gene.data[0])
     result.bini_second = val.gene.data[1]
@@ -1610,7 +1564,6 @@ proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
     result = Expr(
       kind: ExBinary,
       parent: parent,
-      module: parent.module,
     )
     result.bin_first = new_expr(result, val.gene.data[0])
     result.bin_second = new_expr(result, val.gene.data[1])
@@ -1636,8 +1589,8 @@ when isMainModule:
     echo "\nUsage: interpreter <GENE FILE>\n"
     quit(0)
   var interpreter = new_vm()
-  interpreter.cur_module = new_module()
-  var frame = FrameMgr.get(FrModule, interpreter.cur_module.root_ns, new_scope())
+  var module = new_module()
+  var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   let e = interpreter.prepare(readFile(commandLineParams()[0]))
   let start = cpuTime()
   let result = interpreter.eval(frame, e)
