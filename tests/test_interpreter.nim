@@ -74,6 +74,7 @@ test_interpreter """
   check r.gene.data[0] == 2
 
 test_interpreter "(if true 1)", 1
+test_interpreter "(if not false 1)", 1
 test_interpreter "(if false 1 else 2)", 2
 # test_interpreter """
 #   (if false
@@ -171,8 +172,7 @@ test_interpreter """
   (f)
 """, 1
 
-# test_core """
-#   (with 1
-#     self
-#   )
-# """, 1
+test_interpreter """
+  (var a [2 3])
+  [1 a... 4]
+""", @[new_gene_int(1), new_gene_int(2), new_gene_int(3), new_gene_int(4)]

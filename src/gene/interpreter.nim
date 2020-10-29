@@ -29,6 +29,7 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue)
 proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: MatchMode): GeneValue
 proc import_from_ns*(self: VM, frame: Frame, source: GeneValue, group: seq[ImportMatcher])
+proc explode_and_add*(parent: GeneValue, value: GeneValue)
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.}
 proc new_if_expr*(parent: Expr, val: GeneValue): Expr
@@ -240,7 +241,7 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExArray:
     result = new_gene_vec()
     for e in expr.array:
-      result.vec.add(self.eval(frame, e))
+      result.explode_and_add(self.eval(frame, e))
   of ExMap:
     result = new_gene_map()
     for e in expr.map:
@@ -987,6 +988,35 @@ proc import_from_ns*(self: VM, frame: Frame, source: GeneValue, group: seq[Impor
     else:
       self.def_member(frame, m.name, value, true)
 
+proc explode_and_add*(parent: GeneValue, value: GeneValue) =
+  if value.kind == GeneInternal and value.internal.kind == GeneExplode:
+    var explode = value.internal.explode
+    case parent.kind:
+    of GeneVector:
+      case explode.kind:
+      of GeneVector:
+        for item in explode.vec:
+          parent.vec.add(item)
+      else:
+        todo()
+    of GeneGene:
+      case explode.kind:
+      of GeneVector:
+        for item in explode.vec:
+          parent.vec.add(item)
+      else:
+        todo()
+    else:
+      todo()
+  else:
+    case parent.kind:
+    of GeneVector:
+      parent.vec.add(value)
+    of GeneGene:
+      parent.gene.data.add(value)
+    else:
+      todo()
+
 ##################################################
 
 proc new_expr*(parent: Expr, kind: ExprKind): Expr =
@@ -1238,10 +1268,14 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
     parent: parent,
     module: parent.module,
   )
-  result.if_cond = new_expr(result, val.gene.data[0])
-  result.if_then = new_expr(result, val.gene.data[1])
-  if val.gene.data.len > 3:
-    result.if_else = new_expr(result, val.gene.data[3])
+  if val.gene.data[0] == new_gene_symbol("not"):
+    result.if_cond = new_expr(result, val.gene.data[1])
+    result.if_else = new_expr(result, val.gene.data[2])
+  else:
+    result.if_cond = new_expr(result, val.gene.data[0])
+    result.if_then = new_expr(result, val.gene.data[1])
+    if val.gene.data.len > 3:
+      result.if_else = new_expr(result, val.gene.data[3])
 
 # Create expressions for default values
 proc update_matchers*(fn: Function, group: seq[Matcher]) =

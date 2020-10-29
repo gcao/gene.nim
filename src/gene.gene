@@ -1,3 +1,9 @@
+(macro gene/assert [expr message = ("" expr " is NOT true.")]
+  (if not (caller_eval expr)
+    (println message)
+  )
+)
+
 (class gene/Object
   (method class _
     ($get_class self)
@@ -188,6 +194,17 @@
     (for [k v] in self
       (block k v)
     )
+  )
+)
+
+(class gene/Gene
+  (method type _
+  )
+
+  (method props _
+  )
+
+  (method data _
   )
 )
 
