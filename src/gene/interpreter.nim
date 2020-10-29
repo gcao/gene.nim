@@ -534,8 +534,8 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExEnv:
     var env = self.eval(frame, expr.env)
     result = get_env(env.str)
-    if result == nil:
-      result = $self.eval(frame, expr.env_default)
+    if result.str.len == 0:
+      result = self.eval(frame, expr.env_default).to_s
 
   of ExPrint:
     for e in expr.print:

@@ -10,6 +10,10 @@ test_core """
 """, get_env("HOME")
 
 test_core """
+  (env "XXXX" "Not found")
+""", "Not found"
+
+test_core """
   (gene/File/read "tests/fixtures/test.txt")
 """, "line1\nline2"
 
