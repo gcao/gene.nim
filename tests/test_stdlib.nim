@@ -8,3 +8,9 @@ import ./helpers
 test_core """
   ((nil .class).name)
 """, "Nil"
+
+test_core """
+  (var sum 0)
+  (4 .times (i -> (sum += i)))
+  sum
+""", 6 # 0 + 1 + 2 + 3
