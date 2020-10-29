@@ -1161,6 +1161,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_env_expr(parent, node)
       of "print", "println":
         return new_print_expr(parent, node)
+      of "...":
+        return new_explode_expr(parent, node.gene.data[0])
       else:
         discard # will continue below
     else:
