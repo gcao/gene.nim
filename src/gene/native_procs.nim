@@ -1,4 +1,4 @@
-import strutils, tables, osproc
+import strutils, tables, osproc, json
 
 import ./types
 
@@ -146,3 +146,6 @@ proc init_native_procs*() =
     # var cmd_args = args[1].vec.map(proc(v: GeneValue):string = v.to_s)
     var (output, _) = execCmdEx(cmd)
     result = output
+
+  NativeProcs.add_only "json_parse", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].str.parse_json

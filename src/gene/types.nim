@@ -1,4 +1,4 @@
-import strutils, tables, dynlib, unicode, hashes
+import strutils, tables, dynlib, unicode, hashes, json
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -1591,6 +1591,27 @@ converter to_block*(node: GeneValue): Block =
     body.add node.gene.data[i]
 
   return new_block(matcher, body)
+
+converter json_to_gene*(node: JsonNode): GeneValue =
+  case node.kind:
+  of JNull:
+    return GeneNil
+  of JBool:
+    return node.bval
+  of JInt:
+    return node.num
+  of JFloat:
+    return node.fnum
+  of JString:
+    return node.str
+  of JObject:
+    result = new_gene_map()
+    for k, v in node.fields:
+      result.map[k] = v.json_to_gene
+  of JArray:
+    result = new_gene_vec()
+    for elem in node.elems:
+      result.vec.add(elem.json_to_gene)
 
 #################### Pattern Matching ############
 

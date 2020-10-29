@@ -30,6 +30,10 @@
       (block i)
     )
   )
+
+  (method to_json _
+    self
+  )
 )
 
 (class gene/Char
@@ -144,6 +148,11 @@
     )
     result
   )
+
+  (method to_json _
+    (var result "[")
+    (result + "]")
+  )
 )
 
 (class gene/Map
@@ -202,5 +211,11 @@
 (ns gene/os
   (fn exec [cmd args...]
     (call_native "os_exec" cmd args)
+  )
+)
+
+(class gene/Json
+  (fn parse json_string
+    (call_native "json_parse" json_string)
   )
 )
