@@ -401,6 +401,7 @@ type
     ExWhile
     ExFor
     ExExplode
+    ExTry
     ExFn
     ExArgs
     ExMacro
@@ -505,6 +506,10 @@ type
       for_blk*: seq[Expr]
     of ExExplode:
       explode*: Expr
+    of ExTry:
+      try_body*: seq[Expr]
+      catches*: seq[(Expr, seq[Expr])]
+      `finally`*: seq[Expr]
     of ExFn:
       fn*: GeneValue
       fn_name*: GeneValue

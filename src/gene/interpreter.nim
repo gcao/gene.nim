@@ -50,6 +50,7 @@ proc new_for_expr*(parent: Expr, val: GeneValue): Expr
 proc new_explode_expr*(parent: Expr, val: GeneValue): Expr
 proc new_range_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
+proc new_try_expr*(parent: Expr, val: GeneValue): Expr
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr
 proc new_block_expr*(parent: Expr, val: GeneValue): Expr
 proc new_return_expr*(parent: Expr, val: GeneValue): Expr
@@ -360,6 +361,10 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExExplode:
     var val = self.eval(frame, expr.explode)
     result = new_gene_explode(val)
+  of ExTry:
+    todo()
+    # try:
+    # except:
   of ExFn:
     expr.fn.internal.fn.ns = frame.ns
     expr.fn.internal.fn.parent_scope = frame.scope
@@ -1014,6 +1019,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_for_expr(parent, node)
       of "range":
         return new_range_expr(parent, node)
+      of "try":
+        return new_try_expr(parent, node)
       of "fn":
         return new_fn_expr(parent, node)
       of "macro":
@@ -1077,7 +1084,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return result
       of "not_allowed":
         result = new_expr(parent, ExNotAllowed)
-        result.not_allowed = new_expr(result, node.gene.data[0])
+        if node.gene.data.len > 0:
+          result.not_allowed = new_expr(result, node.gene.data[0])
         return result
       of "env":
         return new_env_expr(parent, node)
@@ -1268,6 +1276,14 @@ proc new_range_expr*(parent: Expr, val: GeneValue): Expr =
   result.range_end = new_expr(result, val.gene.data[1])
   result.range_incl_start = true
   result.range_incl_end = false
+
+proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExTry,
+    parent: parent,
+  )
+  for item in val.gene.data:
+    todo()
 
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   var fn: Function = val
