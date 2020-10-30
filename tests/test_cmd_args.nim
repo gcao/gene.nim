@@ -66,3 +66,23 @@ test_args """
   check r.args.len == 2
   check r.args["first"] == "one"
   check r.args["second"] == @[new_gene_string("two"), new_gene_string("three")]
+
+test_args """
+  [
+    (option ^type bool -b)
+    (option ^type int -i)
+    (option ^type int ^^multiple -m)
+    (argument ^type int first)
+    (argument ^type int ^^multiple second)
+  ]
+""", """
+  -b true -i 1 -m 2,3 1 2 3
+""", proc(r: ArgMatchingResult) =
+  check r.kind == AmSuccess
+  check r.options.len == 3
+  check r.options["-b"]
+  check r.options["-i"] == 1
+  check r.options["-m"] == @[new_gene_int(2), new_gene_int(3)]
+  check r.args.len == 2
+  check r.args["first"] == 1
+  check r.args["second"] == @[new_gene_int(2), new_gene_int(3)]

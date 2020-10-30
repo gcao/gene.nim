@@ -14,6 +14,11 @@ type
     ArgOption      # options
     ArgPositional  # positional arguments
 
+  ArgDataType* = enum
+    ArgInt
+    ArgBool
+    ArgString
+
   ArgMatcher* = ref object
     case kind*: ArgMatcherKind
     of ArgOption:
@@ -25,8 +30,8 @@ type
     description*: string
     required*: bool
     multiple*: bool
-    # data_type*: ArgType  # int, string, what else?
-    # default*: string
+    data_type*: ArgDataType  # int, string, what else?
+    # default*: GeneValue
 
   ArgMatchingResultKind* = enum
     AmSuccess
@@ -55,6 +60,15 @@ proc name*(self: ArgMatcher): string =
   of ArgPositional:
     return self.arg_name
 
+proc parse_data_type(self: var ArgMatcher, input: GeneValue) =
+  var value = input.gene.props.get_or_default("type", nil)
+  if value == new_gene_symbol("int"):
+    self.data_type = ArgInt
+  elif value == new_gene_symbol("bool"):
+    self.data_type = ArgBool
+  else:
+    self.data_type = ArgString
+
 proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
   if schema.vec[0] == new_gene_symbol("program"):
     self.include_program = true
@@ -67,8 +81,11 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
     case item.gene.op.symbol:
     of "option":
       var option = ArgMatcher(kind: ArgOption)
+      option.parse_data_type(item)
       option.toggle = item.gene.props.get_or_default("toggle", false)
-      if not option.toggle:
+      if option.toggle:
+        option.data_type = ArgBool
+      else:
         option.multiple = item.gene.props.get_or_default("multiple", false)
         option.required = item.gene.props.get_or_default("required", false)
       for item in item.gene.data:
@@ -88,6 +105,7 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
     of "argument":
       var arg = ArgMatcher(kind: ArgPositional)
       arg.arg_name = item.gene.data[0].symbol
+      arg.parse_data_type(item)
       var is_last = i == schema.vec.len - 1
       if is_last:
         arg.multiple = item.gene.props.get_or_default("multiple", false)
@@ -102,6 +120,14 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
 proc parse*(self: var ArgMatcherRoot, schema: string) =
   self.parse(read(schema))
 
+proc translate(self: ArgMatcher, value: string): GeneValue =
+  if self.data_type == ArgInt:
+    return value.parse_int
+  elif self.data_type == ArgBool:
+    return value.parse_bool
+  else:
+    return new_gene_string(value)
+
 proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
   result = ArgMatchingResult(kind: AmSuccess)
   var arg_index = 0
@@ -113,27 +139,30 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
   while i < input.len:
     var item = input[i]
     i += 1
-    if self.options.hasKey(item):
-      var option = self.options[item]
-      if option.toggle:
-        result.options[option.name] = true
-      else:
-        var value = input[i]
-        i += 1
-        if option.multiple:
-          for s in value.split(","):
-            var gene_str: GeneValue = s
-            if result.options.hasKey(option.name):
-              result.options[option.name].vec.add(gene_str)
-            else:
-              result.options[option.name] = @[gene_str]
+    if item[0] == '-':
+      if self.options.hasKey(item):
+        var option = self.options[item]
+        if option.toggle:
+          result.options[option.name] = true
         else:
-          result.options[option.name] = value
+          var value = input[i]
+          i += 1
+          if option.multiple:
+            for s in value.split(","):
+              var v = option.translate(s)
+              if result.options.hasKey(option.name):
+                result.options[option.name].vec.add(v)
+              else:
+                result.options[option.name] = @[v]
+          else:
+            result.options[option.name] = option.translate(value)
+      else:
+        echo "Unknown option: " & $item
     else:
       if arg_index < self.args.len:
         var arg = self.args[arg_index]
         var name = arg.name
-        var value = new_gene_string(item)
+        var value = arg.translate(item)
         if arg.multiple:
           if result.args.hasKey(name):
             result.args[name].vec.add(value)
