@@ -3,6 +3,7 @@ import unittest, strutils
 import gene/types
 import gene/parser
 import gene/interpreter
+import gene/arg_parser
 
 # Uncomment below lines to see logs
 # import logging
@@ -102,3 +103,12 @@ proc test_import_matcher*(code: string, callback: proc(result: ImportMatcherRoot
     var v = read(code)
     var m = new_import_matcher(v)
     callback m
+
+proc test_args*(schema, input: string, callback: proc(r: ArgMatchingResult)) =
+  var schema = cleanup(schema)
+  var input = cleanup(input)
+  test schema & "\n" & input:
+    var m = new_matcher()
+    m.parse(schema)
+    var r = m.match(input)
+    callback r

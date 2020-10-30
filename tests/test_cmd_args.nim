@@ -1,5 +1,6 @@
-import unittest, strutils
+import unittest, strutils, tables
 
+import gene/types
 import gene/arg_parser
 
 import ./helpers
@@ -26,18 +27,11 @@ import ./helpers
 
 # [
 #   program
-#   (option   ^^required ^^multiple ^type int -l --long) # "long" will be used as key
-#   (argument ^^required ^^multiple ^type int name)      # "name" will be used as key
+#   (option   ^^toggle -t "description")                 # "t" will be used as key
+#   (option   ^^required ^^multiple ^type int -l --long) # "--long" will be used as key
+#   (argument ^type int name "description")              # "name" will be used as key
+#   (argument ^^multiple ^type int name)                 # "name" will be used as key
 # ]
-
-proc test_args*(schema, input: string, callback: proc(r: ArgMatchingResult)) =
-  var schema = cleanup(schema)
-  var input = cleanup(input)
-  test schema & "\n" & input:
-    var m = new_matcher()
-    # m.parse(schema)
-    var r = m.match(input.split(" "))
-    callback r
 
 test_args """
   [
@@ -48,3 +42,7 @@ test_args """
   -l value test-value
 """, proc(r: ArgMatchingResult) =
   check r.kind == AmSuccess
+  check r.options.len == 1
+  check r.options["--long"] == "value"
+  check r.args.len == 1
+  check r.args["test"] == "test-value"
