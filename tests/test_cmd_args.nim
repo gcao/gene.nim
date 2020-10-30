@@ -33,15 +33,25 @@ import ./helpers
 #   (argument ^^multiple ^type int name)                 # "name" will be used as key
 # ]
 
-# test_args """
-#   [
-#     (option ^^toggle -t --toggle)
-#   ]
-# """, """
-# """, proc(r: ArgMatchingResult) =
-#   check r.kind == AmSuccess
-#   check r.options.len == 1
-#   check not r.options["--toggle"]
+test_args """
+  [
+    (option ^^toggle -t --toggle)
+  ]
+""", """
+""", proc(r: ArgMatchingResult) =
+  check r.kind == AmSuccess
+  check r.options.len == 1
+  check r.options["--toggle"] == GeneFalse
+
+test_args """
+  [
+    (argument first)
+  ]
+""", """
+""", proc(r: ArgMatchingResult) =
+  check r.kind == AmSuccess
+  check r.args.len == 1
+  check r.args["first"] == ""
 
 test_args """
   [
@@ -55,9 +65,24 @@ test_args """
   check r.kind == AmSuccess
   check r.options.len == 2
   check r.options["--long"] == "long-value"
-  check not r.options["--toggle"]
+  check r.options["--toggle"] == GeneFalse
   check r.args.len == 1
   check r.args["first"] == "one"
+
+test_args """
+  [
+    (option -l --long)
+    (option ^^toggle -t --toggle)
+    (argument first)
+  ]
+""", """
+  -l long-value one
+""", proc(r: ArgMatchingResult) =
+  check r.kind == AmSuccess
+  check r.fields.len == 3
+  check r.fields["--long"] == "long-value"
+  check r.fields["--toggle"] == GeneFalse # use GeneFalse instead of false because "check" does not like bool == bool
+  check r.fields["first"] == "one"
 
 test_args """
   [

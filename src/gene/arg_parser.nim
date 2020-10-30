@@ -89,6 +89,12 @@ proc default_value*(self: ArgMatcher): GeneValue =
     else:
       return self.default
 
+proc fields*(self: ArgMatchingResult): Table[string, GeneValue] =
+  for k, v in self.options:
+    result[k] = v
+  for k, v in self.args:
+    result[k] = v
+
 proc parse_data_type(self: var ArgMatcher, input: GeneValue) =
   var value = input.gene.props.get_or_default("type", nil)
   if value == new_gene_symbol("int"):
@@ -214,9 +220,13 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
   for v in self.args:
     if not result.args.hasKey(v.name):
       if v.required:
-        raise newException(ArgumentError, "Missing mandatory option: " & v.name)
+        raise newException(ArgumentError, "Missing mandatory argument: " & v.name)
       else:
         result.args[v.name] = v.default_value
 
 proc match*(self: var ArgMatcherRoot, input: string): ArgMatchingResult =
-  return self.match(input.strip(leading=true).split(" "))
+  var parts: seq[string]
+  var s = input.strip(leading=true)
+  if s.len > 0:
+    parts = s.split(" ")
+  return self.match(parts)
