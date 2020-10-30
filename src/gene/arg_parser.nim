@@ -105,6 +105,8 @@ proc parse_data_type(self: var ArgMatcher, input: GeneValue) =
     self.data_type = ArgString
 
 proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
+  if schema.vec.len == 0:
+    return
   if schema.vec[0] == new_gene_symbol("program"):
     self.include_program = true
   for i, item in schema.vec:
@@ -171,10 +173,16 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
   if self.include_program:
     result.program = input[i]
     i += 1
+  var in_extra = false
   while i < input.len:
     var item = input[i]
     i += 1
-    if item[0] == '-':
+    if in_extra:
+      result.extra.add(item)
+    elif item == "--":
+      in_extra = true
+      continue
+    elif item[0] == '-':
       if self.options.hasKey(item):
         var option = self.options[item]
         if option.toggle:

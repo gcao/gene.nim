@@ -54,6 +54,16 @@ test_args """
   check r.args["first"] == ""
 
 test_args """
+  # Test extra arguments after "--"
+  [
+  ]
+""", """
+  -- one two
+""", proc(r: ArgMatchingResult) =
+  check r.kind == AmSuccess
+  check r.extra == @["one", "two"]
+
+test_args """
   [
     (option -l --long)
     (option ^^toggle -t --toggle)
@@ -67,7 +77,6 @@ test_args """
   check r.options["--long"] == "long-value"
   check r.options["--toggle"] == GeneFalse
   check r.args.len == 1
-  check r.args["first"] == "one"
 
 test_args """
   [
