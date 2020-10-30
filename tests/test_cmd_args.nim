@@ -2,6 +2,8 @@ import unittest, strutils
 
 import gene/arg_parser
 
+import ./helpers
+
 # Command line arguments matching
 #
 # Program:   program, usually the first argument
@@ -14,19 +16,35 @@ import gene/arg_parser
 # Single vs multiple values
 #
 # -l --long
-# -l x -l y -l z
+# -l x -l y -l z  OR -l x,y,z
 # xyz
 # -- x y z
 
 # Input:   seq[string] or string(raw arguments string)
-# Pattern:
+# Schema:
 # Result:
 
-proc test_args*(input: string, callback: proc(input: string)) =
-  test "Command line arguments: " & input:
-    callback input
+# [
+#   program
+#   (option   ^^required ^^multiple ^type int -l --long) # "long" will be used as key
+#   (argument ^^required ^^multiple ^type int name)      # "name" will be used as key
+# ]
 
-test_args "", proc(input: string) =
-  var m = new_matcher()
-  var r = m.match(input.split(" "))
+proc test_args*(schema, input: string, callback: proc(r: ArgMatchingResult)) =
+  var schema = cleanup(schema)
+  var input = cleanup(input)
+  test schema & "\n" & input:
+    var m = new_matcher()
+    # m.parse(schema)
+    var r = m.match(input.split(" "))
+    callback r
+
+test_args """
+  [
+    (option -l --long)
+    (argument test)
+  ]
+""", """
+  -l value test-value
+""", proc(r: ArgMatchingResult) =
   check r.kind == AmSuccess
