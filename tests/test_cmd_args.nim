@@ -135,21 +135,19 @@ test_args """
   check r.args["second"] == 1
   check r.args["third"] == @[new_gene_int(2), new_gene_int(3)]
 
-# test_args """
-#   # Test default values
-#   [
-#     (option ^type bool -b)
-#     (option ^type int ^default 10 -i)
-#     (option ^type int ^default [20 30] ^^multiple -m)
-#     (argument ^type int ^default 100 first)
-#     (argument ^type int ^default [200 300] ^^multiple second)
-#   ]
-# """, "", proc(r: ArgMatchingResult) =
-#   check r.kind == AmSuccess
-#   check r.options.len == 3
-#   check r.options["-b"]
-#   check r.options["-i"] == 1
-#   check r.options["-m"] == @[new_gene_int(2), new_gene_int(3)]
-#   check r.args.len == 2
-#   check r.args["first"] == 1
-#   check r.args["second"] == @[new_gene_int(2), new_gene_int(3)]
+test_args """
+  # Test default values
+  [
+    (option ^type bool ^default true -b)
+    (option ^type int ^default 10 -i)
+    (option ^type int ^default [20 30] ^^multiple -m)
+    (argument ^type int ^default [100 200] ^^multiple first)
+  ]
+""", "", proc(r: ArgMatchingResult) =
+  check r.kind == AmSuccess
+  check r.options.len == 3
+  check r.options["-b"]
+  check r.options["-i"] == 10
+  check r.options["-m"] == @[new_gene_int(20), new_gene_int(30)]
+  check r.args.len == 1
+  check r.args["first"] == @[new_gene_int(100), new_gene_int(200)]

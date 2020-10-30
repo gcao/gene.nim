@@ -125,6 +125,9 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
       else:
         option.multiple = item.gene.props.get_or_default("multiple", false)
         option.required = item.gene.props.get_or_default("required", false)
+      if item.gene.props.hasKey("default"):
+        option.default = item.gene.props["default"]
+        option.required = false
       for item in item.gene.data:
         if item.symbol[0] == '-':
           if item.symbol.len == 2:
@@ -142,6 +145,9 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
     of "argument":
       var arg = ArgMatcher(kind: ArgPositional)
       arg.arg_name = item.gene.data[0].symbol
+      if item.gene.props.hasKey("default"):
+        arg.default = item.gene.props["default"]
+        arg.required = false
       arg.parse_data_type(item)
       var is_last = i == schema.vec.len - 1
       if is_last:
