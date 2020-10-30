@@ -4,6 +4,8 @@ import ./types
 import ./parser
 
 type
+  ArgumentError* = object of CatchableError
+
   ArgMatcherRoot* = ref object
     include_program*: bool
     options*: Table[string, ArgMatcher]
@@ -31,7 +33,7 @@ type
     required*: bool
     multiple*: bool
     data_type*: ArgDataType  # int, string, what else?
-    # default*: GeneValue
+    default: GeneValue
 
   ArgMatchingResultKind* = enum
     AmSuccess
@@ -59,6 +61,33 @@ proc name*(self: ArgMatcher): string =
       return self.long_name
   of ArgPositional:
     return self.arg_name
+
+proc default_value*(self: ArgMatcher): GeneValue =
+  case self.data_type:
+  of ArgInt:
+    if self.default == nil:
+      if self.multiple:
+        return @[]
+      else:
+        return 0
+    else:
+      return self.default
+  of ArgBool:
+    if self.default == nil:
+      if self.multiple:
+        return @[]
+      else:
+        return false
+    else:
+      return self.default
+  of ArgString:
+    if self.default == nil:
+      if self.multiple:
+        return @[]
+      else:
+        return ""
+    else:
+      return self.default
 
 proc parse_data_type(self: var ArgMatcher, input: GeneValue) =
   var value = input.gene.props.get_or_default("type", nil)
@@ -173,6 +202,21 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
           result.args[name] = value
       else:
         echo "Too many arguments are found. Ignoring " & $item
+
+  # Assign values for mandatory options and arguments
+  for _, v in self.options:
+    if not result.options.hasKey(v.name):
+      if v.required:
+        raise newException(ArgumentError, "Missing mandatory option: " & v.name)
+      else:
+        result.options[v.name] = v.default_value
+
+  for v in self.args:
+    if not result.args.hasKey(v.name):
+      if v.required:
+        raise newException(ArgumentError, "Missing mandatory option: " & v.name)
+      else:
+        result.args[v.name] = v.default_value
 
 proc match*(self: var ArgMatcherRoot, input: string): ArgMatchingResult =
   return self.match(input.strip(leading=true).split(" "))

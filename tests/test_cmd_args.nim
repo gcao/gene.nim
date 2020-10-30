@@ -33,17 +33,29 @@ import ./helpers
 #   (argument ^^multiple ^type int name)                 # "name" will be used as key
 # ]
 
+# test_args """
+#   [
+#     (option ^^toggle -t --toggle)
+#   ]
+# """, """
+# """, proc(r: ArgMatchingResult) =
+#   check r.kind == AmSuccess
+#   check r.options.len == 1
+#   check not r.options["--toggle"]
+
 test_args """
   [
     (option -l --long)
+    (option ^^toggle -t --toggle)
     (argument first)
   ]
 """, """
   -l long-value one
 """, proc(r: ArgMatchingResult) =
   check r.kind == AmSuccess
-  check r.options.len == 1
+  check r.options.len == 2
   check r.options["--long"] == "long-value"
+  check not r.options["--toggle"]
   check r.args.len == 1
   check r.args["first"] == "one"
 
@@ -72,17 +84,38 @@ test_args """
     (option ^type bool -b)
     (option ^type int -i)
     (option ^type int ^^multiple -m)
-    (argument ^type int first)
-    (argument ^type int ^^multiple second)
+    (argument ^type bool first)
+    (argument ^type int second)
+    (argument ^type int ^^multiple third)
   ]
 """, """
-  -b true -i 1 -m 2,3 1 2 3
+  -b true -i 1 -m 2,3 true 1 2 3
 """, proc(r: ArgMatchingResult) =
   check r.kind == AmSuccess
   check r.options.len == 3
   check r.options["-b"]
   check r.options["-i"] == 1
   check r.options["-m"] == @[new_gene_int(2), new_gene_int(3)]
-  check r.args.len == 2
-  check r.args["first"] == 1
-  check r.args["second"] == @[new_gene_int(2), new_gene_int(3)]
+  check r.args.len == 3
+  check r.args["first"]
+  check r.args["second"] == 1
+  check r.args["third"] == @[new_gene_int(2), new_gene_int(3)]
+
+# test_args """
+#   # Test default values
+#   [
+#     (option ^type bool -b)
+#     (option ^type int ^default 10 -i)
+#     (option ^type int ^default [20 30] ^^multiple -m)
+#     (argument ^type int ^default 100 first)
+#     (argument ^type int ^default [200 300] ^^multiple second)
+#   ]
+# """, "", proc(r: ArgMatchingResult) =
+#   check r.kind == AmSuccess
+#   check r.options.len == 3
+#   check r.options["-b"]
+#   check r.options["-i"] == 1
+#   check r.options["-m"] == @[new_gene_int(2), new_gene_int(3)]
+#   check r.args.len == 2
+#   check r.args["first"] == 1
+#   check r.args["second"] == @[new_gene_int(2), new_gene_int(3)]
