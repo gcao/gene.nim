@@ -59,11 +59,16 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
   if schema.vec[0] == new_gene_symbol("program"):
     self.include_program = true
   for i, item in schema.vec:
+    # Check whether first item is program
+    if i == 0 and item == new_gene_symbol("program"):
+      self.include_program = true
+      continue
+
     case item.gene.op.symbol:
     of "option":
       var option = ArgMatcher(kind: ArgOption)
       option.toggle = item.gene.props.get_or_default("toggle", false)
-      if option.toggle:
+      if not option.toggle:
         option.multiple = item.gene.props.get_or_default("multiple", false)
         option.required = item.gene.props.get_or_default("required", false)
       for item in item.gene.data:
@@ -102,6 +107,9 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
   var arg_index = 0
 
   var i = 0
+  if self.include_program:
+    result.program = input[i]
+    i += 1
   while i < input.len:
     var item = input[i]
     i += 1
@@ -110,21 +118,30 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
       if option.toggle:
         result.options[option.name] = true
       else:
-        var value: GeneValue = input[i]
+        var value = input[i]
         i += 1
         if option.multiple:
-          if result.options.hasKey(option.name):
-            result.options[option.name].vec.add(value)
-          else:
-            result.options[option.name] = @[value]
+          for s in value.split(","):
+            var gene_str: GeneValue = s
+            if result.options.hasKey(option.name):
+              result.options[option.name].vec.add(gene_str)
+            else:
+              result.options[option.name] = @[gene_str]
         else:
           result.options[option.name] = value
     else:
       if arg_index < self.args.len:
         var arg = self.args[arg_index]
-        result.args[arg.name] = item
-        if not arg.multiple:
+        var name = arg.name
+        var value = new_gene_string(item)
+        if arg.multiple:
+          if result.args.hasKey(name):
+            result.args[name].vec.add(value)
+          else:
+            result.args[name] = @[value]
+        else:
           arg_index += 1
+          result.args[name] = value
       else:
         echo "Too many arguments are found. Ignoring " & $item
 

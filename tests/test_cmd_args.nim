@@ -1,4 +1,4 @@
-import unittest, strutils, tables
+import unittest, tables
 
 import gene/types
 import gene/arg_parser
@@ -36,13 +36,33 @@ import ./helpers
 test_args """
   [
     (option -l --long)
-    (argument test)
+    (argument first)
   ]
 """, """
-  -l value test-value
+  -l long-value one
 """, proc(r: ArgMatchingResult) =
   check r.kind == AmSuccess
   check r.options.len == 1
-  check r.options["--long"] == "value"
+  check r.options["--long"] == "long-value"
   check r.args.len == 1
-  check r.args["test"] == "test-value"
+  check r.args["first"] == "one"
+
+test_args """
+  [
+    program
+    (option -l --long)
+    (option ^^multiple -m)
+    (argument first)
+    (argument ^^multiple second)
+  ]
+""", """
+  my-script -l long-value -m m1,m2 one two three
+""", proc(r: ArgMatchingResult) =
+  check r.kind == AmSuccess
+  check r.program == "my-script"
+  check r.options.len == 2
+  check r.options["--long"] == "long-value"
+  check r.options["-m"] == @[new_gene_string("m1"), new_gene_string("m2")]
+  check r.args.len == 2
+  check r.args["first"] == "one"
+  check r.args["second"] == @[new_gene_string("two"), new_gene_string("three")]
