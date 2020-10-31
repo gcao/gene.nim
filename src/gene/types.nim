@@ -217,6 +217,14 @@ type
     body*: seq[GeneValue]
     expr*: Expr # The expression that will be the parent of body
 
+  Enum* = ref object
+    name*: string
+    members*: OrderedTable[string, EnumMember]
+
+  EnumMember* = ref object
+    name*: string
+    value*: int
+
   GeneInternalKind* = enum
     GeneFunction
     GeneMacro
@@ -227,6 +235,8 @@ type
     GeneMethod
     GeneInstance
     GeneNamespace
+    GeneEnum
+    GeneEnumMember
     GeneAspect
     GeneAdvice
     GeneAspectInstance
@@ -256,6 +266,10 @@ type
       instance*: Instance
     of GeneNamespace:
       ns*: Namespace
+    of GeneEnum:
+      `enum`*: Enum
+    of GeneEnumMember:
+      enum_member*: EnumMember
     of GeneAspect:
       aspect*: Aspect
     of GeneAdvice:
@@ -1002,6 +1016,14 @@ proc last*(self: ComplexSymbol): string =
 
 proc `==`*(this, that: ComplexSymbol): bool =
   return this.first == that.first and this.rest == that.rest
+
+#################### Enum ########################
+
+proc new_enum*(name: string): Enum =
+  return Enum(name: name)
+
+proc add_member*(self: var Enum, name: string, value: int) =
+  self.members[name] = EnumMember(name: name, value: value)
 
 #################### GeneValue ###################
 
