@@ -1,10 +1,12 @@
 import unittest, tables
 
 import gene/types
+import gene/interpreter
 
 import ./helpers
 
 # (throw)
+# (throw message)
 # (throw Exception)
 # (throw Exception message)
 # (throw (new Exception ...))
@@ -17,6 +19,19 @@ import ./helpers
 #   catch _ ...
 #   finally ...
 # )
+
+# test "(throw ...)":
+#   var code = """
+#     (throw "test")
+#   """.cleanup
+#   test "Interpreter / eval: " & code:
+#     var interpreter = new_vm()
+#     discard interpreter.eval(code)
+#     # try:
+#     #   discard interpreter.eval(code)
+#     #   check false
+#     # except:
+#     #   discard
 
 test_interpreter """
   (try

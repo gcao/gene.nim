@@ -60,6 +60,7 @@ proc new_for_expr*(parent: Expr, val: GeneValue): Expr
 proc new_explode_expr*(parent: Expr, val: GeneValue): Expr
 proc new_range_expr*(parent: Expr, val: GeneValue): Expr
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr
+proc new_throw_expr*(parent: Expr, val: GeneValue): Expr
 proc new_try_expr*(parent: Expr, val: GeneValue): Expr
 proc new_macro_expr*(parent: Expr, val: GeneValue): Expr
 proc new_block_expr*(parent: Expr, val: GeneValue): Expr
@@ -371,6 +372,14 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   of ExExplode:
     var val = self.eval(frame, expr.explode)
     result = new_gene_explode(val)
+  of ExThrow:
+    if expr.throw_type != nil:
+      var typ = self.eval(frame, expr.throw_type)
+      if expr.throw_mesg != nil:
+        var msg = self.eval(frame, expr.throw_mesg)
+        todo()
+      else:
+        todo()
   of ExTry:
     try:
       for e in expr.try_body:
@@ -1035,6 +1044,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr {.inline.} =
         return new_for_expr(parent, node)
       of "range":
         return new_range_expr(parent, node)
+      of "throw":
+        return new_throw_expr(parent, node)
       of "try":
         return new_try_expr(parent, node)
       of "fn":
@@ -1292,6 +1303,16 @@ proc new_range_expr*(parent: Expr, val: GeneValue): Expr =
   result.range_end = new_expr(result, val.gene.data[1])
   result.range_incl_start = true
   result.range_incl_end = false
+
+proc new_throw_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExThrow,
+    parent: parent,
+  )
+  if val.gene.data.len > 0:
+    result.throw_type = new_expr(result, val.gene.data[0])
+  if val.gene.data.len > 1:
+    result.throw_mesg = new_expr(result, val.gene.data[1])
 
 proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(

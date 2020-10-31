@@ -3,6 +3,10 @@ import strutils, tables, osproc, json
 import ./types
 
 proc init_native_procs*() =
+  NativeProcs.add_only "CatchableError", proc(args: seq[GeneValue]): GeneValue =
+    todo()
+    # return CatchableError
+
   NativeProcs.add_only "class_name", proc(args: seq[GeneValue]): GeneValue =
     var self = args[0]
     if self.kind == GeneInternal and self.internal.kind == GeneClass:

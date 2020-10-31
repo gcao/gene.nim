@@ -9,8 +9,8 @@ const BINARY_OPS* = [
 ]
 
 type
-  GeneralError*    = object of CatchableError
-  NotDefinedError* = object of CatchableError
+  Exception* = object of CatchableError
+  NotDefinedException* = object of Exception
 
   # index of a name in a scope
   NameIndexScope* = distinct int
@@ -233,6 +233,7 @@ type
     GeneTargetWithAdvices
     GeneExplode
     GeneFile
+    GeneException
     GeneNativeProc
 
   Internal* = ref object
@@ -267,6 +268,8 @@ type
       explode*: GeneValue
     of GeneFile:
       file*: File
+    of GeneException:
+      exception: CatchableError
     of GeneNativeProc:
       native_proc*: NativeProc
 
@@ -401,6 +404,7 @@ type
     ExWhile
     ExFor
     ExExplode
+    ExThrow
     ExTry
     ExFn
     ExArgs
@@ -506,6 +510,9 @@ type
       for_blk*: seq[Expr]
     of ExExplode:
       explode*: Expr
+    of ExThrow:
+      throw_type*: Expr
+      throw_mesg*: Expr
     of ExTry:
       try_body*: seq[Expr]
       try_catches*: seq[(Expr, seq[Expr])]
@@ -821,7 +828,7 @@ proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
   elif self.parent != nil:
     return self.parent[key]
   else:
-    raise new_exception(NotDefinedError, key & " is not defined")
+    raise new_exception(NotDefinedException, key & " is not defined")
 
 proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
   self.members[key] = val
