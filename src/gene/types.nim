@@ -508,8 +508,8 @@ type
       explode*: Expr
     of ExTry:
       try_body*: seq[Expr]
-      catches*: seq[(Expr, seq[Expr])]
-      `finally`*: seq[Expr]
+      try_catches*: seq[(Expr, seq[Expr])]
+      try_finally*: seq[Expr]
     of ExFn:
       fn*: GeneValue
       fn_name*: GeneValue

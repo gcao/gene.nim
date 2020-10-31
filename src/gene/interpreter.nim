@@ -9,8 +9,18 @@ type
     FnClass
     FnMethod
 
+  TryParsingState = enum
+    TryBody
+    TryCatch
+    TryCatchBody
+    TryFinally
+
 var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
+
+let TRY*      = new_gene_symbol("try")
+let CATCH*    = new_gene_symbol("catch")
+let FINALLY*  = new_gene_symbol("finally")
 
 init_native_procs()
 
@@ -362,9 +372,15 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
     var val = self.eval(frame, expr.explode)
     result = new_gene_explode(val)
   of ExTry:
-    todo()
-    # try:
-    # except:
+    try:
+      for e in expr.try_body:
+        result = self.eval(frame, e)
+    except:
+      if expr.try_catches.len > 0:
+        for catch in expr.try_catches:
+          # TODO: check whether the thrown exception matches exception in catch statement
+          for e in catch[1]:
+            result = self.eval(frame, e)
   of ExFn:
     expr.fn.internal.fn.ns = frame.ns
     expr.fn.internal.fn.parent_scope = frame.scope
@@ -1282,7 +1298,41 @@ proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExTry,
     parent: parent,
   )
+  var state = TryBody
+  var catch_exception: Expr
+  var catch_body: seq[Expr] = @[]
   for item in val.gene.data:
+    case state:
+    of TryBody:
+      if item == CATCH:
+        state = TryCatch
+      elif item == FINALLY:
+        todo()
+      else:
+        result.try_body.add(new_expr(result, item))
+    of TryCatch:
+      if item == CATCH:
+        not_allowed()
+      elif item == FINALLY:
+        not_allowed()
+      else:
+        state = TryCatchBody
+        catch_exception = new_expr(result, item)
+    of TryCatchBody:
+      if item == CATCH:
+        state = TryCatch
+        result.try_catches.add((catch_exception, catch_body))
+        catch_exception = nil
+        catch_body = @[]
+      elif item == FINALLY:
+        state = TryFinally
+      else:
+        catch_body.add(new_expr(result, item))
+    of TryFinally:
+      todo()
+  if state in [TryCatch, TryCatchBody]:
+    result.try_catches.add((catch_exception, catch_body))
+  elif state == TryFinally:
     todo()
 
 proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
