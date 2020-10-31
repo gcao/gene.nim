@@ -50,6 +50,9 @@ test_parser "a,", new_gene_symbol("a")
 
 test_parser "1 2 3", 1
 
+# TODO: Set
+# test_parser "#[]", new_gene_set()
+
 test_parser "()", proc(r: GeneValue) =
   check r.gene.op == nil
   check r.gene.props.len == 0
@@ -142,3 +145,21 @@ test_parser "[a/[1 2]]", proc(r: GeneValue) =
   check r.vec[0].csymbol.rest == @[""]
   check r.vec[1].vec[0] == 1
   check r.vec[1].vec[1] == 2
+
+# test_parser """
+#   #< comment ># 1
+# """, 1
+
+# test_parser """
+#   #<
+#   comment
+#   #># 1
+# """, 1
+
+# test_parser """
+#   #<
+#   #<<
+#   comment
+#   #>>#
+#   #># 1
+# """, 1
