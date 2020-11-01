@@ -1,4 +1,4 @@
-import tables, strutils, os
+import tables, os
 
 import ./types
 import ./parser
@@ -10,24 +10,10 @@ type
     FnClass
     FnMethod
 
-  TryParsingState = enum
-    TryBody
-    TryCatch
-    TryCatchBody
-    TryFinally
-
-var FrameMgr* = FrameManager()
-var ScopeMgr* = ScopeManager()
-
-let TRY*      = new_gene_symbol("try")
-let CATCH*    = new_gene_symbol("catch")
-let FINALLY*  = new_gene_symbol("finally")
-
 init_native_procs()
 
 #################### Interfaces ##################
 
-proc get*(self: var ScopeManager): Scope {.inline.}
 proc import_module*(self: VM, name: string, code: string): Namespace
 proc load_core_module*(self: VM)
 proc load_gene_module*(self: VM)
@@ -50,488 +36,7 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
 proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
 proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue
 
-#################### ScopeManager ################
-
-proc get*(self: var ScopeManager): Scope {.inline.} =
-  if self.cache.len > 0:
-    result = self.cache.pop()
-    result.usage = 1
-  else:
-    return new_scope()
-
-proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
-  discard
-  # scope.usage -= 1
-  # if scope.usage == 0:
-  #   if scope.parent != nil:
-  #     self.free(scope.parent)
-  #   scope.reset()
-  #   self.cache.add(scope)
-
-#################### FrameManager ################
-
-proc get*(self: var FrameManager, kind: FrameKind, ns: Namespace, scope: Scope): Frame {.inline.} =
-  if self.cache.len > 0:
-    result = self.cache.pop()
-  else:
-    result = new_frame()
-  result.parent = nil
-  result.ns = ns
-  result.scope = scope
-  result.extra = FrameExtra(kind: kind)
-
-proc free*(self: var FrameManager, frame: var Frame) {.inline.} =
-  frame.reset()
-  self.cache.add(frame)
-
 #################### Implementations #############
-
-proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  case expr.kind:
-  of ExTodo:
-    if expr.todo != nil:
-      todo(self.eval(frame, expr.todo).str)
-    else:
-      todo()
-  of ExNotAllowed:
-    if expr.not_allowed != nil:
-      not_allowed(self.eval(frame, expr.not_allowed).str)
-    else:
-      not_allowed()
-  of ExRoot:
-    result = self.eval(frame, expr.root)
-  of ExLiteral:
-    result = expr.literal
-  of ExSymbol:
-    case expr.symbol:
-    of "gene":
-      result = GENE_NS
-    of "genex":
-      result = GENEX_NS
-    else:
-      result = frame[expr.symbol]
-  of ExComplexSymbol:
-    result = self.get_member(frame, expr.csymbol)
-  of ExDo:
-    var old_self = frame.self
-    try:
-      for e in expr.do_props:
-        var val = self.eval(frame, e)
-        case e.map_key:
-        of "self":
-          frame.self = val
-        else:
-          todo()
-      for e in expr.do_body:
-        result = self.eval(frame, e)
-    finally:
-      frame.self = old_self
-  of ExGroup:
-    for e in expr.group:
-      result = self.eval(frame, e)
-  of ExArray:
-    result = new_gene_vec()
-    for e in expr.array:
-      result.explode_and_add(self.eval(frame, e))
-  of ExMap:
-    result = new_gene_map()
-    for e in expr.map:
-      result.map[e.map_key] = self.eval(frame, e.map_val)
-  of ExMapChild:
-    result = self.eval(frame, expr.map_val)
-    # Assign the value to map/gene should be handled by evaluation of parent expression
-  of ExGet:
-    var target = self.eval(frame, expr.get_target)
-    var index = self.eval(frame, expr.get_index)
-    result = target.gene.data[index.int]
-  of ExSet:
-    var target = self.eval(frame, expr.set_target)
-    var index = self.eval(frame, expr.set_index)
-    var value = self.eval(frame, expr.set_value)
-    target.gene.data[index.int] = value
-  of ExRange:
-    var range_start = self.eval(frame, expr.range_start)
-    var range_end = self.eval(frame, expr.range_end)
-    result = new_gene_range(range_start, range_end)
-  of ExGene:
-    var target = self.eval(frame, expr.gene_op)
-    case target.kind:
-    of GeneSymbol:
-      result = new_gene_gene(target)
-      for e in expr.gene_props:
-        result.gene.props[e.map_key] = self.eval(frame, e.map_val)
-      for e in expr.gene_data:
-        result.gene.data.add(self.eval(frame, e))
-    of GeneInternal:
-      case target.internal.kind:
-      of GeneFunction:
-        var options = Table[FnOption, GeneValue]()
-        var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-        result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
-      of GeneMacro:
-        result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
-      of GeneBlock:
-        result = self.call_block(frame, GeneNil, target.internal.blk, expr)
-      of GeneReturn:
-        var val = GeneNil
-        if expr.gene_data.len == 0:
-          discard
-        elif expr.gene_data.len == 1:
-          val = self.eval(frame, expr.gene_data[0])
-        else:
-          not_allowed()
-        raise Return(
-          frame: target.internal.ret.frame,
-          val: val,
-        )
-      of GeneAspect:
-        result = self.call_aspect(frame, target.internal.aspect, expr)
-      of GeneAspectInstance:
-        var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-        result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
-      else:
-        todo()
-    of GeneString:
-      var str = target.str
-      for item in expr.gene_data:
-        str &= self.eval(frame, item).to_s
-      result = new_gene_string_move(str)
-    else:
-      todo()
-
-  of ExBinary:
-    var first = self.eval(frame, expr.bin_first)
-    var second = self.eval(frame, expr.bin_second)
-    case expr.bin_op:
-    of BinAdd: result = new_gene_int(first.int + second.int)
-    of BinSub: result = new_gene_int(first.int - second.int)
-    of BinMul: result = new_gene_int(first.int * second.int)
-    # of BinDiv: result = new_gene_int(first.int / second.int)
-    of BinEq:  result = new_gene_bool(first == second)
-    of BinNeq: result = new_gene_bool(first != second)
-    of BinLt:  result = new_gene_bool(first.int < second.int)
-    of BinLe:  result = new_gene_bool(first.int <= second.int)
-    of BinGt:  result = new_gene_bool(first.int > second.int)
-    of BinGe:  result = new_gene_bool(first.int >= second.int)
-    of BinAnd: result = new_gene_bool(first.bool and second.bool)
-    of BinOr:  result = new_gene_bool(first.bool or second.bool)
-    else: todo()
-  of ExBinImmediate:
-    var first = self.eval(frame, expr.bini_first)
-    var second = expr.bini_second
-    case expr.bini_op:
-    of BinAdd: result = new_gene_int(first.int + second.int)
-    of BinSub: result = new_gene_int(first.int - second.int)
-    of BinMul: result = new_gene_int(first.int * second.int)
-    # of BinDiv: result = new_gene_int(first.int / second.int)
-    of BinEq:  result = new_gene_bool(first == second)
-    of BinNeq: result = new_gene_bool(first != second)
-    of BinLt:  result = new_gene_bool(first.int < second.int)
-    of BinLe:  result = new_gene_bool(first.int <= second.int)
-    of BinGt:  result = new_gene_bool(first.int > second.int)
-    of BinGe:  result = new_gene_bool(first.int >= second.int)
-    of BinAnd: result = new_gene_bool(first.bool and second.bool)
-    of BinOr:  result = new_gene_bool(first.bool or second.bool)
-    else: todo()
-  of ExVar:
-    var val = self.eval(frame, expr.var_val)
-    self.def_member(frame, expr.var_name, val, false)
-    result = GeneNil
-  of ExAssignment:
-    var val = self.eval(frame, expr.var_val)
-    self.set_member(frame, expr.var_name, val)
-    result = GeneNil
-  of ExIf:
-    var v = self.eval(frame, expr.if_cond)
-    if v:
-      result = self.eval(frame, expr.if_then)
-    elif expr.if_else != nil:
-      result = self.eval(frame, expr.if_else)
-  of ExLoop:
-    try:
-      while true:
-        for e in expr.loop_blk:
-          discard self.eval(frame, e)
-    except Break as b:
-      result = b.val
-  of ExBreak:
-    var val = GeneNil
-    if expr.break_val != nil:
-      val = self.eval(frame, expr.break_val)
-    var e: Break
-    e.new
-    e.val = val
-    raise e
-  of ExWhile:
-    try:
-      var cond = self.eval(frame, expr.while_cond)
-      while cond:
-        for e in expr.while_blk:
-          discard self.eval(frame, e)
-        cond = self.eval(frame, expr.while_cond)
-    except Break as b:
-      result = b.val
-  of ExFor:
-    try:
-      var for_in = self.eval(frame, expr.for_in)
-      var first, second: GeneValue
-      case expr.for_vars.kind:
-      of GeneSymbol:
-        first = expr.for_vars
-      of GeneVector:
-        first = expr.for_vars.vec[0]
-        second = expr.for_vars.vec[1]
-      else:
-        not_allowed()
-
-      if second == nil:
-        var val = first.symbol
-        frame.scope.def_member(val, GeneNil)
-        case for_in.kind:
-        of GeneRange:
-          for i in for_in.range_start.int..<for_in.range_end.int:
-            frame.scope[val] = i
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-        of GeneVector:
-          for i in for_in.vec:
-            frame.scope[val] = i
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-        else:
-          todo()
-      else:
-        var key = first.symbol
-        var val = second.symbol
-        frame.scope.def_member(key, GeneNil)
-        frame.scope.def_member(val, GeneNil)
-        case for_in.kind:
-        of GeneVector:
-          for k, v in for_in.vec:
-            frame.scope[key] = k
-            frame.scope[val] = v
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-        of GeneMap:
-          for k, v in for_in.map:
-            frame.scope[key] = k
-            frame.scope[val] = v
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-        else:
-          todo()
-    except Break:
-      discard
-  of ExExplode:
-    var val = self.eval(frame, expr.explode)
-    result = new_gene_explode(val)
-  of ExThrow:
-    if expr.throw_type != nil:
-      var typ = self.eval(frame, expr.throw_type)
-      if expr.throw_mesg != nil:
-        var msg = self.eval(frame, expr.throw_mesg)
-        todo()
-      else:
-        todo()
-  of ExTry:
-    try:
-      for e in expr.try_body:
-        result = self.eval(frame, e)
-    except:
-      if expr.try_catches.len > 0:
-        for catch in expr.try_catches:
-          # TODO: check whether the thrown exception matches exception in catch statement
-          for e in catch[1]:
-            result = self.eval(frame, e)
-  of ExFn:
-    expr.fn.internal.fn.ns = frame.ns
-    expr.fn.internal.fn.parent_scope = frame.scope
-    expr.fn.internal.fn.parent_scope_max = frame.scope.max
-    self.def_member(frame, expr.fn_name, expr.fn, true)
-    frame.ns[expr.fn.internal.fn.name] = expr.fn
-    result = expr.fn
-  of ExArgs:
-    case frame.extra.kind:
-    of FrFunction, FrMacro, FrBlock, FrMethod:
-      result = frame.args
-    else:
-      not_allowed()
-  of ExMacro:
-    expr.mac.internal.mac.ns = frame.ns
-    frame.ns[expr.mac.internal.mac.name] = expr.mac
-    result = expr.mac
-  of ExBlock:
-    expr.blk.internal.blk.ns = frame.ns
-    expr.blk.internal.blk.parent_scope = frame.scope
-    expr.blk.internal.blk.parent_scope_max = frame.scope.max
-    result = expr.blk
-  of ExReturn:
-    var val = GeneNil
-    if expr.return_val != nil:
-      val = self.eval(frame, expr.return_val)
-    raise Return(
-      frame: frame,
-      val: val,
-    )
-  of ExReturnRef:
-    result = Return(frame: frame)
-  of ExAspect:
-    var aspect = expr.aspect.internal.aspect
-    aspect.ns = frame.ns
-    frame.ns[aspect.name] = expr.aspect
-    result = expr.aspect
-  of ExAdvice:
-    var instance = frame.self.internal.aspect_instance
-    var advice: Advice
-    var logic = self.eval(frame, new_expr(expr, expr.advice.gene.data[1]))
-    case expr.advice.gene.op.symbol:
-    of "before":
-      advice = new_advice(AdBefore, logic.internal.fn)
-      instance.before_advices.add(advice)
-    of "after":
-      advice = new_advice(AdAfter, logic.internal.fn)
-      instance.after_advices.add(advice)
-    else:
-      todo()
-    advice.owner = instance
-
-  of ExUnknown:
-    var parent = expr.parent
-    case parent.kind:
-    of ExGroup:
-      var e = new_expr(parent, expr.unknown)
-      result = self.eval(frame, e)
-    of ExLoop:
-      var e = new_expr(parent, expr.unknown)
-      result = self.eval(frame, e)
-    else:
-      todo($expr.unknown)
-  of ExNamespace:
-    self.def_member(frame, expr.ns_name, expr.ns, true)
-    var old_self = frame.self
-    var old_ns = frame.ns
-    try:
-      frame.self = expr.ns
-      frame.ns = expr.ns.internal.ns
-      for e in expr.ns_body:
-        discard self.eval(frame, e)
-      result = expr.ns
-    finally:
-      frame.self = old_self
-      frame.ns = old_ns
-  of ExSelf:
-    return frame.self
-  of ExGlobal:
-    return self.app.ns
-  of ExImport:
-    var ns = self.modules[expr.import_matcher.from]
-    self.import_from_ns(frame, ns, expr.import_matcher.children)
-  of ExClass:
-    expr.class.internal.class.ns.parent = frame.ns
-    self.def_member(frame, expr.class_name, expr.class, true)
-    var super_class: Class
-    if expr.super_class == nil:
-      if GENE_NS != nil and GENE_NS.internal.ns.hasKey("Object"):
-        super_class = GENE_NS.internal.ns["Object"].internal.class
-    else:
-      super_class = self.eval(frame, expr.super_class).internal.class
-    expr.class.internal.class.parent = super_class
-    var ns = expr.class.internal.class.ns
-    var scope = new_scope()
-    var new_frame = FrameMgr.get(FrClass, ns, scope)
-    new_frame.self = expr.class
-    for e in expr.class_body:
-      discard self.eval(new_frame, e)
-    result = expr.class
-  of ExMixin:
-    self.def_member(frame, expr.mix_name, expr.mix, true)
-    var ns = frame.ns
-    var scope = new_scope()
-    var new_frame = FrameMgr.get(FrMixin, ns, scope)
-    new_frame.self = expr.mix
-    for e in expr.mix_body:
-      discard self.eval(new_frame, e)
-    result = expr.mix
-  of ExInclude:
-    # Copy methods to target class
-    for e in expr.include_args:
-      var mix = self.eval(frame, e)
-      for name, meth in mix.internal.mix.methods:
-        frame.self.internal.class.methods[name] = meth
-  of ExNew:
-    var class = self.eval(frame, expr.new_class)
-    var instance = new_instance(class.internal.class)
-    result = new_gene_instance(instance)
-    discard self.call_method(frame, result, class.internal.class, "new", expr.new_args)
-  of ExMethod:
-    expr.meth_ns = frame.ns
-    var meth = expr.meth
-    case frame.self.internal.kind:
-    of GeneClass:
-      meth.internal.meth.class = frame.self.internal.class
-      frame.self.internal.class.methods[meth.internal.meth.name] = meth.internal.meth
-    of GeneMixin:
-      frame.self.internal.mix.methods[meth.internal.meth.name] = meth.internal.meth
-    else:
-      not_allowed()
-    result = meth
-  of ExInvokeMethod:
-    var instance = self.eval(frame, expr.invoke_self)
-    var class = self.get_class(instance)
-    result = self.call_method(frame, instance, class, expr.invoke_meth, expr.invoke_args)
-  of ExSuper:
-    var instance = frame.self
-    var meth = frame.scope["$method"].internal.meth
-    var class = meth.class
-    result = self.call_method(frame, instance, class.parent, meth.name, expr.super_args)
-  of ExGetProp:
-    var target = self.eval(frame, expr.get_prop_self)
-    var name = expr.get_prop_name
-    result = target.internal.instance.value.gene.props[name]
-  of ExSetProp:
-    var target = frame.self
-    var name = expr.set_prop_name
-    result = self.eval(frame, expr.set_prop_val)
-    target.internal.instance.value.gene.props[name] = result
-  of ExCallNative:
-    var args: seq[GeneValue] = @[]
-    for item in expr.native_args:
-      args.add(self.eval(frame, item))
-    var p = NativeProcs.get(expr.native_index)
-    result = p(args)
-  of ExGetClass:
-    var val = self.eval(frame, expr.get_class_val)
-    result = self.get_class(val)
-  of ExEval:
-    for e in expr.eval_args:
-      var init_result = self.eval(frame, e)
-      result = self.eval(frame, new_expr(expr, init_result))
-  of ExCallerEval:
-    var caller_frame = frame.parent
-    for e in expr.caller_eval_args:
-      result = self.eval(caller_frame, new_expr(expr, self.eval(frame, e)))
-  of ExMatch:
-    result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
-  of ExQuote:
-    result = expr.quote_val
-  of ExEnv:
-    var env = self.eval(frame, expr.env)
-    result = get_env(env.str)
-    if result.str.len == 0:
-      result = self.eval(frame, expr.env_default).to_s
-
-  of ExPrint:
-    for e in expr.print:
-      var v = self.eval(frame, e)
-      case v.kind:
-      of GeneString:
-        stdout.write v.str
-      else:
-        stdout.write $v
-    if expr.print_and_return:
-      stdout.write "\n"
-  # else:
-  #   todo($expr.kind)
 
 #################### VM #########################
 
@@ -549,6 +54,13 @@ proc prepare*(self: VM, code: string): Expr =
     kind: ExRoot,
   )
   result.root = new_group_expr(result, parsed)
+
+proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  if expr.evaluator != nil:
+    return expr.evaluator(self, frame, expr)
+  else:
+    var evaluator = EvaluatorMgr[expr.kind]
+    return evaluator(self, frame, expr)
 
 proc eval*(self: VM, code: string): GeneValue =
   var module = new_module()
@@ -922,6 +434,504 @@ proc explode_and_add*(parent: GeneValue, value: GeneValue) =
       parent.gene.data.add(value)
     else:
       todo()
+
+EvaluatorMgr[ExTodo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  if expr.todo != nil:
+    todo(self.eval(frame, expr.todo).str)
+  else:
+    todo()
+
+EvaluatorMgr[ExNotAllowed] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  if expr.not_allowed != nil:
+    not_allowed(self.eval(frame, expr.not_allowed).str)
+  else:
+    not_allowed()
+
+EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  case expr.symbol:
+  of "gene":
+    return GENE_NS
+  of "genex":
+    return GENEX_NS
+  else:
+    result = frame[expr.symbol]
+
+EvaluatorMgr[ExDo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var old_self = frame.self
+  try:
+    for e in expr.do_props:
+      var val = self.eval(frame, e)
+      case e.map_key:
+      of "self":
+        frame.self = val
+      else:
+        todo()
+    for e in expr.do_body:
+      result = self.eval(frame, e)
+  finally:
+    frame.self = old_self
+
+EvaluatorMgr[ExGroup] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  for e in expr.group:
+    result = self.eval(frame, e)
+
+EvaluatorMgr[ExArray] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  result = new_gene_vec()
+  for e in expr.array:
+    result.explode_and_add(self.eval(frame, e))
+
+EvaluatorMgr[ExMap] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  result = new_gene_map()
+  for e in expr.map:
+    result.map[e.map_key] = self.eval(frame, e.map_val)
+
+EvaluatorMgr[ExMapChild] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  result = self.eval(frame, expr.map_val)
+  # Assign the value to map/gene should be handled by evaluation of parent expression
+
+EvaluatorMgr[ExGet] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var target = self.eval(frame, expr.get_target)
+  var index = self.eval(frame, expr.get_index)
+  result = target.gene.data[index.int]
+
+EvaluatorMgr[ExSet] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var target = self.eval(frame, expr.set_target)
+  var index = self.eval(frame, expr.set_index)
+  var value = self.eval(frame, expr.set_value)
+  target.gene.data[index.int] = value
+
+EvaluatorMgr[ExRange] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var range_start = self.eval(frame, expr.range_start)
+  var range_end = self.eval(frame, expr.range_end)
+  result = new_gene_range(range_start, range_end)
+
+EvaluatorMgr[ExBinary] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var first = self.eval(frame, expr.bin_first)
+  var second = self.eval(frame, expr.bin_second)
+  case expr.bin_op:
+  of BinAdd: result = new_gene_int(first.int + second.int)
+  of BinSub: result = new_gene_int(first.int - second.int)
+  of BinMul: result = new_gene_int(first.int * second.int)
+  # of BinDiv: result = new_gene_int(first.int / second.int)
+  of BinEq:  result = new_gene_bool(first == second)
+  of BinNeq: result = new_gene_bool(first != second)
+  of BinLt:  result = new_gene_bool(first.int < second.int)
+  of BinLe:  result = new_gene_bool(first.int <= second.int)
+  of BinGt:  result = new_gene_bool(first.int > second.int)
+  of BinGe:  result = new_gene_bool(first.int >= second.int)
+  of BinAnd: result = new_gene_bool(first.bool and second.bool)
+  of BinOr:  result = new_gene_bool(first.bool or second.bool)
+  else: todo()
+
+EvaluatorMgr[ExBinImmediate] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var first = self.eval(frame, expr.bini_first)
+  var second = expr.bini_second
+  case expr.bini_op:
+  of BinAdd: result = new_gene_int(first.int + second.int)
+  of BinSub: result = new_gene_int(first.int - second.int)
+  of BinMul: result = new_gene_int(first.int * second.int)
+  # of BinDiv: result = new_gene_int(first.int / second.int)
+  of BinEq:  result = new_gene_bool(first == second)
+  of BinNeq: result = new_gene_bool(first != second)
+  of BinLt:  result = new_gene_bool(first.int < second.int)
+  of BinLe:  result = new_gene_bool(first.int <= second.int)
+  of BinGt:  result = new_gene_bool(first.int > second.int)
+  of BinGe:  result = new_gene_bool(first.int >= second.int)
+  of BinAnd: result = new_gene_bool(first.bool and second.bool)
+  of BinOr:  result = new_gene_bool(first.bool or second.bool)
+  else: todo()
+
+EvaluatorMgr[ExVar] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var val = self.eval(frame, expr.var_val)
+  self.def_member(frame, expr.var_name, val, false)
+  result = GeneNil
+
+EvaluatorMgr[ExAssignment] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var val = self.eval(frame, expr.var_val)
+  self.set_member(frame, expr.var_name, val)
+  result = GeneNil
+
+EvaluatorMgr[ExIf] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var v = self.eval(frame, expr.if_cond)
+  if v:
+    result = self.eval(frame, expr.if_then)
+  elif expr.if_else != nil:
+    result = self.eval(frame, expr.if_else)
+
+EvaluatorMgr[ExLoop] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  try:
+    while true:
+      for e in expr.loop_blk:
+        discard self.eval(frame, e)
+  except Break as b:
+    result = b.val
+
+EvaluatorMgr[ExBreak] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var val = GeneNil
+  if expr.break_val != nil:
+    val = self.eval(frame, expr.break_val)
+  var e: Break
+  e.new
+  e.val = val
+  raise e
+
+EvaluatorMgr[ExWhile] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  try:
+    var cond = self.eval(frame, expr.while_cond)
+    while cond:
+      for e in expr.while_blk:
+        discard self.eval(frame, e)
+      cond = self.eval(frame, expr.while_cond)
+  except Break as b:
+    result = b.val
+
+
+EvaluatorMgr[ExExplode] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var val = self.eval(frame, expr.explode)
+  result = new_gene_explode(val)
+
+EvaluatorMgr[ExThrow] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  todo()
+  # if expr.throw_type != nil:
+  #   var typ = self.eval(frame, expr.throw_type)
+  #   if expr.throw_mesg != nil:
+  #     var msg = self.eval(frame, expr.throw_mesg)
+  #     todo()
+  #   else:
+  #     todo()
+
+EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  try:
+    for e in expr.try_body:
+      result = self.eval(frame, e)
+  except:
+    if expr.try_catches.len > 0:
+      for catch in expr.try_catches:
+        # TODO: check whether the thrown exception matches exception in catch statement
+        for e in catch[1]:
+          result = self.eval(frame, e)
+
+EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  expr.fn.internal.fn.ns = frame.ns
+  expr.fn.internal.fn.parent_scope = frame.scope
+  expr.fn.internal.fn.parent_scope_max = frame.scope.max
+  self.def_member(frame, expr.fn_name, expr.fn, true)
+  frame.ns[expr.fn.internal.fn.name] = expr.fn
+  result = expr.fn
+
+EvaluatorMgr[ExArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  case frame.extra.kind:
+  of FrFunction, FrMacro, FrBlock, FrMethod:
+    result = frame.args
+  else:
+    not_allowed()
+
+EvaluatorMgr[ExMacro] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  expr.mac.internal.mac.ns = frame.ns
+  frame.ns[expr.mac.internal.mac.name] = expr.mac
+  result = expr.mac
+
+EvaluatorMgr[ExBlock] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  expr.blk.internal.blk.ns = frame.ns
+  expr.blk.internal.blk.parent_scope = frame.scope
+  expr.blk.internal.blk.parent_scope_max = frame.scope.max
+  result = expr.blk
+
+EvaluatorMgr[ExReturn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var val = GeneNil
+  if expr.return_val != nil:
+    val = self.eval(frame, expr.return_val)
+  raise Return(
+    frame: frame,
+    val: val,
+  )
+
+EvaluatorMgr[ExReturnRef] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  result = Return(frame: frame)
+
+EvaluatorMgr[ExAspect] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var aspect = expr.aspect.internal.aspect
+  aspect.ns = frame.ns
+  frame.ns[aspect.name] = expr.aspect
+  result = expr.aspect
+
+EvaluatorMgr[ExAdvice] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var instance = frame.self.internal.aspect_instance
+  var advice: Advice
+  var logic = self.eval(frame, new_expr(expr, expr.advice.gene.data[1]))
+  case expr.advice.gene.op.symbol:
+  of "before":
+    advice = new_advice(AdBefore, logic.internal.fn)
+    instance.before_advices.add(advice)
+  of "after":
+    advice = new_advice(AdAfter, logic.internal.fn)
+    instance.after_advices.add(advice)
+  else:
+    todo()
+  advice.owner = instance
+
+EvaluatorMgr[ExUnknown] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var parent = expr.parent
+  case parent.kind:
+  of ExGroup:
+    var e = new_expr(parent, expr.unknown)
+    result = self.eval(frame, e)
+  of ExLoop:
+    var e = new_expr(parent, expr.unknown)
+    result = self.eval(frame, e)
+  else:
+    todo($expr.unknown)
+
+EvaluatorMgr[ExNamespace] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  self.def_member(frame, expr.ns_name, expr.ns, true)
+  var old_self = frame.self
+  var old_ns = frame.ns
+  try:
+    frame.self = expr.ns
+    frame.ns = expr.ns.internal.ns
+    for e in expr.ns_body:
+      discard self.eval(frame, e)
+    result = expr.ns
+  finally:
+    frame.self = old_self
+    frame.ns = old_ns
+
+EvaluatorMgr[ExSelf] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  return frame.self
+
+EvaluatorMgr[ExGlobal] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  return self.app.ns
+
+EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var ns = self.modules[expr.import_matcher.from]
+  self.import_from_ns(frame, ns, expr.import_matcher.children)
+
+EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  expr.class.internal.class.ns.parent = frame.ns
+  self.def_member(frame, expr.class_name, expr.class, true)
+  var super_class: Class
+  if expr.super_class == nil:
+    if GENE_NS != nil and GENE_NS.internal.ns.hasKey("Object"):
+      super_class = GENE_NS.internal.ns["Object"].internal.class
+  else:
+    super_class = self.eval(frame, expr.super_class).internal.class
+  expr.class.internal.class.parent = super_class
+  var ns = expr.class.internal.class.ns
+  var scope = new_scope()
+  var new_frame = FrameMgr.get(FrClass, ns, scope)
+  new_frame.self = expr.class
+  for e in expr.class_body:
+    discard self.eval(new_frame, e)
+  result = expr.class
+
+EvaluatorMgr[ExMixin] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  self.def_member(frame, expr.mix_name, expr.mix, true)
+  var ns = frame.ns
+  var scope = new_scope()
+  var new_frame = FrameMgr.get(FrMixin, ns, scope)
+  new_frame.self = expr.mix
+  for e in expr.mix_body:
+    discard self.eval(new_frame, e)
+  result = expr.mix
+
+EvaluatorMgr[ExInclude] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  # Copy methods to target class
+  for e in expr.include_args:
+    var mix = self.eval(frame, e)
+    for name, meth in mix.internal.mix.methods:
+      frame.self.internal.class.methods[name] = meth
+
+EvaluatorMgr[ExNew] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var class = self.eval(frame, expr.new_class)
+  var instance = new_instance(class.internal.class)
+  result = new_gene_instance(instance)
+  discard self.call_method(frame, result, class.internal.class, "new", expr.new_args)
+
+EvaluatorMgr[ExMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  expr.meth_ns = frame.ns
+  var meth = expr.meth
+  case frame.self.internal.kind:
+  of GeneClass:
+    meth.internal.meth.class = frame.self.internal.class
+    frame.self.internal.class.methods[meth.internal.meth.name] = meth.internal.meth
+  of GeneMixin:
+    frame.self.internal.mix.methods[meth.internal.meth.name] = meth.internal.meth
+  else:
+    not_allowed()
+  result = meth
+
+EvaluatorMgr[ExInvokeMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var instance = self.eval(frame, expr.invoke_self)
+  var class = self.get_class(instance)
+  result = self.call_method(frame, instance, class, expr.invoke_meth, expr.invoke_args)
+
+EvaluatorMgr[ExSuper] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var instance = frame.self
+  var meth = frame.scope["$method"].internal.meth
+  var class = meth.class
+  result = self.call_method(frame, instance, class.parent, meth.name, expr.super_args)
+
+EvaluatorMgr[ExGetProp] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var target = self.eval(frame, expr.get_prop_self)
+  var name = expr.get_prop_name
+  result = target.internal.instance.value.gene.props[name]
+
+EvaluatorMgr[ExSetProp] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var target = frame.self
+  var name = expr.set_prop_name
+  result = self.eval(frame, expr.set_prop_val)
+  target.internal.instance.value.gene.props[name] = result
+
+EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var args: seq[GeneValue] = @[]
+  for item in expr.native_args:
+    args.add(self.eval(frame, item))
+  var p = NativeProcs.get(expr.native_index)
+  result = p(args)
+
+EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var val = self.eval(frame, expr.get_class_val)
+  result = self.get_class(val)
+
+EvaluatorMgr[ExEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  for e in expr.eval_args:
+    var init_result = self.eval(frame, e)
+    result = self.eval(frame, new_expr(expr, init_result))
+
+EvaluatorMgr[ExCallerEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var caller_frame = frame.parent
+  for e in expr.caller_eval_args:
+    result = self.eval(caller_frame, new_expr(expr, self.eval(frame, e)))
+
+EvaluatorMgr[ExMatch] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
+
+EvaluatorMgr[ExQuote] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  result = expr.quote_val
+
+EvaluatorMgr[ExEnv] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var env = self.eval(frame, expr.env)
+  result = get_env(env.str)
+  if result.str.len == 0:
+    result = self.eval(frame, expr.env_default).to_s
+
+EvaluatorMgr[ExPrint] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  for e in expr.print:
+    var v = self.eval(frame, e)
+    case v.kind:
+    of GeneString:
+      stdout.write v.str
+    else:
+      stdout.write $v
+  if expr.print_and_return:
+    stdout.write "\n"
+
+EvaluatorMgr[ExRoot] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  return self.eval(frame, expr.root)
+
+EvaluatorMgr[ExLiteral] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  return expr.literal
+
+EvaluatorMgr[ExComplexSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  return self.get_member(frame, expr.csymbol)
+
+EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var target = self.eval(frame, expr.gene_op)
+  case target.kind:
+  of GeneSymbol:
+    result = new_gene_gene(target)
+    for e in expr.gene_props:
+      result.gene.props[e.map_key] = self.eval(frame, e.map_val)
+    for e in expr.gene_data:
+      result.gene.data.add(self.eval(frame, e))
+  of GeneInternal:
+    case target.internal.kind:
+    of GeneFunction:
+      var options = Table[FnOption, GeneValue]()
+      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+      result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
+    of GeneMacro:
+      result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
+    of GeneBlock:
+      result = self.call_block(frame, GeneNil, target.internal.blk, expr)
+    of GeneReturn:
+      var val = GeneNil
+      if expr.gene_data.len == 0:
+        discard
+      elif expr.gene_data.len == 1:
+        val = self.eval(frame, expr.gene_data[0])
+      else:
+        not_allowed()
+      raise Return(
+        frame: target.internal.ret.frame,
+        val: val,
+      )
+    of GeneAspect:
+      result = self.call_aspect(frame, target.internal.aspect, expr)
+    of GeneAspectInstance:
+      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+      result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
+    else:
+      todo()
+  of GeneString:
+    var str = target.str
+    for item in expr.gene_data:
+      str &= self.eval(frame, item).to_s
+    result = new_gene_string_move(str)
+  else:
+    todo()
+
+EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  try:
+    var for_in = self.eval(frame, expr.for_in)
+    var first, second: GeneValue
+    case expr.for_vars.kind:
+    of GeneSymbol:
+      first = expr.for_vars
+    of GeneVector:
+      first = expr.for_vars.vec[0]
+      second = expr.for_vars.vec[1]
+    else:
+      not_allowed()
+
+    if second == nil:
+      var val = first.symbol
+      frame.scope.def_member(val, GeneNil)
+      case for_in.kind:
+      of GeneRange:
+        for i in for_in.range_start.int..<for_in.range_end.int:
+          frame.scope[val] = i
+          for e in expr.for_blk:
+            discard self.eval(frame, e)
+      of GeneVector:
+        for i in for_in.vec:
+          frame.scope[val] = i
+          for e in expr.for_blk:
+            discard self.eval(frame, e)
+      else:
+        todo()
+    else:
+      var key = first.symbol
+      var val = second.symbol
+      frame.scope.def_member(key, GeneNil)
+      frame.scope.def_member(val, GeneNil)
+      case for_in.kind:
+      of GeneVector:
+        for k, v in for_in.vec:
+          frame.scope[key] = k
+          frame.scope[val] = v
+          for e in expr.for_blk:
+            discard self.eval(frame, e)
+      of GeneMap:
+        for k, v in for_in.map:
+          frame.scope[key] = k
+          frame.scope[val] = v
+          for e in expr.for_blk:
+            discard self.eval(frame, e)
+      else:
+        todo()
+  except Break:
+    discard
 
 when isMainModule:
   import os, times

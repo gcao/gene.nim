@@ -452,6 +452,7 @@ type
 
   Expr* = ref object of RootObj
     parent*: Expr
+    evaluator*: Evaluator
     case kind*: ExprKind
     of ExTodo:
       todo*: Expr
@@ -612,6 +613,11 @@ type
     app*: Application
     modules*: OrderedTable[string, Namespace]
 
+  Evaluator* = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.}
+
+  EvaluatorManager* = ref object
+    mappings*: Table[ExprKind, Evaluator]
+
   FrameKind* = enum
     FrFunction
     FrMacro
@@ -753,6 +759,10 @@ for i in 0..110:
 var GLOBAL_NS*: GeneValue
 var GENE_NS*:   GeneValue
 var GENEX_NS*:  GeneValue
+
+var EvaluatorMgr* = EvaluatorManager()
+var FrameMgr* = FrameManager()
+var ScopeMgr* = ScopeManager()
 
 #################### Interfaces ##################
 
@@ -1938,6 +1948,49 @@ proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatc
 proc new_import_matcher*(v: GeneValue): ImportMatcherRoot =
   result = ImportMatcherRoot()
   result.parse(v, result.children.addr)
+
+#################### ScopeManager ################
+
+proc get*(self: var ScopeManager): Scope {.inline.} =
+  if self.cache.len > 0:
+    result = self.cache.pop()
+    result.usage = 1
+  else:
+    return new_scope()
+
+proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
+  discard
+  # scope.usage -= 1
+  # if scope.usage == 0:
+  #   if scope.parent != nil:
+  #     self.free(scope.parent)
+  #   scope.reset()
+  #   self.cache.add(scope)
+
+#################### FrameManager ################
+
+proc get*(self: var FrameManager, kind: FrameKind, ns: Namespace, scope: Scope): Frame {.inline.} =
+  if self.cache.len > 0:
+    result = self.cache.pop()
+  else:
+    result = new_frame()
+  result.parent = nil
+  result.ns = ns
+  result.scope = scope
+  result.extra = FrameExtra(kind: kind)
+
+proc free*(self: var FrameManager, frame: var Frame) {.inline.} =
+  frame.reset()
+  self.cache.add(frame)
+
+#################### EvaluatorManager ############
+
+proc `[]`*(self: EvaluatorManager, key: ExprKind): Evaluator =
+  if self.mappings.has_key(key):
+    return self.mappings[key]
+
+proc `[]=`*(self: EvaluatorManager, key: ExprKind, e: Evaluator) =
+  self.mappings[key] = e
 
 #################### Dynamic #####################
 
