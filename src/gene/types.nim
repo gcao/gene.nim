@@ -564,7 +564,6 @@ type
     of ExInclude:
       include_args*: seq[Expr]
     of ExMethod:
-      meth_ns*: Namespace
       meth*: GeneValue
     of ExInvokeMethod:
       invoke_self*: Expr

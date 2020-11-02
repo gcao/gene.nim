@@ -77,8 +77,8 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
   self.modules[name] = result
 
 proc load_core_module*(self: VM) =
-  var ns = self.import_module("core", readFile("src/core.gene"))
-  GENE_NS = ns["gene"]
+  var ns   = self.import_module("core", readFile("src/core.gene"))
+  GENE_NS  = ns["gene"]
   GENEX_NS = ns["genex"]
 
 proc load_gene_module*(self: VM) =
@@ -162,16 +162,10 @@ proc call_fn*(
   args: GeneValue,
   options: Table[FnOption, GeneValue]
 ): GeneValue =
+  var ns: Namespace = fn.ns
   var fn_scope = ScopeMgr.get()
-  var ns: Namespace
-  case fn.expr.kind:
-  of ExFn:
-    ns = fn.ns
+  if fn.expr.kind == ExFn:
     fn_scope.set_parent(fn.parent_scope, fn.parent_scope_max)
-  of ExMethod:
-    ns = fn.expr.meth_ns
-  else:
-    todo()
   var new_frame: Frame
   if options.hasKey(FnMethod):
     new_frame = FrameMgr.get(FrMethod, ns, fn_scope)
@@ -186,7 +180,7 @@ proc call_fn*(
   new_frame.args = args
   self.process_args(new_frame, fn.matcher)
 
-  if fn.body_blk.len == 0:
+  if fn.body_blk.len == 0:  # Translate on demand
     for item in fn.body:
       fn.body_blk.add(new_expr(fn.expr, item))
   try:
@@ -748,7 +742,6 @@ EvaluatorMgr[ExNew] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
   discard self.call_method(frame, result, class.internal.class, "new", expr.new_args)
 
 EvaluatorMgr[ExMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  expr.meth_ns = frame.ns
   var meth = expr.meth
   case frame.self.internal.kind:
   of GeneClass:
