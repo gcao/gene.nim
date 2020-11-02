@@ -1,6 +1,7 @@
 import tables, strutils
 
 import ./types
+import ./normalizers
 
 type
   Translator* = proc(parent: Expr, val: GeneValue): Expr

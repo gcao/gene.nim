@@ -2,6 +2,7 @@ import unittest, strutils
 
 import gene/types
 import gene/parser
+import gene/normalizers
 import gene/interpreter
 import gene/arg_parser
 
@@ -42,6 +43,16 @@ proc test_read_all*(code: string, callback: proc(result: seq[GeneValue])) =
   var code = cleanup(code)
   test "Parser / read_all: " & code:
     callback read_all(code)
+
+proc test_normalize*(code: string, r: GeneValue) =
+  var code = cleanup(code)
+  test "normalize: " & code:
+    var parsed = read(code)
+    parsed.normalize
+    check parsed == r
+
+proc test_normalize*(code: string, r: string) =
+  test_normalize(code, read(r))
 
 proc test_interpreter*(code: string, result: GeneValue) =
   var code = cleanup(code)
