@@ -77,9 +77,9 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
   self.modules[name] = result
 
 proc load_core_module*(self: VM) =
-  var ns   = self.import_module("core", readFile("src/core.gene"))
-  GENE_NS  = ns["gene"]
-  GENEX_NS = ns["genex"]
+  GENE_NS  = new_namespace("gene")
+  GENEX_NS = new_namespace("genex")
+  discard self.import_module("core", readFile("src/core.gene"))
 
 proc load_gene_module*(self: VM) =
   discard self.import_module("gene", readFile("src/gene.gene"))
