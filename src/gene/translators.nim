@@ -16,6 +16,7 @@ type
     TryFinally
 
 var TranslatorMgr* = TranslatorManager()
+var CustomTranslators*: seq[Translator]
 
 let TRY*      = new_gene_symbol("try")
 let CATCH*    = new_gene_symbol("catch")
@@ -35,6 +36,9 @@ proc `[]=`*(self: TranslatorManager, name: string, t: Translator) =
   self.mappings[name] = t
 
 #################### Translators #################
+
+proc add_custom_translator*(t: Translator) =
+  CustomTranslators.add(t)
 
 proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
   return Expr(
@@ -623,6 +627,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
       var translator = TranslatorMgr[node.gene.op.symbol]
       if translator != nil:
         return translator(parent, node)
+      for t in CustomTranslators:
+        result = t(parent, node)
+        if result != nil:
+          return result
     result = new_gene_expr(parent, node)
     result.gene_op = new_expr(result, node.gene.op)
     for k, v in node.gene.props:

@@ -156,3 +156,16 @@ test "Interpreter / eval: native method":
   """
   var interpreter = new_vm()
   check interpreter.eval(code) == 3
+
+# test_interpreter """
+#   (macro my_class [name rest...]
+#     (todo)
+#   )
+#   (my_class A
+#     (my_method new []
+#       (@description = "Class A")
+#     )
+#   )
+#   ((new A) .@description)
+# """, proc(r: GeneValue) =
+#   check r.str == "Class A"

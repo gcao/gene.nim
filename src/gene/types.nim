@@ -391,6 +391,7 @@ type
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
 
   ExprKind* = enum
+    ExCustom
     ExTodo
     ExNotAllowed
     ExRoot
@@ -455,6 +456,8 @@ type
     parent*: Expr
     evaluator*: Evaluator
     case kind*: ExprKind
+    of ExCustom:
+      custom*: GeneValue
     of ExTodo:
       todo*: Expr
     of ExNotAllowed:
