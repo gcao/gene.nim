@@ -123,7 +123,10 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     options[FnClass] = class
     options[FnMethod] = meth
     var args = self.eval_args(frame, @[], args_blk)
-    result = self.call_fn(frame, instance, meth.fn, args, options)
+    if meth.fn == nil:
+      result = meth.fn_native(args.gene.data)
+    else:
+      result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
     case method_name:
     of "new": # No implementation is required for `new` method
@@ -743,6 +746,8 @@ EvaluatorMgr[ExNew] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
 
 EvaluatorMgr[ExMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var meth = expr.meth
+  if expr.meth_fn_native != nil:
+    meth.internal.meth.fn_native = self.eval(frame, expr.meth_fn_native).internal.native_proc
   case frame.self.internal.kind:
   of GeneClass:
     meth.internal.meth.class = frame.self.internal.class

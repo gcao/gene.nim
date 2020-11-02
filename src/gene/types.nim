@@ -71,6 +71,7 @@ type
     class*: Class
     name*: string
     fn*: Function
+    fn_native*: NativeProc
     # public*: bool
 
   Instance* = ref object
@@ -565,6 +566,7 @@ type
       include_args*: seq[Expr]
     of ExMethod:
       meth*: GeneValue
+      meth_fn_native*: Expr
     of ExInvokeMethod:
       invoke_self*: Expr
       invoke_meth*: string

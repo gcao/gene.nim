@@ -1,6 +1,7 @@
 import unittest, tables
 
 import gene/types
+import gene/interpreter
 
 import ./helpers
 
@@ -142,3 +143,16 @@ test_interpreter """
 #     )
 #    ) .test)
 # """, 3
+
+test "Interpreter / eval: native method":
+  proc test_fn(args: seq[GeneValue]): GeneValue {.nimcall.} =
+    args[0].int + args[1].int
+  GLOBAL_NS.internal.ns["test_fn"] = test_fn.proc_to_gene
+  var code = cleanup """
+    (class A
+      (native_method test test_fn)
+    )
+    ((new A) .test 1 2)
+  """
+  var interpreter = new_vm()
+  check interpreter.eval(code) == 3

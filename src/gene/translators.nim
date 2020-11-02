@@ -441,14 +441,25 @@ proc new_super_expr*(parent: Expr, val: GeneValue): Expr =
     result.super_args.add(new_expr(result, item))
 
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
-  var fn: Function = val # Converter is implicitly called here
-  var meth = new_method(nil, fn.name, fn)
-  result = Expr(
-    kind: ExMethod,
-    parent: parent,
-    meth: meth,
-  )
-  fn.expr = result
+  if val.gene.op.symbol == "native_method":
+    var meth = Method(
+      name: val.gene.data[0].symbol
+    )
+    result = Expr(
+      kind: ExMethod,
+      parent: parent,
+      meth: meth,
+    )
+    result.meth_fn_native = new_expr(result, val.gene.data[1])
+  else:
+    var fn: Function = val # Converter is implicitly called here
+    var meth = new_method(nil, fn.name, fn)
+    result = Expr(
+      kind: ExMethod,
+      parent: parent,
+      meth: meth,
+    )
+    fn.expr = result
 
 proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
@@ -641,6 +652,7 @@ TranslatorMgr["ns"            ] = new_ns_expr
 TranslatorMgr["import"        ] = new_import_expr
 TranslatorMgr["class"         ] = new_class_expr
 TranslatorMgr["method"        ] = new_method_expr
+TranslatorMgr["native_method" ] = new_method_expr
 TranslatorMgr["new"           ] = new_new_expr
 TranslatorMgr["super"         ] = new_super_expr
 TranslatorMgr["$invoke_method"] = new_invoke_expr
