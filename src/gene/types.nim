@@ -803,6 +803,15 @@ converter scope_index_to_int*(v: NameIndexScope): int = cast[int](v)
 
 converter gene_to_ns*(v: GeneValue): Namespace = v.internal.ns
 
+converter proc_to_gene*(v: NativeProc): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(
+      kind: GeneNativeProc,
+      native_proc: v,
+    ),
+  )
+
 #################### Module ######################
 
 proc new_module*(name: string): Module =

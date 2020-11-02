@@ -1,6 +1,7 @@
 import unittest, tables
 
 import gene/types
+import gene/interpreter
 
 import ./helpers
 
@@ -212,3 +213,23 @@ test_interpreter """
 #   A/first
 # """, proc(r: GeneValue) =
 #   todo()
+
+test "Interpreter / eval: native function (test)":
+  proc test(args: seq[GeneValue]): GeneValue {.nimcall.} =
+    1
+  GLOBAL_NS.internal.ns["test"] = test.proc_to_gene
+  var code = cleanup """
+    (test)
+  """
+  var interpreter = new_vm()
+  check interpreter.eval(code) == 1
+
+test "Interpreter / eval: native function (test 1 2)":
+  proc test(args: seq[GeneValue]): GeneValue {.nimcall.} =
+    args[0].int + args[1].int
+  GLOBAL_NS.internal.ns["test"] = test.proc_to_gene
+  var code = cleanup """
+    (test 1 2)
+  """
+  var interpreter = new_vm()
+  check interpreter.eval(code) == 3

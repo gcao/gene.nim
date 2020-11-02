@@ -864,6 +864,9 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inl
     of GeneAspectInstance:
       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
       result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
+    of GeneNativeProc:
+      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+      result = target.internal.native_proc(args.gene.data)
     else:
       todo()
   of GeneString:
