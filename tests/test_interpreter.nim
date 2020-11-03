@@ -156,6 +156,10 @@ test_interpreter """
   (eval :a :b)
 """, 2
 
+test_interpreter """
+  (eval ^self 1 self)
+""", 1
+
 # TODO: (caller_eval ...) = (eval ^context caller_context ...)
 
 test_interpreter """
@@ -233,3 +237,13 @@ test "Interpreter / eval: native function (test 1 2)":
   """
   var interpreter = new_vm()
   check interpreter.eval(code) == 3
+
+# test_interpreter """
+#   ($def_ns_member "a" 1)
+#   a
+# """, 1
+
+# test_interpreter """
+#   ($def_member "a" 1)
+#   a
+# """, 1

@@ -25,6 +25,7 @@ let FINALLY*  = new_gene_symbol("finally")
 #################### Interfaces ##################
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr
+proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
 
 #################### TranslatorManager ###########
 
@@ -139,14 +140,9 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExIf,
     parent: parent,
   )
-  if val.gene.data[0] == new_gene_symbol("not"):
-    result.if_cond = new_expr(result, val.gene.data[1])
-    result.if_else = new_expr(result, val.gene.data[2])
-  else:
-    result.if_cond = new_expr(result, val.gene.data[0])
-    result.if_then = new_expr(result, val.gene.data[1])
-    if val.gene.data.len > 3:
-      result.if_else = new_expr(result, val.gene.data[3])
+  result.if_cond = new_expr(result, val.gene.props["cond"])
+  result.if_then = new_group_expr(result, val.gene.props["then"].vec)
+  result.if_else = new_group_expr(result, val.gene.props["else"].vec)
 
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
@@ -492,6 +488,8 @@ proc new_eval_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExEval,
     parent: parent,
   )
+  if val.gene.props.has_key("self"):
+    result.eval_self = new_expr(result, val.gene.props["self"])
   for i in 0..<val.gene.data.len:
     result.eval_args.add(new_expr(result, val.gene.data[i]))
 
@@ -535,6 +533,13 @@ proc new_print_expr*(parent: Expr, val: GeneValue): Expr =
   )
   for item in val.gene.data:
     result.print.add(new_expr(result, item))
+
+proc new_not_expr*(parent: Expr, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExNot,
+    parent: parent,
+  )
+  result.not = new_expr(result, val.gene.data[0])
 
 proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
   if val.gene.data[1].is_literal:
@@ -647,6 +652,7 @@ TranslatorMgr["while"         ] = new_while_expr
 TranslatorMgr["for"           ] = new_for_expr
 TranslatorMgr["break"         ] = new_break_expr
 TranslatorMgr["if"            ] = new_if_expr
+TranslatorMgr["not"           ] = new_not_expr
 TranslatorMgr["var"           ] = new_var_expr
 TranslatorMgr["throw"         ] = new_throw_expr
 TranslatorMgr["try"           ] = new_try_expr

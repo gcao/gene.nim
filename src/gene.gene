@@ -15,6 +15,10 @@
 )
 
 (class gene/Class
+  (fn new [name parent]
+    (call_native "class_new" name parent)
+  )
+
   (method name _
     (call_native "class_name" self)
   )

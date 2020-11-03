@@ -502,6 +502,9 @@ EvaluatorMgr[ExRange] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
   var range_end = self.eval(frame, expr.range_end)
   result = new_gene_range(range_start, range_end)
 
+EvaluatorMgr[ExNot] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  result = not self.eval(frame, expr.not)
+
 EvaluatorMgr[ExBinary] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var first = self.eval(frame, expr.bin_first)
   var second = self.eval(frame, expr.bin_second)
@@ -792,9 +795,15 @@ EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {
   result = self.get_class(val)
 
 EvaluatorMgr[ExEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  for e in expr.eval_args:
-    var init_result = self.eval(frame, e)
-    result = self.eval(frame, new_expr(expr, init_result))
+  var old_self = frame.self
+  try:
+    if expr.eval_self != nil:
+      frame.self = self.eval(frame, expr.eval_self)
+    for e in expr.eval_args:
+      var init_result = self.eval(frame, e)
+      result = self.eval(frame, new_expr(expr, init_result))
+  finally:
+    frame.self = old_self
 
 EvaluatorMgr[ExCallerEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var caller_frame = frame.parent

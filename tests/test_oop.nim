@@ -157,12 +157,27 @@ test "Interpreter / eval: native method":
   var interpreter = new_vm()
   check interpreter.eval(code) == 3
 
-# test_interpreter """
+# test_core """
 #   (macro my_class [name rest...]
-#     (todo)
+#     # Get super class
+#     (var super_class
+#       (if ((rest .get 0) == :<)
+#         (rest .del 0)
+#         (caller_eval (rest .del 0))
+#       else
+#         gene/Object
+#       )
+#     )
+#     # Create class
+#     (var cls (gene/Class/new name super_class))
+#     # Evaluate body
+#     (for item in rest
+#       (eval ^self cls item)
+#     )
+#     cls
 #   )
 #   (my_class A
-#     (my_method new []
+#     (method new []
 #       (@description = "Class A")
 #     )
 #   )

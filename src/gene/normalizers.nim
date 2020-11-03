@@ -32,6 +32,35 @@ Normalizers.add proc(self: GeneValue): bool =
 
 Normalizers.add proc(self: GeneValue): bool =
   var op = self.gene.op
+  if op.kind == GeneSymbol and op.symbol == "if":
+    var i = 1  # start index after condition
+    var cond = self.gene.data[0]
+    if cond == Not:
+      cond = new_gene_gene(Not, self.gene.data[1])
+      i += 1
+    var then_blk: seq[GeneValue] = @[]
+    var else_blk: seq[GeneValue] = @[]
+    var state = "cond"
+    while i < self.gene.data.len:
+      var item = self.gene.data[i]
+      case state:
+      of "cond":
+        if item == Then:
+          discard
+        elif item == Else:
+          state = "else"
+        else:
+          then_blk.add(item)
+      of "else":
+        else_blk.add(item)
+      i += 1
+    self.gene.props["cond"] = cond
+    self.gene.props["then"] = then_blk
+    self.gene.props["else"] = else_blk
+    self.gene.data.reset
+
+Normalizers.add proc(self: GeneValue): bool =
+  var op = self.gene.op
   if op.kind == GeneSymbol:
     if op.symbol == "import" or op.symbol == "import_native":
       var names: seq[GeneValue] = @[]
@@ -137,6 +166,8 @@ proc normalize_children*(self:  GeneValue) =
 
 proc normalize*(self:  GeneValue) =
   if self.kind != GeneGene or self.gene.normalized:
+    return
+  if self.gene.op == Quote:
     return
   for n in Normalizers:
     if n(self):

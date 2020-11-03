@@ -409,6 +409,7 @@ type
     ExDo
     ExVar
     ExAssignment
+    ExNot
     ExBinary
     ExBinImmediate
     # ExBinImmediate2
@@ -504,6 +505,8 @@ type
     of ExVar, ExAssignment:
       var_name*: GeneValue
       var_val*: Expr
+    of ExNot:
+      `not`*: Expr
     of ExBinary:
       bin_op*: BinOps
       bin_first*: Expr
@@ -599,6 +602,7 @@ type
     of ExQuote:
       quote_val*: GeneValue
     of ExEval:
+      eval_self*: Expr
       eval_args*: seq[Expr]
     of ExCallerEval:
       caller_eval_args*: seq[Expr]
@@ -753,6 +757,13 @@ let
   GeneTrue*  = GeneValue(kind: GeneBool, bool: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool: false)
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
+
+  Quote*     = GeneValue(kind: GeneSymbol, symbol: "quote")
+  If*        = GeneValue(kind: GeneSymbol, symbol: "if")
+  Then*      = GeneValue(kind: GeneSymbol, symbol: "then")
+  Elif*      = GeneValue(kind: GeneSymbol, symbol: "elif")
+  Else*      = GeneValue(kind: GeneSymbol, symbol: "else")
+  Not*       = GeneValue(kind: GeneSymbol, symbol: "not")
 
 var NativeProcs* = NativeProcsType()
 

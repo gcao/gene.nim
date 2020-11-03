@@ -7,6 +7,11 @@ proc init_native_procs*() =
     todo()
     # return CatchableError
 
+  NativeProcs.add_only "class_new", proc(args: seq[GeneValue]): GeneValue =
+    var name = args[0].symbol
+    result = new_class(name)
+    result.internal.class.parent = args[1].internal.class
+
   NativeProcs.add_only "class_name", proc(args: seq[GeneValue]): GeneValue =
     var self = args[0]
     if self.kind == GeneInternal and self.internal.kind == GeneClass:
@@ -119,8 +124,10 @@ proc init_native_procs*() =
     return args[0]
 
   NativeProcs.add_only "array_del", proc(args: seq[GeneValue]): GeneValue =
-    args[0].vec.delete(args[1].int)
-    return args[0]
+    var self = args[0].vec
+    var index = args[1].int
+    result = self[index]
+    self.delete(index)
 
   NativeProcs.add_only "map_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].map.len

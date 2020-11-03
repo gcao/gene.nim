@@ -25,7 +25,7 @@ test_core """
 
 test_core """
   ([1 2] .del 0)
-""", @[new_gene_int(2)]
+""", 1
 
 test_core """
   (var sum 0)
