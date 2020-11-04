@@ -132,13 +132,13 @@ test_read_all "1 2", @[new_gene_int(1), new_gene_int(2)]
 #   doc = read_document("1 2 3")
 
 # TODO:
-# test_parser """
-#   #
-#   # comment
-#   #
-#   1
-#   #
-# """, 1
+test_parser """
+  #
+  # comment
+  #
+  1
+  #
+""", 1
 
 test_parser "[a/[1 2]]", proc(r: GeneValue) =
   check r.vec[0].csymbol.first == "a"
@@ -146,20 +146,24 @@ test_parser "[a/[1 2]]", proc(r: GeneValue) =
   check r.vec[1].vec[0] == 1
   check r.vec[1].vec[1] == 2
 
-# test_parser """
-#   #< comment ># 1
-# """, 1
+test_parser """
+  #< comment ># 1
+""", 1
 
-# test_parser """
-#   #<
-#   comment
-#   #># 1
-# """, 1
+test_parser """
+  #< #<< comment >># ># 1
+""", 1
 
-# test_parser """
-#   #<
-#   #<<
-#   comment
-#   #>>#
-#   #># 1
-# """, 1
+test_parser """
+  #<
+  comment
+  #># 1
+""", 1
+
+test_parser """
+  #<
+  #<<
+  comment
+  #>>#
+  #># 1
+""", 1

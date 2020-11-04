@@ -177,7 +177,26 @@ proc read_quasiquoted*(p: var Parser): GeneValue =
 proc read_unquoted*(p: var Parser): GeneValue =
   return read_quoted_internal(p, "unquote")
 
-# TODO: read comment as continuous blocks, not just lines
+# TODO: save comment like what read_comment does
+proc read_block_comment(p: var Parser): GeneValue =
+  var pos = p.bufpos
+  var buf = p.buf
+  while true:
+    case buf[pos]
+    of '#':
+      if buf[pos-1] == '>' and buf[pos-2] != '>':
+        inc(pos)
+        break
+      else:
+        inc(pos)
+    of EndOfFile:
+      break
+    else:
+      inc(pos)
+  p.bufpos = pos
+  p.a = ""
+  return GeneValue(kind: GeneCommentLine, comment: "")
+
 proc read_comment(p: var Parser): GeneValue =
   var pos = p.bufpos
   var buf = p.buf
@@ -628,15 +647,22 @@ proc read_discard(p: var Parser): GeneValue =
   result = nil
 
 proc read_dispatch(p: var Parser): GeneValue =
-  var pos = p.bufpos
-  let ch = p.buf[pos]
+  let ch = p.buf[p.bufpos]
   if ch == EndOfFile:
-    raise new_exception(ParseError, "EOF while reading dispatch macro")
+    return
+
+  elif ch == '\n':  # special case for "#\n" or "#\r\n"
+    p.bufpos += 1
+    if p.buf[p.bufpos] == '\r':
+      p.bufpos += 1
+    p.a = ""
+    return GeneValue(kind: GeneCommentLine, comment: "")
+
   let m = dispatch_macros[ch]
   if m == nil:
     raise  new_exception(ParseError, "No dispatch macro for: " & ch)
   else:
-    p.bufpos = pos + 1
+    p.bufpos += 1
     result = m(p)
 
 proc init_macro_array() =
@@ -659,8 +685,8 @@ proc init_macro_array() =
 proc init_dispatch_macro_array() =
   dispatch_macros['!'] = read_comment
   dispatch_macros[' '] = read_comment
+  dispatch_macros['<'] = read_block_comment
   # dispatch_macros[':'] = read_ns_map
-  # dispatch_macros['<'] = nil  # new UnreadableReader();
   dispatch_macros['_'] = read_discard
   # dispatch_macros['"'] = read_regex
   dispatch_macros['/'] = read_regex
