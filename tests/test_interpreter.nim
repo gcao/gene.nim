@@ -238,12 +238,12 @@ test "Interpreter / eval: native function (test 1 2)":
   var interpreter = new_vm()
   check interpreter.eval(code) == 3
 
-# test_interpreter """
-#   ($def_ns_member "a" 1)
-#   a
-# """, 1
+test_interpreter """
+  ($def_ns_member "a" 1)
+  a
+""", 1
 
-# test_interpreter """
-#   ($def_member "a" 1)
-#   a
-# """, 1
+test_interpreter """
+  ($def_member "a" 1)
+  a
+""", 1

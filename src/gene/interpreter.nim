@@ -497,6 +497,32 @@ EvaluatorMgr[ExSet] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
   var value = self.eval(frame, expr.set_value)
   target.gene.data[index.int] = value
 
+EvaluatorMgr[ExDefMember] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var n = self.eval(frame, expr.def_member_name)
+  var name: string
+  case n.kind:
+  of GeneSymbol:
+    name = n.symbol
+  of GeneString:
+    name = n.str
+  else:
+    not_allowed()
+  var value = self.eval(frame, expr.def_member_value)
+  frame.scope.def_member(name, value)
+
+EvaluatorMgr[ExDefNsMember] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var n = self.eval(frame, expr.def_ns_member_name)
+  var name: string
+  case n.kind:
+  of GeneSymbol:
+    name = n.symbol
+  of GeneString:
+    name = n.str
+  else:
+    not_allowed()
+  var value = self.eval(frame, expr.def_ns_member_value)
+  frame.ns[name] = value
+
 EvaluatorMgr[ExRange] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var range_start = self.eval(frame, expr.range_start)
   var range_end = self.eval(frame, expr.range_end)

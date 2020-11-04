@@ -441,6 +441,8 @@ type
     ExGetProp
     ExSetProp
     ExNamespace
+    ExDefMember
+    ExDefNsMember
     ExSelf
     ExGlobal
     ExImport
@@ -589,6 +591,12 @@ type
       ns*: GeneValue
       ns_name*: GeneValue # The simple name or complex name that is associated
       ns_body*: seq[Expr]
+    of ExDefMember:
+      def_member_name*: Expr
+      def_member_value*: Expr
+    of ExDefNsMember:
+      def_ns_member_name*: Expr
+      def_ns_member_value*: Expr
     of ExSelf, ExGlobal:
       discard
     of ExImport:

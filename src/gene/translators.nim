@@ -696,6 +696,16 @@ TranslatorMgr["$set"          ] = proc(parent: Expr, node: GeneValue): Expr =
   result.set_index = new_expr(result, node.gene.data[1])
   result.set_value = new_expr(result, node.gene.data[2])
 
+TranslatorMgr["$def_member"   ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExDefMember)
+  result.def_member_name = new_expr(result, node.gene.data[0])
+  result.def_member_value = new_expr(result, node.gene.data[1])
+
+TranslatorMgr["$def_ns_member"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExDefNsMember)
+  result.def_ns_member_name = new_expr(result, node.gene.data[0])
+  result.def_ns_member_value = new_expr(result, node.gene.data[1])
+
 TranslatorMgr["$get_class"    ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExGetClass)
   result.get_class_val = new_expr(result, node.gene.data[0])
