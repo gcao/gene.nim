@@ -402,6 +402,7 @@ type
     ExMapChild
     ExArray
     ExGene
+    ExEnum
     ExRange
     ExGet
     ExSet
@@ -482,6 +483,8 @@ type
     of ExMapChild:
       map_key*: string
       map_val*: Expr
+    of ExEnum:
+      `enum`*: Enum
     of ExGene:
       gene*: GeneValue
       gene_op*: Expr
@@ -772,6 +775,7 @@ let
   Elif*      = GeneValue(kind: GeneSymbol, symbol: "elif")
   Else*      = GeneValue(kind: GeneSymbol, symbol: "else")
   Not*       = GeneValue(kind: GeneSymbol, symbol: "not")
+  Equal*     = GeneValue(kind: GeneSymbol, symbol: "=")
 
 var NativeProcs* = NativeProcsType()
 
@@ -1375,6 +1379,12 @@ proc new_gene_gene*(op: GeneValue, props: OrderedTable[string, GeneValue], data:
   return GeneValue(
     kind: GeneGene,
     gene: Gene(op: op, props: props, data: @data),
+  )
+
+converter new_gene_internal*(e: Enum): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneEnum, `enum`: e),
   )
 
 converter new_gene_internal*(fn: Function): GeneValue =

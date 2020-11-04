@@ -645,6 +645,22 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
   else:
     return new_literal_expr(parent, node)
 
+TranslatorMgr["enum"          ] = proc(parent: Expr, node: GeneValue): Expr =
+  var e = new_enum(node.gene.data[0].symbol_or_str)
+  var i = 1
+  var value = 0
+  while i < node.gene.data.len:
+    var name = node.gene.data[i].symbol
+    i += 1
+    if i < node.gene.data.len and node.gene.data[i] == Equal:
+      i += 1
+      value = node.gene.data[i].int
+      i += 1
+    e.add_member(name, value)
+    value += 1
+  result = new_expr(parent, ExEnum)
+  result.enum = e
+
 TranslatorMgr["range"         ] = new_range_expr
 TranslatorMgr["do"            ] = new_do_expr
 TranslatorMgr["loop"          ] = new_loop_expr

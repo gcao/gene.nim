@@ -901,6 +901,10 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inl
   else:
     todo()
 
+EvaluatorMgr[ExEnum] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var e = expr.enum
+  self.def_member(frame, e.name, e, true)
+
 EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   try:
     var for_in = self.eval(frame, expr.for_in)

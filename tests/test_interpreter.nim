@@ -186,35 +186,24 @@ test_interpreter """
   [1 (... [2 3]) 4]
 """, @[new_gene_int(1), new_gene_int(2), new_gene_int(3), new_gene_int(4)]
 
-# test_interpreter """
-#   (enum A first second)
-#   A
-# """, proc(r: GeneValue) =
-#   todo()
-#   var e = r.internal.enum
-#   check e.name == "A"
-#   check e.members.len == 2
-#   check e.members["first"].name == "first"
-#   check e.members["first"].value == 0
-#   check e.members["second"].name == "second"
-#   check e.members["second"].value == 1
+test_interpreter """
+  (enum A first second)
+  A
+""", proc(r: GeneValue) =
+  var e = r.internal.enum
+  check e.name == "A"
+  check e.members.len == 2
+  check e.members["first"].name == "first"
+  check e.members["first"].value == 0
+  check e.members["second"].name == "second"
+  check e.members["second"].value == 1
 
 # test_interpreter """
 #   (enum A
 #     first = 1
 #     second      # value will be 2
 #   )
-#   A/first
-# """, proc(r: GeneValue) =
-#   todo()
-
-# test_interpreter """
-#   (enum A
-#     first       # value will be 0
-#     second = 3
-#     third       # value will be 4
-#   )
-#   A/first
+#   A/second
 # """, proc(r: GeneValue) =
 #   todo()
 
