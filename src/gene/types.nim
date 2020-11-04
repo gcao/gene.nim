@@ -223,6 +223,7 @@ type
     members*: OrderedTable[string, EnumMember]
 
   EnumMember* = ref object
+    parent*: Enum
     name*: string
     value*: int
 
@@ -793,6 +794,9 @@ var ScopeMgr* = ScopeManager()
 
 #################### Interfaces ##################
 
+converter new_gene_internal*(e: Enum): GeneValue
+converter new_gene_internal*(m: EnumMember): GeneValue
+
 proc new_gene_int*(val: BiggestInt): GeneValue
 proc new_gene_string*(s: string): GeneValue
 proc new_gene_string_move*(s: string): GeneValue
@@ -1068,8 +1072,14 @@ proc `==`*(this, that: ComplexSymbol): bool =
 proc new_enum*(name: string): Enum =
   return Enum(name: name)
 
+proc `[]`*(self: Enum, name: string): GeneValue =
+  return new_gene_internal(self.members[name])
+
 proc add_member*(self: var Enum, name: string, value: int) =
-  self.members[name] = EnumMember(name: name, value: value)
+  self.members[name] = EnumMember(parent: self, name: name, value: value)
+
+proc `==`*(this, that: EnumMember): bool =
+  return this.parent == that.parent and this.name == that.name
 
 #################### GeneValue ###################
 
@@ -1090,6 +1100,18 @@ proc get_member*(self: GeneValue, name: string): GeneValue =
       return self.internal.ns[name]
     of GeneClass:
       return self.internal.class.ns[name]
+    of GeneEnum:
+      return self.internal.enum[name]
+    of GeneEnumMember:
+      case name:
+      of "parent":
+        return self.internal.enum_member.parent
+      of "name":
+        return self.internal.enum_member.name
+      of "value":
+        return self.internal.enum_member.value
+      else:
+        not_allowed()
     else:
       todo()
   else:
@@ -1385,6 +1407,12 @@ converter new_gene_internal*(e: Enum): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneEnum, `enum`: e),
+  )
+
+converter new_gene_internal*(m: EnumMember): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneEnumMember, enum_member: m),
   )
 
 converter new_gene_internal*(fn: Function): GeneValue =
