@@ -448,6 +448,7 @@ type
     ExSelf
     ExGlobal
     ExImport
+    ExCall
     ExCallNative
     ExGetClass
     ExQuote
@@ -605,6 +606,10 @@ type
       discard
     of ExImport:
       import_matcher*: ImportMatcherRoot
+    of ExCall:
+      # call_props*: OrderedTable[string, Expr]
+      call_target*: Expr
+      call_args*: Expr
     of ExCallNative:
       native_name*: string
       native_index*: int

@@ -793,6 +793,15 @@ EvaluatorMgr[ExSetProp] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.
   result = self.eval(frame, expr.set_prop_val)
   target.internal.instance.value.gene.props[name] = result
 
+# EvaluatorMgr[ExCall] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+#   var target = self.eval(frame, expr.call_target)
+#   var args: GeneValue
+#   if expr.call_args != nil:
+#     args = self.eval(frame, expr.call_args)
+#   else:
+#     args = new_gene_gene(GeneNil)
+#   # call target with args
+
 EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var args: seq[GeneValue] = @[]
   for item in expr.native_args:

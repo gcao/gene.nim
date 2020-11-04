@@ -157,3 +157,24 @@ test_interpreter """
   (fn f [^a] a)
   (f ^a 1)
 """, 1
+
+# test_interpreter """
+#   (fn f _ 1)
+#   (call f)
+# """, 1
+
+# test_interpreter """
+#   (fn f [a b] (a + b))
+#   (call f [1 2])
+# """, 3
+
+# Should throw error because we expect an array or a gene as arguments object
+# test_interpreter """
+#   (fn f a a)
+#   (call f 1)
+# """, 1
+
+# test_interpreter """
+#   (fn f [^a b] (a + b))
+#   (call f (_ ^a 1 2))
+# """, 3

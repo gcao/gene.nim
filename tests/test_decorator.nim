@@ -8,8 +8,8 @@ import ./helpers
 #
 # * Can be applied to array item, Gene data item
 # * It's applied when expressions are created
-# * Simple decorator: +pub
-# * Complex decorator: (+add 2)
+# * Simple decorator: +pub x        -> (call ^^decorator pub x)
+# * Complex decorator: (+add 2) x   -> (call ^^decorator (add 2) x)
 #
 
 # test_interpreter """

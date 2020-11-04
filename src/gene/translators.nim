@@ -700,6 +700,15 @@ TranslatorMgr["println"       ] = new_print_expr
 TranslatorMgr["="             ] = new_assignment_expr
 TranslatorMgr["@"             ] = new_get_prop_expr
 TranslatorMgr["@="            ] = new_set_prop_expr
+
+TranslatorMgr["call"          ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExCall)
+  result.call_target = new_expr(result, node.gene.data[0])
+  if node.gene.data.len > 2:
+    not_allowed("Syntax error: too many parameters are passed to (call).")
+  elif node.gene.data.len > 1:
+    result.call_args = new_expr(result, node.gene.data[1])
+
 TranslatorMgr["$get"          ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExGet)
   result.get_target = new_expr(result, node.gene.data[0])
