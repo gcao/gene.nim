@@ -498,28 +498,12 @@ EvaluatorMgr[ExSet] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
   target.gene.data[index.int] = value
 
 EvaluatorMgr[ExDefMember] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  var n = self.eval(frame, expr.def_member_name)
-  var name: string
-  case n.kind:
-  of GeneSymbol:
-    name = n.symbol
-  of GeneString:
-    name = n.str
-  else:
-    not_allowed()
+  var name = self.eval(frame, expr.def_member_name).symbol_or_str
   var value = self.eval(frame, expr.def_member_value)
   frame.scope.def_member(name, value)
 
 EvaluatorMgr[ExDefNsMember] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  var n = self.eval(frame, expr.def_ns_member_name)
-  var name: string
-  case n.kind:
-  of GeneSymbol:
-    name = n.symbol
-  of GeneString:
-    name = n.str
-  else:
-    not_allowed()
+  var name = self.eval(frame, expr.def_ns_member_name).symbol_or_str
   var value = self.eval(frame, expr.def_ns_member_value)
   frame.ns[name] = value
 
@@ -734,7 +718,6 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
 
 EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   expr.class.internal.class.ns.parent = frame.ns
-  self.def_member(frame, expr.class_name, expr.class, true)
   var super_class: Class
   if expr.super_class == nil:
     if GENE_NS != nil and GENE_NS.internal.ns.hasKey("Object"):
@@ -742,6 +725,7 @@ EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
   else:
     super_class = self.eval(frame, expr.super_class).internal.class
   expr.class.internal.class.parent = super_class
+  self.def_member(frame, expr.class_name, expr.class, true)
   var ns = expr.class.internal.class.ns
   var scope = new_scope()
   var new_frame = FrameMgr.get(FrClass, ns, scope)

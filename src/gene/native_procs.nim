@@ -8,7 +8,7 @@ proc init_native_procs*() =
     # return CatchableError
 
   NativeProcs.add_only "class_new", proc(args: seq[GeneValue]): GeneValue =
-    var name = args[0].symbol
+    var name = args[0].symbol_or_str
     result = new_class(name)
     result.internal.class.parent = args[1].internal.class
 

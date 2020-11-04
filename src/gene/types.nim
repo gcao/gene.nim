@@ -1069,6 +1069,15 @@ proc add_member*(self: var Enum, name: string, value: int) =
 
 #################### GeneValue ###################
 
+proc symbol_or_str*(self: GeneValue): string =
+  case self.kind:
+  of GeneSymbol:
+    return self.symbol
+  of GeneString:
+    return self.str
+  else:
+    not_allowed()
+
 proc get_member*(self: GeneValue, name: string): GeneValue =
   case self.kind:
   of GeneInternal:

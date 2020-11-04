@@ -247,3 +247,29 @@ test_interpreter """
   ($def_member "a" 1)
   a
 """, 1
+
+test_core """
+  (macro m _
+    (class A
+      (method test _ "A.test")
+    )
+    (caller_eval
+      (:$def_ns_member "B" A)
+    )
+  )
+  (m)
+  ((new B) .test)
+""", "A.test"
+
+test_core """
+  (macro m name
+    (class A
+      (method test _ "A.test")
+    )
+    (caller_eval
+      (:$def_ns_member name A)
+    )
+  )
+  (m "B")
+  ((new B) .test)
+""", "A.test"

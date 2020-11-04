@@ -171,17 +171,20 @@ test_core """
     # Create class
     (var cls (gene/Class/new name super_class))
 
+    # Define member in caller's context
+    (caller_eval (:$def_ns_member name cls))
+
     # Evaluate body
     (for item in rest
       (eval ^self cls item)
     )
     cls
   )
-  (var B (my_class A
+  (my_class "A"
     (method new []
       (@description = "Class A")
     )
-  ))
-  ((new B) .@description)
+  )
+  ((new A) .@description)
 """, proc(r: GeneValue) =
   check r.str == "Class A"

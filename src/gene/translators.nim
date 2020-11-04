@@ -643,7 +643,7 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
     for item in node.gene.data:
       result.gene_data.add(new_expr(result, item))
   else:
-    todo($node)
+    return new_literal_expr(parent, node)
 
 TranslatorMgr["range"         ] = new_range_expr
 TranslatorMgr["do"            ] = new_do_expr
