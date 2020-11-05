@@ -14,10 +14,13 @@ import ./helpers
 # * Continuation - is it possible?
 
 # How do we support "self" inside function?
-# (fn f [^a b]
+# self = true to allow self to be used inside function
+# inherit_self = true to automatically inherit self in the caller's context
+# (fn ^^self f [^a b]
 #   (.size)
 # )
-# ("" >> f ^a 1 2)  # returns 0
+# (call f ^self "" (_ ^a 2 3))
+# ("" >> f ^a 1 2)    # A shortcut to call f with self, (call ...) is the generic form
 
 test_interpreter "(fn f a a)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
@@ -174,10 +177,11 @@ test_interpreter """
 #   (call f [1 2])
 # """, 3
 
-# Should throw error because we expect an array or a gene as arguments object
+# Should throw error because we expect call takes a single argument
+# which must be an array, a map or a gene that will be exploded
 # test_interpreter """
-#   (fn f a a)
-#   (call f 1)
+#   (fn f [a b] (a + b))
+#   (call f 1 2)
 # """, 1
 
 # test_interpreter """
@@ -185,6 +189,12 @@ test_interpreter """
 #   (call f (_ ^a 1 2))
 # """, 3
 
+# test_interpreter """
+#   (fn f [^a b] (self + a + b))
+#   (call f ^self 1 (_ ^a 2 3))
+# """, 6
+
+# test_interpreter """
 #   (fn f a
 #     (self + a)
 #   )
