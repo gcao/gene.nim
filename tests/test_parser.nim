@@ -73,6 +73,11 @@ test_parser "(1 ^a 2 3 4)", proc(r: GeneValue) =
   check r.gene.props == {"a": new_gene_int(2)}.toOrderedTable
   check r.gene.data == @[new_gene_int(3), new_gene_int(4)]
 
+test_parser "(1 2 ^a 3 4)", proc(r: GeneValue) =
+  check r.gene.op == 1
+  check r.gene.props == {"a": new_gene_int(3)}.toOrderedTable
+  check r.gene.data == @[new_gene_int(2), new_gene_int(4)]
+
 test_parser "(1 ^^a 2 3)", proc(r: GeneValue) =
   check r.gene.op == 1
   check r.gene.props == {"a": GeneTrue}.toOrderedTable

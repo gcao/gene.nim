@@ -13,6 +13,12 @@ import ./helpers
 # * Pure function (mark function as pure, all standard lib should be marked pure if true)
 # * Continuation - is it possible?
 
+# How do we support "self" inside function?
+# (fn f [^a b]
+#   (.size)
+# )
+# ("" >> f ^a 1 2)  # returns 0
+
 test_interpreter "(fn f a a)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
 
@@ -177,4 +183,10 @@ test_interpreter """
 # test_interpreter """
 #   (fn f [^a b] (a + b))
 #   (call f (_ ^a 1 2))
+# """, 3
+
+#   (fn f a
+#     (self + a)
+#   )
+#   (1 => f 2)
 # """, 3
