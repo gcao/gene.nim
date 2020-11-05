@@ -21,6 +21,7 @@ import ./helpers
 # )
 # (call f ^self "" (_ ^a 2 3))
 # ("" >> f ^a 1 2)    # A shortcut to call f with self, (call ...) is the generic form
+# (>> f ^a 1 2)       # A shortcut to call f with self from current scope
 
 test_interpreter "(fn f a a)", proc(r: GeneValue) =
   check r.internal.fn.name == "f"
@@ -198,5 +199,5 @@ test_interpreter """
 #   (fn f a
 #     (self + a)
 #   )
-#   (1 => f 2)
+#   (1 >> f 2)
 # """, 3

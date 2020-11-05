@@ -39,6 +39,27 @@ test "Interpreter / eval: import":
   """
   check result.internal.fn.name == "f"
 
+# test "Interpreter / eval: import":
+#   var vm = new_vm()
+#   discard vm.import_module("file1", """
+#     (ns n
+#       (fn f a a)
+#     )
+#   """)
+#   var result = vm.eval """
+#     (import _ as x from "file1")  # Import root namespace
+#     x/f
+#   """
+#   check result.internal.fn.name == "f"
+
+# test "Interpreter / eval: import":
+#   var vm = new_vm()
+#   var result = vm.eval """
+#     (import gene/Object)  # Import from parent namespace
+#     Object
+#   """
+#   check result.internal.class.name == "Object"
+
 test_import_matcher "(import a b from \"module\")", proc(r: ImportMatcherRoot) =
   check r.from == "module"
   check r.children.len == 2
