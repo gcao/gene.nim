@@ -39,6 +39,10 @@ type
   MacroReader = proc(p: var Parser): GeneValue
   MacroArray = array[char, MacroReader]
 
+  PropState = enum
+    Key
+    Value
+
 # const non_constituents = ['@', '`', '~']
 const non_constituents = ['`', '~']
 
@@ -335,6 +339,7 @@ proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement
 
 type DelimitedListResult = object
   list: seq[GeneValue]
+  map: OrderedTable[string, GeneValue]
   comment_lines: seq[string]
   comment_placement: CommentPlacement
 
@@ -401,9 +406,67 @@ proc read_gene_op(p: var Parser): GeneValue =
             inc(count)
             break
 
+proc read_map(p: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue] =
+  result = OrderedTable[string, GeneValue]()
+  var ch: char
+  var key: string
+  var state = PropState.Key
+  while true:
+    skip_ws(p)
+    ch = p.buf[p.bufpos]
+    if ch == EndOfFile:
+      raise new_exception(ParseError, "EOF while reading Gene")
+    elif ch == ']' or (part_of_gene and ch == '}') or (not part_of_gene and ch == ')'):
+      raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
+    elif ch == ';':
+      discard read_comment(p)
+      continue
+    case state:
+    of Key:
+      if ch == '^':
+        p.bufPos.inc
+        if p.buf[p.bufPos] == '^':
+          p.bufPos.inc
+          key = read_token(p, false)
+          result[key] = GeneTrue
+        elif p.buf[p.bufPos] == '!':
+          p.bufPos.inc
+          key = read_token(p, false)
+          result[key] = GeneFalse
+        else:
+          key = read_token(p, false)
+          state = PropState.Value
+      elif part_of_gene:
+        # Do not consume ')'
+        # if ch == ')':
+        #   p.bufPos.inc
+        return
+      elif ch == '}':
+        p.bufPos.inc
+        return
+      else:
+        raise new_exception(ParseError, "Expect key at " & $p.bufpos & " but found " & p.buf[p.bufpos])
+    of PropState.Value:
+      if ch == '^':
+        raise new_exception(ParseError, "Expect value for " & key)
+      elif part_of_gene:
+        if ch == ')':
+          raise new_exception(ParseError, "Expect value for " & key)
+        else:
+          state = PropState.Key
+          result[key] = read(p)
+      else:
+        if ch == '}':
+          raise new_exception(ParseError, "Expect value for " & key)
+        else:
+          state = PropState.Key
+          result[key] = read(p)
+
 proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.
   var list: seq[GeneValue] = @[]
+  var in_gene = delimiter == ')'
+  var map_found = false
   var comment_lines: seq[string] = @[]
   var count = 0
   let with_comments = keepComments == p.options.comments_handling
@@ -414,6 +477,15 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
     if ch == EndOfFile:
       let msg = "EOF while reading list $# $# $#"
       raise new_exception(ParseError, format(msg, delimiter, p.filename, p.line_number))
+
+    if in_gene and ch == '^':
+      if map_found:
+        let msg = "properties found in wrong place while reading list $# $# $#"
+        raise new_exception(ParseError, format(msg, delimiter, p.filename, p.line_number))
+      else:
+        map_found = true
+        result.map = read_map(p, true)
+        continue
 
     if ch == delimiter:
       inc(pos)
@@ -486,78 +558,14 @@ proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): Gene
   #   else: node.comments.add(co)
   #   return node
 
-type
-  PropState = enum
-    Key
-    Value
-
-proc read_map(p: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue] =
-  result = OrderedTable[string, GeneValue]()
-  var ch: char
-  var key: string
-  var state = PropState.Key
-  while true:
-    skip_ws(p)
-    ch = p.buf[p.bufpos]
-    if ch == EndOfFile:
-      raise new_exception(ParseError, "EOF while reading Gene")
-    elif ch == ']' or (part_of_gene and ch == '}') or (not part_of_gene and ch == ')'):
-      raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
-    elif ch == ';':
-      discard read_comment(p)
-      continue
-    case state:
-    of Key:
-      if ch == '^':
-        p.bufPos.inc
-        if p.buf[p.bufPos] == '^':
-          p.bufPos.inc
-          key = read_token(p, false)
-          result[key] = GeneTrue
-        elif p.buf[p.bufPos] == '!':
-          p.bufPos.inc
-          key = read_token(p, false)
-          result[key] = GeneFalse
-        else:
-          key = read_token(p, false)
-          state = PropState.Value
-      elif part_of_gene:
-        # Do not consume ')'
-        # if ch == ')':
-        #   p.bufPos.inc
-        return
-      elif ch == '}':
-        p.bufPos.inc
-        return
-      else:
-        raise new_exception(ParseError, "Expect key at " & $p.bufpos & " but found " & p.buf[p.bufpos])
-    of PropState.Value:
-      if ch == '^':
-        raise new_exception(ParseError, "Expect value for " & key)
-      elif part_of_gene:
-        if ch == ')':
-          raise new_exception(ParseError, "Expect value for " & key)
-        else:
-          state = PropState.Key
-          result[key] = read(p)
-      else:
-        if ch == '}':
-          raise new_exception(ParseError, "Expect value for " & key)
-        else:
-          state = PropState.Key
-          result[key] = read(p)
-
 proc read_gene(p: var Parser): GeneValue =
   result = GeneValue(kind: GeneGene, gene: Gene())
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col(p, result)
   result.gene.op = read_gene_op(p)
-  skip_ws(p)
-  if p.buf[p.bufpos] == '^':
-    let props = read_map(p, true)
-    result.gene.props = props
   var result_list = read_delimited_list(p, ')', true)
+  result.gene.props = result_list.map
   result.gene.data = result_list.list
   discard maybe_add_comments(result, result_list)
 
