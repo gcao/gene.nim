@@ -39,7 +39,7 @@ type
     ErrRegexEndExpected
 
   CommentsHandling* = enum
-    DiscardCommentsmments
+    DiscardComments
     KeepComments
 
   MacroReader = proc(p: var Parser): GeneValue
@@ -399,7 +399,7 @@ proc read_gene_op(p: var Parser): GeneValue =
               comment_lines = @[]
             inc(count)
             break
-        else: # DiscardCommentsmments
+        else: # DiscardComments
           case result.kind
           of GeneCommentLine:
             discard
@@ -529,7 +529,7 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
               comment_lines = @[]
             inc(count)
             list.add(node)
-        else: # DiscardCommentsmments
+        else: # DiscardComments
           case node.kind
           of GeneCommentLine:
             discard
@@ -718,9 +718,6 @@ proc init_readers() =
   init_macro_array()
   init_dispatch_macro_array()
 
-proc init_readers*(options: ParseOptions) =
-  discard
-
 init_readers()
 
 proc open*(p: var Parser, input: Stream, filename: string) =
@@ -853,7 +850,7 @@ proc read*(s: Stream, filename: string): GeneValue =
   var opts: ParseOptions
   opts.eof_is_error = true
   opts.suppress_read = false
-  opts.comments_handling = DiscardCommentsmments
+  opts.comments_handling = DiscardComments
   p.options = opts
   p.open(s, filename)
   defer: p.close()
