@@ -1,3 +1,8 @@
+# Credit:
+# The parser and basic data types are built on top of EDN Parser[1] that is
+# created by Roland Sadowski.
+# 1. https://github.com/rosado/edn.nim
+
 import lexbase, streams, strutils, unicode, tables, sets
 
 import ./types
@@ -857,6 +862,14 @@ proc read*(s: Stream, filename: string): GeneValue =
 proc read*(buffer: string): GeneValue =
   result = read(new_string_stream(buffer), "*input*")
 
+proc read*(buffer: string, options: ParseOptions): GeneValue =
+  var p: Parser
+  var s = new_string_stream(buffer)
+  p.options = options
+  p.open(s, "*input*")
+  defer: p.close()
+  result = read(p)
+
 proc read_all*(buffer: string): seq[GeneValue] =
   var p: Parser
   var s = new_string_stream(buffer)
@@ -873,11 +886,3 @@ proc read_all*(buffer: string): seq[GeneValue] =
 
 proc read_document*(buffer: string): GeneDocument =
   return new_doc(read_all(buffer))
-
-proc read*(buffer: string, options: ParseOptions): GeneValue =
-  var p: Parser
-  var s = new_string_stream(buffer)
-  p.options = options
-  p.open(s, "*input*")
-  defer: p.close()
-  result = read(p)
