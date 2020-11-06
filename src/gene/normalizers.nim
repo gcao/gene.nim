@@ -18,21 +18,21 @@ var Normalizers: seq[Normalizer]
 # Important: order of normalizers matters. normalize() should be tested as a whole
 
 Normalizers.add proc(self: GeneValue): bool =
-  var op = self.gene.op
-  if op.kind == GeneSymbol:
-    if op.symbol.startsWith(".@"):
-      if op.symbol.endsWith("="):
-        var name = op.symbol.substr(2, op.symbol.len-2)
-        self.gene.op = new_gene_symbol("@=")
+  var `type` = self.gene.type
+  if `type`.kind == GeneSymbol:
+    if `type`.symbol.startsWith(".@"):
+      if `type`.symbol.endsWith("="):
+        var name = type.symbol.substr(2, `type`.symbol.len-2)
+        self.gene.type = new_gene_symbol("@=")
         self.gene.data.insert(new_gene_string_move(name), 0)
       else:
-        self.gene.op = new_gene_symbol("@")
-        self.gene.data = @[new_gene_string_move(op.symbol.substr(2))]
+        self.gene.type = new_gene_symbol("@")
+        self.gene.data = @[new_gene_string_move(`type`.symbol.substr(2))]
       return true
 
 Normalizers.add proc(self: GeneValue): bool =
-  var op = self.gene.op
-  if op.kind == GeneSymbol and op.symbol == "if":
+  var `type` = self.gene.type
+  if `type`.kind == GeneSymbol and `type`.symbol == "if":
     var i = 1  # start index after condition
     var cond = self.gene.data[0]
     if cond == Not:
@@ -60,9 +60,9 @@ Normalizers.add proc(self: GeneValue): bool =
     self.gene.data.reset
 
 Normalizers.add proc(self: GeneValue): bool =
-  var op = self.gene.op
-  if op.kind == GeneSymbol:
-    if op.symbol == "import" or op.symbol == "import_native":
+  var `type` = self.gene.type
+  if `type`.kind == GeneSymbol:
+    if `type`.symbol == "import" or `type`.symbol == "import_native":
       var names: seq[GeneValue] = @[]
       var module: GeneValue
       var expect_module = false
@@ -78,13 +78,13 @@ Normalizers.add proc(self: GeneValue): bool =
       return true
 
 Normalizers.add proc(self: GeneValue): bool =
-  if self.gene.op.kind == GeneSymbol:
-    if self.gene.op.symbol == "fnx":
-      self.gene.op = new_gene_symbol("fn")
+  if self.gene.type.kind == GeneSymbol:
+    if self.gene.type.symbol == "fnx":
+      self.gene.type = new_gene_symbol("fn")
       self.gene.data.insert(new_gene_symbol("_"), 0)
       return true
-    elif self.gene.op.symbol == "fnxx":
-      self.gene.op = new_gene_symbol("fn")
+    elif self.gene.type.symbol == "fnxx":
+      self.gene.type = new_gene_symbol("fn")
       self.gene.data.insert(new_gene_symbol("_"), 0)
       self.gene.data.insert(new_gene_symbol("_"), 0)
       return true
@@ -92,19 +92,19 @@ Normalizers.add proc(self: GeneValue): bool =
 Normalizers.add proc(self: GeneValue): bool =
   if self.gene.data.len < 1:
     return false
-  var op = self.gene.op
+  var `type` = self.gene.type
   var first = self.gene.data[0]
   if first.kind == GeneSymbol:
     if first.symbol == "+=":
-      self.gene.op = new_gene_symbol("=")
+      self.gene.type = new_gene_symbol("=")
       var second = self.gene.data[1]
-      self.gene.data[0] = op
-      self.gene.data[1] = new_gene_gene(new_gene_symbol("+"), op, second)
+      self.gene.data[0] = type
+      self.gene.data[1] = new_gene_gene(new_gene_symbol("+"), `type`, second)
       return true
-    elif first.symbol == "=" and op.kind == GeneSymbol and op.symbol.startsWith("@"):
+    elif first.symbol == "=" and `type`.kind == GeneSymbol and `type`.symbol.startsWith("@"):
       # (@prop = val)
-      self.gene.op = new_gene_symbol("@=")
-      self.gene.data[0] = new_gene_string(op.symbol[1..^1])
+      self.gene.type = new_gene_symbol("@=")
+      self.gene.data[0] = new_gene_string(`type`.symbol[1..^1])
       return true
 
 Normalizers.add proc(self: GeneValue): bool =
@@ -115,34 +115,34 @@ Normalizers.add proc(self: GeneValue): bool =
     return false
 
   self.gene.data.delete 0
-  self.gene.data.insert self.gene.op, 0
-  self.gene.op = first
+  self.gene.data.insert self.gene.type, 0
+  self.gene.type = first
   return true
 
 Normalizers.add proc(self: GeneValue): bool =
   if self.gene.data.len < 1:
     return false
-  var op = self.gene.op
+  var `type` = self.gene.type
   var first = self.gene.data[0]
   if first.kind == GeneSymbol and first.symbol.startsWith(".@"):
     if first.symbol.endsWith("="):
       todo()
     else:
-      self.gene.op = new_gene_symbol("@")
+      self.gene.type = new_gene_symbol("@")
       self.gene.data[0] = new_gene_string_move(first.symbol.substr(2))
-      self.gene.props["self"] = op
+      self.gene.props["self"] = `type`
     return true
 
 Normalizers.add proc(self: GeneValue): bool =
   if self.gene.data.len < 1:
     return false
-  var op = self.gene.op
+  var `type` = self.gene.type
   var first = self.gene.data[0]
   if first.kind == GeneSymbol and first.symbol[0] == '.' and first.symbol != "...":
-    self.gene.props["self"] = op
+    self.gene.props["self"] = `type`
     self.gene.props["method"] = new_gene_string_move(first.symbol.substr(1))
     self.gene.data.delete 0
-    self.gene.op = new_gene_symbol("$invoke_method")
+    self.gene.type = new_gene_symbol("$invoke_method")
     return true
 
 Normalizers.add proc(self: GeneValue): bool =
@@ -150,8 +150,8 @@ Normalizers.add proc(self: GeneValue): bool =
     return false
   var first = self.gene.data[0]
   if first.kind == GeneSymbol and first.symbol == "->":
-    self.gene.props["args"] = self.gene.op
-    self.gene.op = self.gene.data[0]
+    self.gene.props["args"] = self.gene.type
+    self.gene.type = self.gene.data[0]
     self.gene.data.delete 0
     return true
 
@@ -167,7 +167,7 @@ proc normalize_children*(self:  GeneValue) =
 proc normalize*(self:  GeneValue) =
   if self.kind != GeneGene or self.gene.normalized:
     return
-  if self.gene.op == Quote:
+  if self.gene.type == Quote:
     return
   for n in Normalizers:
     if n(self):

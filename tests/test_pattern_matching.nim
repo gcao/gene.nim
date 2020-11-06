@@ -41,11 +41,11 @@ import ./helpers
 # (match [^a: var_a = 1] input) # "var_a" will match input's property "a", and has default
 #                               # value of 1
 #
-# Q: How do we match gene_op?
+# Q: How do we match gene_type?
 # A: Use "*" to signify it. like "^" to signify properties. It does not support optional,
 #    default values etc
-#    [*op] will assign gene_op to "op"
-#    [*: [...]] "*:" or "*name:" will signify that next item matches gene_op's internal structure
+#    [*type] will assign gene_type to "type"
+#    [*: [...]] "*:" or "*name:" will signify that next item matches gene_type's internal structure
 #
 
 test_interpreter """

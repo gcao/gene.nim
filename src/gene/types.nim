@@ -302,7 +302,7 @@ type
     include_last*: bool # default to false
 
   Gene* {.acyclic.} = ref object
-    op*: GeneValue
+    `type`*: GeneValue
     props*: OrderedTable[string, GeneValue]
     data*: seq[GeneValue]
     # A gene can be normalized to match expected format
@@ -387,8 +387,6 @@ type
 
   GeneDocument* = ref object
     `type`: GeneValue
-    name*: string
-    path*: string
     props*: OrderedTable[string, GeneValue]
     data*: seq[GeneValue]
 
@@ -492,7 +490,7 @@ type
       `enum`*: Enum
     of ExGene:
       gene*: GeneValue
-      gene_op*: Expr
+      gene_type*: Expr
       gene_props*: seq[Expr]
       gene_data*: seq[Expr]
     of ExRange:
@@ -1160,7 +1158,7 @@ proc `==`*(this, that: GeneValue): bool =
     of GeneSet:
       return this.set.len == that.set.len and (this.set.len == 0 or this.set == that.set)
     of GeneGene:
-      return this.gene.op == that.gene.op and
+      return this.gene.type == that.gene.type and
         this.gene.data == that.gene.data and
         table_equals(this.gene.props, that.gene.props)
     of GeneMap:
@@ -1210,8 +1208,8 @@ proc hash*(node: GeneValue): Hash =
   of GeneSet:
     h = h !& hash(node.set)
   of GeneGene:
-    if node.gene.op != nil:
-      h = h !& hash(node.gene.op)
+    if node.gene.type != nil:
+      h = h !& hash(node.gene.type)
     h = h !& hash(node.gene.data)
   of GeneMap:
     for key, val in node.map:
@@ -1260,7 +1258,7 @@ proc `$`*(node: GeneValue): string =
     result &= node.vec.join(" ")
     result &= "]"
   of GeneGene:
-    result = "(" & $node.gene.op
+    result = "(" & $node.gene.type
     if node.gene.props.len > 0:
       for k, v in node.gene.props:
         result &= " ^" & $k & " " & $v
@@ -1405,22 +1403,22 @@ proc new_gene_map*(map: OrderedTable[string, GeneValue]): GeneValue =
     map: map,
   )
 
-# proc new_gene_gene_simple*(op: GeneValue): GeneValue =
+# proc new_gene_gene_simple*(`type`: GeneValue): GeneValue =
 #   return GeneValue(
 #     kind: GeneGene,
-#     gene_op: op,
+#     gene_type: `type`,
 #   )
 
-proc new_gene_gene*(op: GeneValue, data: varargs[GeneValue]): GeneValue =
+proc new_gene_gene*(`type`: GeneValue, data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
-    gene: Gene(op: op, data: @data),
+    gene: Gene(type: `type`, data: @data),
   )
 
-proc new_gene_gene*(op: GeneValue, props: OrderedTable[string, GeneValue], data: varargs[GeneValue]): GeneValue =
+proc new_gene_gene*(`type`: GeneValue, props: OrderedTable[string, GeneValue], data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
-    gene: Gene(op: op, props: props, data: @data),
+    gene: Gene(type: `type`, props: props, data: @data),
   )
 
 converter new_gene_internal*(e: Enum): GeneValue =

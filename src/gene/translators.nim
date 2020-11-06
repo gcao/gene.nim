@@ -441,7 +441,7 @@ proc new_super_expr*(parent: Expr, val: GeneValue): Expr =
     result.super_args.add(new_expr(result, item))
 
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
-  if val.gene.op.symbol == "native_method":
+  if val.gene.type.symbol == "native_method":
     var meth = Method(
       name: val.gene.data[0].symbol
     )
@@ -529,7 +529,7 @@ proc new_print_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExPrint,
     parent: parent,
-    print_and_return: val.gene.op.symbol == "println",
+    print_and_return: val.gene.type.symbol == "println",
   )
   for item in val.gene.data:
     result.print.add(new_expr(result, item))
@@ -541,7 +541,7 @@ proc new_not_expr*(parent: Expr, val: GeneValue): Expr =
   )
   result.not = new_expr(result, val.gene.data[0])
 
-proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
+proc new_binary_expr*(parent: Expr, `type`: string, val: GeneValue): Expr =
   if val.gene.data[1].is_literal:
     result = Expr(
       kind: ExBinImmediate,
@@ -549,7 +549,7 @@ proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
     )
     result.bini_first = new_expr(result, val.gene.data[0])
     result.bini_second = val.gene.data[1]
-    case op:
+    case `type`:
     of "+":  result.bini_op = BinAdd
     of "-":  result.bini_op = BinSub
     of "*":  result.bini_op = BinMul
@@ -570,7 +570,7 @@ proc new_binary_expr*(parent: Expr, op: string, val: GeneValue): Expr =
     )
     result.bin_first = new_expr(result, val.gene.data[0])
     result.bin_second = new_expr(result, val.gene.data[1])
-    case op:
+    case type:
     of "+":  result.bin_op = BinAdd
     of "-":  result.bin_op = BinSub
     of "*":  result.bin_op = BinMul
@@ -624,12 +624,12 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
     return new_map_expr(parent, node)
   of GeneGene:
     node.normalize
-    if node.gene.op.kind == GeneSymbol:
-      if node.gene.op.symbol in ["+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||"]:
-        return new_binary_expr(parent, node.gene.op.symbol, node)
-      elif node.gene.op.symbol == "...":
+    if node.gene.type.kind == GeneSymbol:
+      if node.gene.type.symbol in ["+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||"]:
+        return new_binary_expr(parent, node.gene.type.symbol, node)
+      elif node.gene.type.symbol == "...":
         return new_explode_expr(parent, node.gene.data[0])
-      var translator = TranslatorMgr[node.gene.op.symbol]
+      var translator = TranslatorMgr[node.gene.type.symbol]
       if translator != nil:
         return translator(parent, node)
       for t in CustomTranslators:
@@ -637,7 +637,7 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
         if result != nil:
           return result
     result = new_gene_expr(parent, node)
-    result.gene_op = new_expr(result, node.gene.op)
+    result.gene_type = new_expr(result, node.gene.type)
     for k, v in node.gene.props:
       result.gene_props.add(new_map_key_expr(result, k, v))
     for item in node.gene.data:

@@ -54,37 +54,37 @@ test_parser "a,", new_gene_symbol("a")
 test_parser "1 2 3", 1
 
 test_parser "()", proc(r: GeneValue) =
-  check r.gene.op == nil
+  check r.gene.type == nil
   check r.gene.props.len == 0
   check r.gene.data.len == 0
 
 test_parser "(())", proc(r: GeneValue) =
   check r.kind == GeneGene
   check r.gene.data.len == 0
-  check r.gene.op.kind == GeneGene
-  check r.gene.op.gene.data.len == 0
+  check r.gene.type.kind == GeneGene
+  check r.gene.type.gene.data.len == 0
 
 test_parser "(1 2 3)", proc(r: GeneValue) =
-  check r.gene.op == 1
+  check r.gene.type == 1
   check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
 test_parser "(1 ^a 2 3 4)", proc(r: GeneValue) =
-  check r.gene.op == 1
+  check r.gene.type == 1
   check r.gene.props == {"a": new_gene_int(2)}.toOrderedTable
   check r.gene.data == @[new_gene_int(3), new_gene_int(4)]
 
 test_parser "(1 2 ^a 3 4)", proc(r: GeneValue) =
-  check r.gene.op == 1
+  check r.gene.type == 1
   check r.gene.props == {"a": new_gene_int(3)}.toOrderedTable
   check r.gene.data == @[new_gene_int(2), new_gene_int(4)]
 
 test_parser "(1 ^^a 2 3)", proc(r: GeneValue) =
-  check r.gene.op == 1
+  check r.gene.type == 1
   check r.gene.props == {"a": GeneTrue}.toOrderedTable
   check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
 test_parser "(1 ^!a 2 3)", proc(r: GeneValue) =
-  check r.gene.op == 1
+  check r.gene.type == 1
   check r.gene.props == {"a": GeneFalse}.toOrderedTable
   check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
@@ -101,7 +101,7 @@ test_parser "{^^x ^!y ^^z}", proc(r: GeneValue) =
 
 test_parser ":foo", proc(r: GeneValue) = # -> (quote foo)
   check r.kind == GeneGene
-  check r.gene.op == new_gene_symbol("quote")
+  check r.gene.type == new_gene_symbol("quote")
   check r.gene.data == @[new_gene_symbol("foo")]
 
 test_parser "#_ [foo bar]", proc(r: GeneValue) =

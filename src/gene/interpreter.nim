@@ -669,7 +669,7 @@ EvaluatorMgr[ExAdvice] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
   var instance = frame.self.internal.aspect_instance
   var advice: Advice
   var logic = self.eval(frame, new_expr(expr, expr.advice.gene.data[1]))
-  case expr.advice.gene.op.symbol:
+  case expr.advice.gene.type.symbol:
   of "before":
     advice = new_advice(AdBefore, logic.internal.fn)
     instance.before_advices.add(advice)
@@ -866,7 +866,7 @@ EvaluatorMgr[ExComplexSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneVa
   return self.get_member(frame, expr.csymbol)
 
 EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  var target = self.eval(frame, expr.gene_op)
+  var target = self.eval(frame, expr.gene_type)
   case target.kind:
   of GeneSymbol, GenePlaceholderKind:
     result = new_gene_gene(target)

@@ -115,7 +115,7 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
       self.include_program = true
       continue
 
-    case item.gene.op.symbol:
+    case item.gene.type.symbol:
     of "option":
       var option = ArgMatcher(kind: ArgOption)
       option.parse_data_type(item)

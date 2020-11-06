@@ -21,7 +21,7 @@ test_interpreter "{}", OrderedTable[string, GeneValue]()
 test_interpreter "{^a 1}", {"a": new_gene_int(1)}.toOrderedTable
 
 test_interpreter "(:test 1 2)", proc(r: GeneValue) =
-  check r.gene.op == new_gene_symbol("test")
+  check r.gene.type == new_gene_symbol("test")
   check r.gene.data[0] == 1
   check r.gene.data[1] == 2
 

@@ -176,7 +176,7 @@ proc read_string(p: var Parser): GeneValue =
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
   result = GeneValue(kind: GeneGene, gene: Gene())
-  result.gene.op = new_gene_symbol(quote_name)
+  result.gene.type = new_gene_symbol(quote_name)
   result.gene.data = @[quoted]
 
 proc read_quoted*(p: var Parser): GeneValue =
@@ -344,7 +344,7 @@ proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement
   # if node.comments.len == 0: node.comments = @[co]
   # else: node.comments.add(co)
 
-proc read_gene_op(p: var Parser): GeneValue =
+proc read_gene_type(p: var Parser): GeneValue =
   var delimiter = ')'
   # the bufpos should be already be past the opening paren etc.
   var comment_lines: seq[string] = @[]
@@ -564,7 +564,7 @@ proc read_gene(p: var Parser): GeneValue =
   #echo "line ", getCurrentLine(p), "lineno: ", p.line_number, " col: ", getColNumber(p, p.bufpos)
   #echo $get_current_line(p) & " LINENO(" & $p.line_number & ")"
   add_line_col(p, result)
-  result.gene.op = read_gene_op(p)
+  result.gene.type = read_gene_type(p)
   var result_list = read_delimited_list(p, ')', true)
   result.gene.props = result_list.map
   result.gene.data = result_list.list
