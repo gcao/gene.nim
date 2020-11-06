@@ -3,23 +3,6 @@ import lexbase, streams, strutils, unicode, tables, sets
 import ./types
 
 type
-  TokenKind* = enum
-    tkError
-    tkEof
-    tkString
-    tkInt
-    tkFloat
-
-  GeneError* = enum
-    errNone
-    errInvalidToken
-    errEofExpected
-    errQuoteExpected
-    errRegexEndExpected
-
-  CommentsHandling* = enum
-    discardComments, keepComments
-
   ParseOptions* = object
     eof_is_error*: bool
     eof_value*: GeneValue
@@ -27,30 +10,46 @@ type
     comments_handling*: CommentsHandling
 
   Parser* = object of BaseLexer
-    a: string
-    token*: TokenKind
-    err: GeneError
-    filename: string
     options*: ParseOptions
+    str: string
+    token*: TokenKind
+    err: ParseErrorKind
+    filename: string
 
   ParseError* = object of CatchableError
   ParseInfo = tuple[line, col: int]
+
+  TokenKind* = enum
+    TkError
+    TkEof
+    TkString
+    TkInt
+    TkFloat
+
+  ParseErrorKind* = enum
+    ErrNone
+    ErrInvalidToken
+    ErrEofExpected
+    ErrQuoteExpected
+    ErrRegexEndExpected
+
+  CommentsHandling* = enum
+    DiscardCommentsmments
+    KeepComments
 
   MacroReader = proc(p: var Parser): GeneValue
   MacroArray = array[char, MacroReader]
 
   PropState = enum
-    Key
-    Value
+    PropKey
+    PropValue
 
-# const non_constituents = ['@', '`', '~']
 const non_constituents = ['`', '~']
 
-converter to_int(c: char): int = result = ord(c)
+var macros: MacroArray
+var dispatch_macros: MacroArray
 
-var
-  macros: MacroArray
-  dispatch_macros: MacroArray
+converter to_int(c: char): int = result = ord(c)
 
 proc non_constituent(c: char): bool =
   result = non_constituents.contains(c)
@@ -73,9 +72,6 @@ proc err_info(p: Parser): ParseInfo =
 
 proc read*(p: var Parser): GeneValue
 
-# proc valid_utf8_alpha(c: char): bool =
-#   return c.isAlphaAscii() or c >= 0xc0
-
 proc handle_hex_char(c: char, x: var int): bool =
   result = true
   case c
@@ -93,78 +89,78 @@ proc parse_escaped_utf16(buf: cstring, pos: var int): int =
       return -1
 
 proc parse_string(p: var Parser): TokenKind =
-  result = tkString
+  result = TkString
   var pos = p.bufpos
   var buf = p.buf
   while true:
     case buf[pos]
     of '\0':
-      p.err = errQuoteExpected
+      p.err = ErrQuoteExpected
     of '"':
       inc(pos)
       break
     of '\\':
       case buf[pos+1]
       of '\\', '"', '\'', '/':
-        add(p.a, buf[pos+1])
+        add(p.str, buf[pos+1])
         inc(pos, 2)
       of 'b':
-        add(p.a, '\b')
+        add(p.str, '\b')
         inc(pos, 2)
       of 'f':
-        add(p.a, '\b')
+        add(p.str, '\b')
         inc(pos, 2)
       of 'n':
-        add(p.a, '\L')
+        add(p.str, '\L')
         inc(pos, 2)
       of 'r':
-        add(p.a, '\C')
+        add(p.str, '\C')
         inc(pos, 2)
       of 't':
-        add(p.a, '\t')
+        add(p.str, '\t')
         inc(pos, 2)
       of 'u':
         inc(pos, 2)
         var r = parse_escaped_utf16(buf, pos)
         if r < 0:
-          p.err = errInvalidToken
+          p.err = ErrInvalidToken
           break
         # deal with surrogates
         if (r and 0xfc00) == 0xd800:
           if buf[pos] & buf[pos + 1] != "\\u":
-            p.err = errInvalidToken
+            p.err = ErrInvalidToken
             break
           inc(pos, 2)
           var s = parse_escaped_utf16(buf, pos)
           if (s and 0xfc00) == 0xdc00 and s > 0:
             r = 0x10000 + (((r - 0xd800) shl 10) or (s - 0xdc00))
           else:
-            p.err = errInvalidToken
+            p.err = ErrInvalidToken
             break
-        add(p.a, toUTF8(Rune(r)))
+        add(p.str, toUTF8(Rune(r)))
       else:
-        # don't bother with the error
-        add(p.a, buf[pos])
+        # don't bother with the Error
+        add(p.str, buf[pos])
         inc(pos)
     of '\c':
       pos = lexbase.handleCR(p, pos)
       buf = p.buf
-      add(p.a, '\c')
+      add(p.str, '\c')
     of '\L':
       pos = lexbase.handleLF(p, pos)
       buf = p.buf
-      add(p.a, '\L')
+      add(p.str, '\L')
     else:
-      add(p.a, buf[pos])
+      add(p.str, buf[pos])
       inc(pos)
   p.bufpos = pos
 
 proc read_string(p: var Parser): GeneValue =
   discard parse_string(p)
-  if p.err != errNone:
+  if p.err != ErrNone:
     raise newException(ParseError, "read_string failure: " & $p.err)
-  result = new_gene_string_move(p.a)
-  p.a = ""
+  result = new_gene_string_move(p.str)
+  p.str = ""
 
 proc read_quoted_internal(p: var Parser, quote_name: string): GeneValue =
   let quoted = read(p)
@@ -198,14 +194,14 @@ proc read_block_comment(p: var Parser): GeneValue =
     else:
       inc(pos)
   p.bufpos = pos
-  p.a = ""
+  p.str = ""
   return GeneValue(kind: GeneCommentLine, comment: "")
 
 proc read_comment(p: var Parser): GeneValue =
   var pos = p.bufpos
   var buf = p.buf
   result = GeneValue(kind: GeneCommentLine)
-  if p.options.comments_handling == keepComments:
+  if p.options.comments_handling == KeepComments:
     while true:
       case buf[pos]
       of '\L':
@@ -218,11 +214,11 @@ proc read_comment(p: var Parser): GeneValue =
         break
         # raise new_exception(ParseError, "EOF while reading comment")
       else:
-        add(p.a, buf[pos])
+        add(p.str, buf[pos])
         inc(pos)
     p.bufpos = pos
-    result.comment = p.a
-    p.a = ""
+    result.comment = p.str
+    p.str = ""
   else:
     while true:
       case buf[pos]
@@ -348,7 +344,7 @@ proc read_gene_op(p: var Parser): GeneValue =
   # the bufpos should be already be past the opening paren etc.
   var comment_lines: seq[string] = @[]
   var count = 0
-  let with_comments = keepComments == p.options.comments_handling
+  let with_comments = KeepComments == p.options.comments_handling
   while true:
     skip_ws(p)
     var pos = p.bufpos
@@ -398,7 +394,7 @@ proc read_gene_op(p: var Parser): GeneValue =
               comment_lines = @[]
             inc(count)
             break
-        else: # discardComments
+        else: # DiscardCommentsmments
           case result.kind
           of GeneCommentLine:
             discard
@@ -410,7 +406,7 @@ proc read_map(p: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue
   result = OrderedTable[string, GeneValue]()
   var ch: char
   var key: string
-  var state = PropState.Key
+  var state = PropState.PropKey
   while true:
     skip_ws(p)
     ch = p.buf[p.bufpos]
@@ -422,7 +418,7 @@ proc read_map(p: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue
       discard read_comment(p)
       continue
     case state:
-    of Key:
+    of PropKey:
       if ch == '^':
         p.bufPos.inc
         if p.buf[p.bufPos] == '^':
@@ -435,7 +431,7 @@ proc read_map(p: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue
           result[key] = GeneFalse
         else:
           key = read_token(p, false)
-          state = PropState.Value
+          state = PropState.PropValue
       elif part_of_gene:
         # Do not consume ')'
         # if ch == ')':
@@ -446,20 +442,20 @@ proc read_map(p: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue
         return
       else:
         raise new_exception(ParseError, "Expect key at " & $p.bufpos & " but found " & p.buf[p.bufpos])
-    of PropState.Value:
+    of PropState.PropValue:
       if ch == '^':
         raise new_exception(ParseError, "Expect value for " & key)
       elif part_of_gene:
         if ch == ')':
           raise new_exception(ParseError, "Expect value for " & key)
         else:
-          state = PropState.Key
+          state = PropState.PropKey
           result[key] = read(p)
       else:
         if ch == '}':
           raise new_exception(ParseError, "Expect value for " & key)
         else:
-          state = PropState.Key
+          state = PropState.PropKey
           result[key] = read(p)
 
 proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
@@ -469,7 +465,7 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
   var map_found = false
   var comment_lines: seq[string] = @[]
   var count = 0
-  let with_comments = keepComments == p.options.comments_handling
+  let with_comments = KeepComments == p.options.comments_handling
   while true:
     skip_ws(p)
     var pos = p.bufpos
@@ -528,7 +524,7 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
               comment_lines = @[]
             inc(count)
             list.add(node)
-        else: # discardComments
+        else: # DiscardCommentsmments
           case node.kind
           of GeneCommentLine:
             discard
@@ -596,66 +592,66 @@ proc read_regex(p: var Parser): GeneValue =
   while true:
     case buf[pos]
     of '\0':
-      p.err = errRegexEndExpected
+      p.err = ErrRegexEndExpected
     of '/':
       inc(pos)
       break;
     of '\\':
       case buf[pos+1]
       of '\\', '/':
-        add(p.a, buf[pos+1])
+        add(p.str, buf[pos+1])
         inc(pos, 2)
       of 'b':
-        add(p.a, '\b')
+        add(p.str, '\b')
         inc(pos, 2)
       of 'f':
-        add(p.a, '\b')
+        add(p.str, '\b')
         inc(pos, 2)
       of 'n':
-        add(p.a, '\L')
+        add(p.str, '\L')
         inc(pos, 2)
       of 'r':
-        add(p.a, '\C')
+        add(p.str, '\C')
         inc(pos, 2)
       of 't':
-        add(p.a, '\t')
+        add(p.str, '\t')
         inc(pos, 2)
       of 'u':
         inc(pos, 2)
         var r = parse_escaped_utf16(buf, pos)
         if r < 0:
-          p.err = errInvalidToken
+          p.err = ErrInvalidToken
           break
         # deal with surrogates
         if (r and 0xfc00) == 0xd800:
           if buf[pos] & buf[pos + 1] != "\\u":
-            p.err = errInvalidToken
+            p.err = ErrInvalidToken
             break
           inc(pos, 2)
           var s = parse_escaped_utf16(buf, pos)
           if (s and 0xfc00) == 0xdc00 and s > 0:
             r = 0x10000 + (((r - 0xd800) shl 10) or (s - 0xdc00))
           else:
-            p.err = errInvalidToken
+            p.err = ErrInvalidToken
             break
-        add(p.a, toUTF8(Rune(r)))
+        add(p.str, toUTF8(Rune(r)))
       else:
-        # don't bother with the error
-        add(p.a, buf[pos])
+        # don't bother with the Error
+        add(p.str, buf[pos])
         inc(pos)
     of '\c':
       pos = lexbase.handleCR(p, pos)
       buf = p.buf
-      add(p.a, '\c')
+      add(p.str, '\c')
     of '\L':
       pos = lexbase.handleLF(p, pos)
       buf = p.buf
-      add(p.a, '\L')
+      add(p.str, '\L')
     else:
-      add(p.a, buf[pos])
+      add(p.str, buf[pos])
       inc(pos)
   p.bufpos = pos
-  result = GeneValue(kind: GeneRegex, regex: p.a)
+  result = GeneValue(kind: GeneRegex, regex: p.str)
 
 proc read_unmatched_delimiter(p: var Parser): GeneValue =
   raise new_exception(ParseError, "Unmatched delimiter: " & p.buf[p.bufpos])
@@ -673,7 +669,7 @@ proc read_dispatch(p: var Parser): GeneValue =
     p.bufpos += 1
     if p.buf[p.bufpos] == '\r':
       p.bufpos += 1
-    p.a = ""
+    p.str = ""
     return GeneValue(kind: GeneCommentLine, comment: "")
 
   let m = dispatch_macros[ch]
@@ -724,7 +720,7 @@ init_gene_readers()
 proc open*(p: var Parser, input: Stream, filename: string) =
   lexbase.open(p, input)
   p.filename = filename
-  p.a = ""
+  p.str = ""
 
 proc close*(p: var Parser) {.inline.} =
   lexbase.close(p)
@@ -739,39 +735,39 @@ proc close*(p: var Parser) {.inline.} =
 #   result = p.filename
 
 proc parse_number(p: var Parser): TokenKind =
-  result = TokenKind.tkEof
+  result = TokenKind.TkEof
   var
     pos = p.bufpos
     buf = p.buf
   if (buf[pos] == '-') or (buf[pos] == '+'):
-    add(p.a, buf[pos])
+    add(p.str, buf[pos])
     inc(pos)
   if buf[pos] == '.':
-    add(p.a, "0.")
+    add(p.str, "0.")
     inc(pos)
-    result = tkFloat
+    result = TkFloat
   else:
-    result = tkInt
+    result = TkInt
     while buf[pos] in Digits:
-      add(p.a, buf[pos])
+      add(p.str, buf[pos])
       inc(pos)
     if buf[pos] == '.':
-      add(p.a, '.')
+      add(p.str, '.')
       inc(pos)
-      result = tkFloat
+      result = TkFloat
   # digits after the dot
   while buf[pos] in Digits:
-    add(p.a, buf[pos])
+    add(p.str, buf[pos])
     inc(pos)
   if buf[pos] in {'E', 'e'}:
-    add(p.a, buf[pos])
+    add(p.str, buf[pos])
     inc(pos)
-    result = tkFloat
+    result = TkFloat
     if buf[pos] in {'+', '-'}:
-      add(p.a, buf[pos])
+      add(p.str, buf[pos])
       inc(pos)
     while buf[pos] in Digits:
-      add(p.a, buf[pos])
+      add(p.str, buf[pos])
       inc(pos)
   p.bufpos = pos
 
@@ -779,36 +775,36 @@ proc read_num(p: var Parser): GeneValue =
   var num_result = parse_number(p)
   let opts = p.options
   case num_result
-  of tkEof:
+  of TkEof:
     if opts.eof_is_error:
       raise new_exception(ParseError, "EOF while reading")
     else:
       result = nil
-  of tkInt:
+  of TkInt:
     if p.buf[p.bufpos] == '/':
       if not isDigit(p.buf[p.bufpos+1]):
         let e = err_info(p)
-        raise new_exception(ParseError, "error reading a ratio: " & $e)
-      var numerator = new_gene_int(p.a)
+        raise new_exception(ParseError, "Error reading a ratio: " & $e)
+      var numerator = new_gene_int(p.str)
       inc(p.bufpos)
-      p.a = ""
+      p.str = ""
       var denom_tok = parse_number(p)
-      if denom_tok == tkInt:
-        var denom = new_gene_int(p.a)
+      if denom_tok == TkInt:
+        var denom = new_gene_int(p.str)
         result = new_gene_ratio(numerator.int, denom.int)
       else:
-        raise new_exception(ParseError, "error reading a ratio: " & p.a)
+        raise new_exception(ParseError, "Error reading a ratio: " & p.str)
     else:
-      result = new_gene_int(p.a)
-  of tkFloat:
-    result = new_gene_float(p.a)
-  of tkError:
-    raise new_exception(ParseError, "error reading a number: " & p.a)
+      result = new_gene_int(p.str)
+  of TkFloat:
+    result = new_gene_float(p.str)
+  of TkError:
+    raise new_exception(ParseError, "Error reading a number: " & p.str)
   else:
-    raise new_exception(ParseError, "error reading a number (?): " & p.a)
+    raise new_exception(ParseError, "Error reading a number (?): " & p.str)
 
 proc read_internal(p: var Parser): GeneValue =
-  setLen(p.a, 0)
+  setLen(p.str, 0)
   skip_ws(p)
   let ch = p.buf[p.bufpos]
   let opts = p.options
@@ -819,7 +815,7 @@ proc read_internal(p: var Parser): GeneValue =
       let position = (p.line_number, get_col_number(p, p.bufpos))
       raise new_exception(ParseError, "EOF while reading " & $position)
     else:
-      p.token = tkEof
+      p.token = TkEof
       return opts.eof_value
   of '0'..'9':
     return read_num(p)
@@ -843,7 +839,7 @@ proc read_internal(p: var Parser): GeneValue =
 
 proc read*(p: var Parser): GeneValue =
   result = read_internal(p)
-  let noComments = p.options.comments_handling != keepComments
+  let noComments = p.options.comments_handling != KeepComments
   while result != nil and noComments and result.kind == GeneCommentLine:
     result = read_internal(p)
 
@@ -852,7 +848,7 @@ proc read*(s: Stream, filename: string): GeneValue =
   var opts: ParseOptions
   opts.eof_is_error = true
   opts.suppress_read = false
-  opts.comments_handling = discardComments
+  opts.comments_handling = DiscardCommentsmments
   p.options = opts
   p.open(s, filename)
   defer: p.close()
@@ -871,7 +867,7 @@ proc read_all*(buffer: string): seq[GeneValue] =
     var node = p.read_internal
     if node == nil:
       return result
-    elif p.options.comments_handling != keepComments and node.kind == GeneCommentLine:
+    elif p.options.comments_handling != KeepComments and node.kind == GeneCommentLine:
       continue
     else:
       result.add(node)

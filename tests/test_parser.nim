@@ -167,6 +167,13 @@ test_parser """
 
 test_parser """
   #<
+  comment
+  #>## 1
+  2
+""", 2
+
+test_parser """
+  #<
   #<<
   comment
   #>>#
