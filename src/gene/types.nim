@@ -1,4 +1,4 @@
-import strutils, tables, dynlib, unicode, hashes, json
+import strutils, tables, dynlib, unicode, hashes, sets, json
 
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -324,6 +324,7 @@ type
     GeneRange
     GeneMap
     GeneVector
+    GeneSet
     GeneGene
     GeneInternal
     GeneAny
@@ -370,6 +371,8 @@ type
       map*: OrderedTable[string, GeneValue]
     of GeneVector:
       vec*: seq[GeneValue]
+    of GeneSet:
+      set*: OrderedSet[GeneValue]
     of GeneGene:
       gene*: Gene
     of GeneInternal:
@@ -1154,6 +1157,8 @@ proc `==`*(this, that: GeneValue): bool =
       return this.symbol == that.symbol
     of GeneComplexSymbol:
       return this.csymbol == that.csymbol
+    of GeneSet:
+      return this.set.len == that.set.len and (this.set.len == 0 or this.set == that.set)
     of GeneGene:
       return this.gene.op == that.gene.op and
         this.gene.data == that.gene.data and
@@ -1202,6 +1207,8 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.symbol)
   of GeneComplexSymbol:
     h = h !& hash(node.csymbol.first & "/" & node.csymbol.rest.join("/"))
+  of GeneSet:
+    h = h !& hash(node.set)
   of GeneGene:
     if node.gene.op != nil:
       h = h !& hash(node.gene.op)
@@ -1383,6 +1390,14 @@ proc new_gene_map*(): GeneValue =
     kind: GeneMap,
     map: OrderedTable[string, GeneValue](),
   )
+
+proc new_gene_set*(items: varargs[GeneValue]): GeneValue =
+  result = GeneValue(
+    kind: GeneSet,
+    set: OrderedSet[GeneValue](),
+  )
+  for item in items:
+    result.set.incl(item)
 
 proc new_gene_map*(map: OrderedTable[string, GeneValue]): GeneValue =
   return GeneValue(

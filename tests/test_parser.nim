@@ -45,6 +45,9 @@ test_parser "[,]", new_gene_vec()
 test_parser "[1 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
 test_parser "[1, 2]", new_gene_vec(new_gene_int(1), new_gene_int(2))
 
+test_parser "#[]", new_gene_set()
+test_parser "#[1 2]", new_gene_set(new_gene_int(1), new_gene_int(2))
+
 test_parser ",a", new_gene_symbol("a")
 test_parser "a,", new_gene_symbol("a")
 

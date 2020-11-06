@@ -1,4 +1,4 @@
-import lexbase, streams, strutils, unicode, tables
+import lexbase, streams, strutils, unicode, tables, sets
 
 import ./types
 
@@ -580,6 +580,16 @@ proc read_vector(p: var Parser): GeneValue =
   result.vec = list_result.list
   discard maybe_add_comments(result, list_result)
 
+proc read_set(p: var Parser): GeneValue =
+  result = GeneValue(
+    kind: GeneSet,
+    set: OrderedSet[GeneValue](),
+  )
+  let list_result = read_delimited_list(p, ']', true)
+  for item in list_result.list:
+    result.set.incl(item)
+  discard maybe_add_comments(result, list_result)
+
 proc read_regex(p: var Parser): GeneValue =
   var pos = p.bufpos
   var buf = p.buf
@@ -691,6 +701,7 @@ proc init_macro_array() =
   macros['}'] = read_unmatched_delimiter
 
 proc init_dispatch_macro_array() =
+  dispatch_macros['['] = read_set
   dispatch_macros['!'] = read_comment
   dispatch_macros[' '] = read_comment
   dispatch_macros['<'] = read_block_comment
