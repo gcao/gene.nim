@@ -248,7 +248,7 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
 
 proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue =
   var new_scope = ScopeMgr.get()
-  var new_frame = FrameMgr.get(FrAspect, aspect.ns, new_scope)
+  var new_frame = FrameMgr.get(FrBody, aspect.ns, new_scope)
   new_frame.parent = frame
 
   new_frame.args = new_gene_gene(GeneNil)
@@ -278,7 +278,7 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
 proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue =
   var aspect = instance.aspect
   var new_scope = ScopeMgr.get()
-  var new_frame = FrameMgr.get(FrAspect, aspect.ns, new_scope)
+  var new_frame = FrameMgr.get(FrBody, aspect.ns, new_scope)
   new_frame.parent = frame
   new_frame.args = args
 
@@ -735,7 +735,7 @@ EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
   self.def_member(frame, expr.class_name, expr.class, true)
   var ns = expr.class.internal.class.ns
   var scope = new_scope()
-  var new_frame = FrameMgr.get(FrClass, ns, scope)
+  var new_frame = FrameMgr.get(FrBody, ns, scope)
   new_frame.self = expr.class
   for e in expr.class_body:
     discard self.eval(new_frame, e)
@@ -745,7 +745,7 @@ EvaluatorMgr[ExMixin] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
   self.def_member(frame, expr.mix_name, expr.mix, true)
   var ns = frame.ns
   var scope = new_scope()
-  var new_frame = FrameMgr.get(FrMixin, ns, scope)
+  var new_frame = FrameMgr.get(FrBody, ns, scope)
   new_frame.self = expr.mix
   for e in expr.mix_body:
     discard self.eval(new_frame, e)

@@ -651,11 +651,7 @@ type
     FrMacro
     FrMethod
     FrModule
-    FrNamespace
-    FrClass
-    FrMixin
-    FrAspect
-    FrEval # the code passed to (eval)
+    FrBody
 
   FrameExtra* = ref object
     case kind*: FrameKind

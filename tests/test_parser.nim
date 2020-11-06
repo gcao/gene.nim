@@ -30,6 +30,7 @@ test_parser "+a", new_gene_symbol("+a")
 # test_parser "a:b", new_gene_symbol("a:b") # good or bad?
 test_parser "n/A", new_gene_complex_symbol("n", @["A"])
 test_parser "n/m/A", new_gene_complex_symbol("n", @["m", "A"])
+test_parser "/A", new_gene_complex_symbol("", @["A"])
 test_parser "\\true", new_gene_symbol("true")
 test_parser "^a", new_gene_symbol("^a")
 test_parser "symbol-👋", new_gene_symbol("symbol-👋")
