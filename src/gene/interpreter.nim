@@ -323,6 +323,8 @@ proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
       ns = GENE_NS.internal.ns
     of "genex":
       ns = GENEX_NS.internal.ns
+    of "":
+      ns = frame.ns
     else:
       var s = name.csymbol.first
       ns = frame[s].internal.ns
@@ -341,6 +343,8 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
     result = GENE_NS
   elif name.first == "genex":
     result = GENEX_NS
+  elif name.first == "":
+    result = frame.ns
   else:
     result = frame[name.first]
   for name in name.rest:
@@ -362,6 +366,8 @@ proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue) =
       ns = GENE_NS.internal.ns
     of "genex":
       ns = GENEX_NS.internal.ns
+    of "":
+      ns = frame.ns
     else:
       var s = name.csymbol.first
       ns = frame[s].internal.ns
