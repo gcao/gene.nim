@@ -44,6 +44,12 @@ type
     PropKey
     PropValue
 
+  DelimitedListResult = object
+    list: seq[GeneValue]
+    map: OrderedTable[string, GeneValue]
+    comment_lines: seq[string]
+    comment_placement: CommentPlacement
+
 const non_constituents = ['`', '~']
 
 var macros: MacroArray
@@ -332,12 +338,6 @@ proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement
   # co.comment_lines = comment_lines
   # if node.comments.len == 0: node.comments = @[co]
   # else: node.comments.add(co)
-
-type DelimitedListResult = object
-  list: seq[GeneValue]
-  map: OrderedTable[string, GeneValue]
-  comment_lines: seq[string]
-  comment_placement: CommentPlacement
 
 proc read_gene_op(p: var Parser): GeneValue =
   var delimiter = ')'
@@ -662,12 +662,15 @@ proc read_discard(p: var Parser): GeneValue =
 
 proc read_dispatch(p: var Parser): GeneValue =
   let ch = p.buf[p.bufpos]
-  if ch == EndOfFile:
+  if ch == EndOfFile:   # special case for "#<EOF>"
     return
-
-  elif ch == '\n':  # special case for "#\n" or "#\r\n"
+  elif ch == '\n':      # special case for "#\n"
     p.bufpos += 1
-    if p.buf[p.bufpos] == '\r':
+    p.str = ""
+    return GeneValue(kind: GeneCommentLine, comment: "")
+  elif ch == '\r':      # special case "#\r\n"
+    p.bufpos += 1
+    if p.buf[p.bufpos] == '\n':
       p.bufpos += 1
     p.str = ""
     return GeneValue(kind: GeneCommentLine, comment: "")
@@ -706,16 +709,14 @@ proc init_dispatch_macro_array() =
   # dispatch_macros['"'] = read_regex
   dispatch_macros['/'] = read_regex
 
-proc init_gene_readers() =
+proc init_readers() =
   init_macro_array()
   init_dispatch_macro_array()
 
-proc init_gene_readers*(options: ParseOptions) =
+proc init_readers*(options: ParseOptions) =
   discard
 
-init_gene_readers()
-
-### === TODO: name for this section ====
+init_readers()
 
 proc open*(p: var Parser, input: Stream, filename: string) =
   lexbase.open(p, input)
@@ -736,9 +737,8 @@ proc close*(p: var Parser) {.inline.} =
 
 proc parse_number(p: var Parser): TokenKind =
   result = TokenKind.TkEof
-  var
-    pos = p.bufpos
-    buf = p.buf
+  var pos = p.bufpos
+  var buf = p.buf
   if (buf[pos] == '-') or (buf[pos] == '+'):
     add(p.str, buf[pos])
     inc(pos)
@@ -771,7 +771,7 @@ proc parse_number(p: var Parser): TokenKind =
       inc(pos)
   p.bufpos = pos
 
-proc read_num(p: var Parser): GeneValue =
+proc read_number(p: var Parser): GeneValue =
   var num_result = parse_number(p)
   let opts = p.options
   case num_result
@@ -818,14 +818,14 @@ proc read_internal(p: var Parser): GeneValue =
       p.token = TkEof
       return opts.eof_value
   of '0'..'9':
-    return read_num(p)
+    return read_number(p)
   elif is_macro(ch):
     let m = macros[ch] # save line:col metadata here?
     inc(p.bufpos)
     return m(p)
   elif ch in {'+', '-'}:
     if isDigit(p.buf[p.bufpos + 1]):
-      return read_num(p)
+      return read_number(p)
     else:
       token = read_token(p, false)
       result = interpret_token(token)
@@ -858,9 +858,8 @@ proc read*(buffer: string): GeneValue =
   result = read(new_string_stream(buffer), "*input*")
 
 proc read_all*(buffer: string): seq[GeneValue] =
-  var
-    p: Parser
-    s = new_string_stream(buffer)
+  var p: Parser
+  var s = new_string_stream(buffer)
   p.open(s, "*input*")
   defer: p.close()
   while true:
@@ -876,9 +875,8 @@ proc read_document*(buffer: string): GeneDocument =
   return new_doc(read_all(buffer))
 
 proc read*(buffer: string, options: ParseOptions): GeneValue =
-  var
-    p: Parser
-    s = new_string_stream(buffer)
+  var p: Parser
+  var s = new_string_stream(buffer)
   p.options = options
   p.open(s, "*input*")
   defer: p.close()
