@@ -53,9 +53,6 @@ test_parser "a,", new_gene_symbol("a")
 
 test_parser "1 2 3", 1
 
-# TODO: Set
-# test_parser "#[]", new_gene_set()
-
 test_parser "()", proc(r: GeneValue) =
   check r.gene.op == nil
   check r.gene.props.len == 0

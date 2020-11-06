@@ -793,14 +793,18 @@ EvaluatorMgr[ExSetProp] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.
   result = self.eval(frame, expr.set_prop_val)
   target.internal.instance.value.gene.props[name] = result
 
-# EvaluatorMgr[ExCall] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-#   var target = self.eval(frame, expr.call_target)
-#   var args: GeneValue
-#   if expr.call_args != nil:
-#     args = self.eval(frame, expr.call_args)
-#   else:
-#     args = new_gene_gene(GeneNil)
-#   # call target with args
+EvaluatorMgr[ExCall] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var target = self.eval(frame, expr.call_target)
+  var call_self = GeneNil
+  # if expr.call_props.has_key("self"):
+  #   call_self = self.eval(frame, expr.call_props["self"])
+  var args: GeneValue
+  if expr.call_args != nil:
+    args = self.eval(frame, expr.call_args)
+  else:
+    args = new_gene_gene(GeneNil)
+  var options = Table[FnOption, GeneValue]()
+  result = self.call_fn(frame, call_self, target.internal.fn, args, options)
 
 EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var args: seq[GeneValue] = @[]
@@ -864,7 +868,7 @@ EvaluatorMgr[ExComplexSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneVa
 EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var target = self.eval(frame, expr.gene_op)
   case target.kind:
-  of GeneSymbol:
+  of GeneSymbol, GenePlaceholderKind:
     result = new_gene_gene(target)
     for e in expr.gene_props:
       result.gene.props[e.map_key] = self.eval(frame, e.map_val)

@@ -703,6 +703,8 @@ TranslatorMgr["@="            ] = new_set_prop_expr
 
 TranslatorMgr["call"          ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExCall)
+  # for k, v in node.gene.props:
+  #   result.call_props[k] = new_expr(parent, v)
   result.call_target = new_expr(result, node.gene.data[0])
   if node.gene.data.len > 2:
     not_allowed("Syntax error: too many parameters are passed to (call).")

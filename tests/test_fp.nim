@@ -168,27 +168,27 @@ test_interpreter """
   (f ^a 1)
 """, 1
 
-# test_interpreter """
-#   (fn f _ 1)
-#   (call f)
-# """, 1
+test_interpreter """
+  (fn f _ 1)
+  (call f)
+""", 1
 
-# test_interpreter """
-#   (fn f [a b] (a + b))
-#   (call f [1 2])
-# """, 3
+test_interpreter """
+  (fn f [a b] (a + b))
+  (call f [1 2])
+""", 3
 
-# Should throw error because we expect call takes a single argument
-# which must be an array, a map or a gene that will be exploded
+# # Should throw error because we expect call takes a single argument
+# # which must be an array, a map or a gene that will be exploded
 # test_interpreter """
 #   (fn f [a b] (a + b))
 #   (call f 1 2)
 # """, 1
 
-# test_interpreter """
-#   (fn f [^a b] (a + b))
-#   (call f (_ ^a 1 2))
-# """, 3
+test_interpreter """
+  (fn f [^a b] (a + b))
+  (call f (_ ^a 1 2))
+""", 3
 
 # test_interpreter """
 #   (fn f [^a b] (self + a + b))
