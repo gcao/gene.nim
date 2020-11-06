@@ -208,7 +208,13 @@
   (method props _
   )
 
+  (method prop _
+  )
+
   (method data _
+  )
+
+  (method get [i]
   )
 )
 

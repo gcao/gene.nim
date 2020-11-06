@@ -146,8 +146,8 @@ proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): Gene
     else:
       result.gene.data.add(v)
 
-proc process_args*(self: VM, frame: Frame, matcher: RootMatcher) =
-  var match_result = matcher.match(frame.args)
+proc process_args*(self: VM, frame: Frame, matcher: RootMatcher, args: GeneValue) =
+  var match_result = matcher.match(args)
   if match_result.kind == MatchSuccess:
     for field in match_result.fields:
       if field.value_expr != nil:
@@ -181,7 +181,7 @@ proc call_fn*(
   new_frame.self = target
 
   new_frame.args = args
-  self.process_args(new_frame, fn.matcher)
+  self.process_args(new_frame, fn.matcher, new_frame.args)
 
   if fn.body_blk.len == 0:  # Translate on demand
     for item in fn.body:
@@ -205,7 +205,7 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
   new_frame.self = target
 
   new_frame.args = expr.gene
-  self.process_args(new_frame, mac.matcher)
+  self.process_args(new_frame, mac.matcher, new_frame.args)
 
   var blk: seq[Expr] = @[]
   for item in mac.body:
@@ -220,11 +220,8 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
 
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue =
   var blk_scope = ScopeMgr.get()
-  blk_scope.set_parent(blk.parent_scope, blk.parent_scope_max)
-  var new_frame = FrameMgr.get(FrBlock, blk.ns, blk_scope)
-  new_frame.parent = frame
-  new_frame.self = target
-
+  blk_scope.set_parent(blk.frame.scope, blk.parent_scope_max)
+  var new_frame = blk.frame
   var args_blk: seq[Expr]
   case expr.kind:
   of ExGene:
@@ -232,14 +229,14 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   else:
     todo()
 
-  new_frame.args = new_gene_gene(GeneNil)
+  var args = new_gene_gene(GeneNil)
   for e in args_blk:
     var v = self.eval(frame, e)
     if v.kind == GeneInternal and v.internal.kind == GeneExplode:
-      new_frame.args.merge(v.internal.explode)
+      args.merge(v.internal.explode)
     else:
-      new_frame.args.gene.data.add(v)
-  self.process_args(new_frame, blk.matcher)
+      args.gene.data.add(v)
+  self.process_args(new_frame, blk.matcher, args)
 
   var blk2: seq[Expr] = @[]
   for item in blk.body:
@@ -261,7 +258,7 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
       new_frame.args.merge(v.internal.explode)
     else:
       new_frame.args.gene.data.add(v)
-  self.process_args(new_frame, aspect.matcher)
+  self.process_args(new_frame, aspect.matcher, new_frame.args)
 
   var target = new_frame.args[0]
   result = new_aspect_instance(aspect, target)
@@ -571,8 +568,11 @@ EvaluatorMgr[ExIf] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inlin
 EvaluatorMgr[ExLoop] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   try:
     while true:
-      for e in expr.loop_blk:
-        discard self.eval(frame, e)
+      try:
+        for e in expr.loop_blk:
+          discard self.eval(frame, e)
+      except Continue:
+        discard
   except Break as b:
     result = b.val
 
@@ -585,12 +585,20 @@ EvaluatorMgr[ExBreak] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
   e.val = val
   raise e
 
+EvaluatorMgr[ExContinue] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var e: Continue
+  e.new
+  raise e
+
 EvaluatorMgr[ExWhile] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   try:
     var cond = self.eval(frame, expr.while_cond)
     while cond:
-      for e in expr.while_blk:
-        discard self.eval(frame, e)
+      try:
+        for e in expr.while_blk:
+          discard self.eval(frame, e)
+      except Continue:
+        discard
       cond = self.eval(frame, expr.while_cond)
   except Break as b:
     result = b.val
@@ -631,7 +639,7 @@ EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inlin
 
 EvaluatorMgr[ExArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   case frame.extra.kind:
-  of FrFunction, FrMacro, FrBlock, FrMethod:
+  of FrFunction, FrMacro, FrMethod:
     result = frame.args
   else:
     not_allowed()
@@ -642,8 +650,7 @@ EvaluatorMgr[ExMacro] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
   result = expr.mac
 
 EvaluatorMgr[ExBlock] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  expr.blk.internal.blk.ns = frame.ns
-  expr.blk.internal.blk.parent_scope = frame.scope
+  expr.blk.internal.blk.frame = frame
   expr.blk.internal.blk.parent_scope_max = frame.scope.max
   result = expr.blk
 
@@ -937,14 +944,20 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
       case for_in.kind:
       of GeneRange:
         for i in for_in.range_start.int..<for_in.range_end.int:
-          frame.scope[val] = i
-          for e in expr.for_blk:
-            discard self.eval(frame, e)
+          try:
+            frame.scope[val] = i
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+          except Continue:
+            discard
       of GeneVector:
         for i in for_in.vec:
-          frame.scope[val] = i
-          for e in expr.for_blk:
-            discard self.eval(frame, e)
+          try:
+            frame.scope[val] = i
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+          except Continue:
+            discard
       else:
         todo()
     else:
@@ -955,16 +968,22 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
       case for_in.kind:
       of GeneVector:
         for k, v in for_in.vec:
-          frame.scope[key] = k
-          frame.scope[val] = v
-          for e in expr.for_blk:
-            discard self.eval(frame, e)
+          try:
+            frame.scope[key] = k
+            frame.scope[val] = v
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+          except Continue:
+            discard
       of GeneMap:
         for k, v in for_in.map:
-          frame.scope[key] = k
-          frame.scope[val] = v
-          for e in expr.for_blk:
-            discard self.eval(frame, e)
+          try:
+            frame.scope[key] = k
+            frame.scope[val] = v
+            for e in expr.for_blk:
+              discard self.eval(frame, e)
+          except Continue:
+            discard
       else:
         todo()
   except Break:

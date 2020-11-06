@@ -98,7 +98,7 @@ test_interpreter """
 test_interpreter """
   (var i 0)
   (loop
-    (i = (i + 1))
+    (i += 1)
     (break)
   )
   i
@@ -107,15 +107,43 @@ test_interpreter """
 test_interpreter """
   (var i 0)
   (loop
-    (i = (i + 1))
+    (i += 1)
     (break i)
   )
 """, 1
 
 test_interpreter """
   (var i 0)
+  (loop
+    (i += 1)
+    (if (i < 5)
+      (continue)
+    else
+      (break)
+    )
+    (i = 10000)  # should not reach here
+  )
+  i
+""", 5
+
+test_interpreter """
+  (var i 0)
   (while (i < 3)
-    (i = (i + 1))
+    (i += 1)
+  )
+  i
+""", 3
+
+test_interpreter """
+  (var i 0)
+  (while true
+    (i += 1)
+    (if (i < 3)
+      (continue)
+    else
+      (break)
+    )
+    (i = 10000)  # should not reach here
   )
   i
 """, 3
@@ -127,6 +155,20 @@ test_interpreter """
   )
   sum
 """, 6 # 0 + 1 + 2 + 3
+
+test_interpreter """
+  (var sum 0)
+  (for i in (range 0 4)
+    (sum += i)
+    (if (i < 2)
+      (continue)
+    else
+      (break)
+    )
+    (sum = 10000)  # should not reach here
+  )
+  sum
+""", 3 # 0 + 1 + 2
 
 test_interpreter """
   (var sum 0)

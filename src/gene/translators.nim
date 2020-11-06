@@ -667,6 +667,8 @@ TranslatorMgr["loop"          ] = new_loop_expr
 TranslatorMgr["while"         ] = new_while_expr
 TranslatorMgr["for"           ] = new_for_expr
 TranslatorMgr["break"         ] = new_break_expr
+TranslatorMgr["continue"      ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExContinue)
 TranslatorMgr["if"            ] = new_if_expr
 TranslatorMgr["not"           ] = new_not_expr
 TranslatorMgr["var"           ] = new_var_expr

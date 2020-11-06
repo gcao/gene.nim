@@ -203,8 +203,7 @@ type
     body_blk*: seq[Expr]
 
   Block* = ref object
-    ns*: Namespace
-    parent_scope*: Scope
+    frame*: Frame
     parent_scope_max*: NameIndexScope
     matcher*: RootMatcher
     body*: seq[GeneValue]
@@ -421,6 +420,7 @@ type
     # ExIfElseIf
     ExLoop
     ExBreak
+    ExContinue
     ExWhile
     ExFor
     ExExplode
@@ -531,6 +531,8 @@ type
       loop_blk*: seq[Expr]
     of ExBreak:
       break_val*: Expr
+    of ExContinue:
+      discard
     of ExWhile:
       while_cond*: Expr
       while_blk*: seq[Expr]
@@ -647,7 +649,6 @@ type
   FrameKind* = enum
     FrFunction
     FrMacro
-    FrBlock # like a block passed to a method in Ruby
     FrMethod
     FrModule
     FrNamespace
@@ -667,8 +668,6 @@ type
       meth*: Function
       meth_name*: string
       # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
-    of FrBlock:
-      blk*: Block
     else:
       discard
 
@@ -682,6 +681,8 @@ type
 
   Break* = ref object of CatchableError
     val*: GeneValue
+
+  Continue* = ref object of CatchableError
 
   Return* = ref object of CatchableError
     frame*: Frame

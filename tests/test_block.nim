@@ -53,13 +53,25 @@ test_interpreter """
   (b)
 """, 1
 
-# test_interpreter """
-#   (fn f b
-#     (b 1)
-#     0
-#   )
-#   (fn g _
-#     (f (a -> (return a)))
-#   )
-#   (g)
-# """, 1
+test_interpreter """
+  (fn f b
+    (b 1)
+    0
+  )
+  (fn g _
+    (f (a -> (return a)))
+  )
+  (g)
+""", 1
+
+test_interpreter """
+  (fn f b
+    (b 1)
+    0
+  )
+  (fn g _
+    (f (a -> (return $args)))  # $args is what is passed to the containing function ?
+  )
+  (g 2)
+""", proc(r: GeneValue) =
+  check r.gene.data == @[new_gene_int(2)]
