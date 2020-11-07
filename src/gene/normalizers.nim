@@ -32,7 +32,7 @@ Normalizers.add proc(self: GeneValue): bool =
 
 Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
-  if `type`.kind == GeneSymbol and `type`.symbol == "if":
+  if `type` == If:
     var i = 1  # start index after condition
     var cond = self.gene.data[0]
     if cond == Not:
@@ -171,5 +171,5 @@ proc normalize*(self:  GeneValue) =
     return
   for n in Normalizers:
     if n(self):
-      self.gene.normalized = true
       break
+  self.gene.normalized = true

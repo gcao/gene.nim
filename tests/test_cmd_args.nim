@@ -163,5 +163,10 @@ test_core """
     ]
     ["-b" "true" "-i" "1" "-m" "2,3" "true" "1" "2" "3"]
   )
-  b
-""", true
+  (assert b)
+  (assert (i == 1))
+  (assert (m == [2 3]))
+  (assert first)
+  (assert (second == 1))
+  (assert (third == [2 3]))
+"""
