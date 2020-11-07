@@ -9,8 +9,8 @@ const BINARY_OPS* = [
 ]
 
 type
-  Exception* = object of CatchableError
-  NotDefinedException* = object of Exception
+  GeneException* = object of CatchableError
+  NotDefinedException* = object of GeneException
 
   # index of a name in a scope
   NameIndexScope* = distinct int
@@ -244,7 +244,7 @@ type
     GeneTargetWithAdvices
     GeneExplode
     GeneFile
-    GeneException
+    GeneExceptionKind
     GeneNativeProc
 
   Internal* = ref object
@@ -283,7 +283,7 @@ type
       explode*: GeneValue
     of GeneFile:
       file*: File
-    of GeneException:
+    of GeneExceptionKind:
       exception: CatchableError
     of GeneNativeProc:
       native_proc*: NativeProc
