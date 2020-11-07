@@ -1,7 +1,6 @@
 import unittest, tables
 
 import gene/types
-import gene/arg_parser
 
 import ./helpers
 
@@ -151,3 +150,18 @@ test_args """
   check r.options["-m"] == @[new_gene_int(20), new_gene_int(30)]
   check r.args.len == 1
   check r.args["first"] == @[new_gene_int(100), new_gene_int(200)]
+
+# test_core """
+#   ($parse_cmd_args  # parse arguments and define members in current scope
+#     [
+#       (option ^type bool -b)
+#       (option ^type int -i)
+#       (option ^type int ^^multiple -m)
+#       (argument ^type bool first)
+#       (argument ^type int second)
+#       (argument ^type int ^^multiple third)
+#     ]
+#     ["-b" "true" "-i" "1" "-m" "2,3" "true" "1" "2" "3"]
+#   )
+#   b
+# """, true

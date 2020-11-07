@@ -20,6 +20,7 @@ type
     token*: TokenKind
     err: ParseErrorKind
     filename: string
+    stored_references: Table[string, GeneValue]
 
   ParseError* = object of CatchableError
   ParseInfo = tuple[line, col: int]
@@ -349,7 +350,7 @@ proc read_gene_type(p: var Parser): GeneValue =
   # the bufpos should be already be past the opening paren etc.
   var comment_lines: seq[string] = @[]
   var count = 0
-  let with_comments = KeepComments == p.options.comments_handling
+  let with_comments = p.options.comments_handling == KeepComments
   while true:
     skip_ws(p)
     var pos = p.bufpos
@@ -682,7 +683,9 @@ proc read_dispatch(p: var Parser): GeneValue =
 
   let m = dispatch_macros[ch]
   if m == nil:
-    raise  new_exception(ParseError, "No dispatch macro for: " & ch)
+    p.bufpos -= 1
+    var token = read_token(p, false)
+    result = interpret_token(token)
   else:
     p.bufpos += 1
     result = m(p)

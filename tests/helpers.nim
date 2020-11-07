@@ -4,7 +4,6 @@ import gene/types
 import gene/parser
 import gene/normalizers
 import gene/interpreter
-import gene/arg_parser
 
 # Uncomment below lines to see logs
 # import logging
@@ -119,7 +118,7 @@ proc test_args*(schema, input: string, callback: proc(r: ArgMatchingResult)) =
   var schema = cleanup(schema)
   var input = cleanup(input)
   test schema & "\n" & input:
-    var m = new_matcher()
-    m.parse(schema)
+    var m = new_cmd_args_matcher()
+    m.parse(read(schema))
     var r = m.match(input)
     callback r

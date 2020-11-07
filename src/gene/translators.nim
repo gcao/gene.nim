@@ -24,6 +24,7 @@ let FINALLY*  = new_gene_symbol("finally")
 
 #################### Interfaces ##################
 
+proc new_expr*(parent: Expr, kind: ExprKind): Expr
 proc new_expr*(parent: Expr, node: GeneValue): Expr
 proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr
 
@@ -535,10 +536,7 @@ proc new_print_expr*(parent: Expr, val: GeneValue): Expr =
     result.print.add(new_expr(result, item))
 
 proc new_not_expr*(parent: Expr, val: GeneValue): Expr =
-  result = Expr(
-    kind: ExNot,
-    parent: parent,
-  )
+  result = new_expr(parent, ExNot)
   result.not = new_expr(result, val.gene.data[0])
 
 proc new_binary_expr*(parent: Expr, `type`: string, val: GeneValue): Expr =
@@ -750,3 +748,10 @@ TranslatorMgr["not_allowed"   ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExNotAllowed)
   if node.gene.data.len > 0:
     result.not_allowed = new_expr(result, node.gene.data[0])
+
+TranslatorMgr["$parse_cmd_args"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExParseCmdArgs)
+  var m = new_cmd_args_matcher()
+  m.parse(node.gene.data[0])
+  result.cmd_args_schema = m
+  result.cmd_args = node.gene.data[1]

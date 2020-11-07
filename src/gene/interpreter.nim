@@ -1,4 +1,4 @@
-import tables, os
+import tables, os, sequtils, strutils
 
 import ./types
 import ./parser
@@ -109,10 +109,22 @@ proc get_class*(self: VM, val: GeneValue): Class =
     return GENE_NS.internal.ns["Char"].internal.class
   of GeneString:
     return GENE_NS.internal.ns["String"].internal.class
+  of GeneSymbol:
+    return GENE_NS.internal.ns["Symbol"].internal.class
+  of GeneComplexSymbol:
+    return GENE_NS.internal.ns["ComplexSymbol"].internal.class
   of GeneVector:
     return GENE_NS.internal.ns["Array"].internal.class
   of GeneMap:
     return GENE_NS.internal.ns["Map"].internal.class
+  of GeneSet:
+    return GENE_NS.internal.ns["Set"].internal.class
+  of GeneGene:
+    return GENE_NS.internal.ns["Gene"].internal.class
+  of GeneRegex:
+    return GENE_NS.internal.ns["Regex"].internal.class
+  of GeneRange:
+    return GENE_NS.internal.ns["Range"].internal.class
   else:
     todo()
 
@@ -994,6 +1006,19 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
         todo()
   except Break:
     discard
+
+EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var r = expr.cmd_args_schema.match(expr.cmd_args.vec.map(proc(v: GeneValue): string = v.str))
+  if r.kind == AmSuccess:
+    for k, v in r.args:
+      var name = k
+      if k.starts_with("--"):
+        name = k[2..^1]
+      elif k.starts_with("-"):
+        name = k[1..^1]
+      self.def_member(frame, name, v, false)
+  else:
+    todo()
 
 when isMainModule:
   import os, times
