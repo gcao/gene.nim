@@ -1010,7 +1010,7 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
 EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var r = expr.cmd_args_schema.match(expr.cmd_args.vec.map(proc(v: GeneValue): string = v.str))
   if r.kind == AmSuccess:
-    for k, v in r.args:
+    for k, v in r.fields:
       var name = k
       if k.starts_with("--"):
         name = k[2..^1]
