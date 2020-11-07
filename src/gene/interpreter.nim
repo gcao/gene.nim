@@ -57,10 +57,15 @@ proc prepare*(self: VM, code: string): Expr =
 
 proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   if expr.evaluator != nil:
-    return expr.evaluator(self, frame, expr)
+    result = expr.evaluator(self, frame, expr)
   else:
     var evaluator = EvaluatorMgr[expr.kind]
-    return evaluator(self, frame, expr)
+    result = evaluator(self, frame, expr)
+
+  if result == nil:
+    return GeneNil
+  else:
+    return result
 
 proc eval*(self: VM, code: string): GeneValue =
   var module = new_module()
@@ -652,7 +657,6 @@ EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inlin
   expr.fn.internal.fn.parent_scope = frame.scope
   expr.fn.internal.fn.parent_scope_max = frame.scope.max
   self.def_member(frame, expr.fn_name, expr.fn, true)
-  frame.ns[expr.fn.internal.fn.name] = expr.fn
   result = expr.fn
 
 EvaluatorMgr[ExArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
@@ -664,7 +668,7 @@ EvaluatorMgr[ExArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inl
 
 EvaluatorMgr[ExMacro] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   expr.mac.internal.mac.ns = frame.ns
-  frame.ns[expr.mac.internal.mac.name] = expr.mac
+  self.def_member(frame, expr.mac_name, expr.mac, true)
   result = expr.mac
 
 EvaluatorMgr[ExBlock] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =

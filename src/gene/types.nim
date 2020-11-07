@@ -559,6 +559,7 @@ type
       blk*: GeneValue
     of ExMacro:
       mac*: GeneValue
+      mac_name*: GeneValue
     of ExReturn:
       return_val*: Expr
     of ExReturnRef:

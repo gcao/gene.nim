@@ -301,6 +301,7 @@ proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExMacro,
     parent: parent,
     mac: mac,
+    mac_name: val.gene.data[0],
   )
   mac.expr = result
 
