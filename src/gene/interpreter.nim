@@ -83,7 +83,9 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
 
 proc load_core_module*(self: VM) =
   GENE_NS  = new_namespace("gene")
+  GLOBAL_NS.internal.ns["gene"] = GENE_NS
   GENEX_NS = new_namespace("genex")
+  GLOBAL_NS.internal.ns["genex"] = GENEX_NS
   discard self.import_module("core", readFile("src/core.gene"))
 
 proc load_gene_module*(self: VM) =
@@ -742,7 +744,12 @@ EvaluatorMgr[ExGlobal] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
   return self.app.ns
 
 EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  var ns = self.modules[expr.import_matcher.from]
+  var ns: Namespace
+  # If "from" is not given, import from parent of root namespace.
+  if expr.import_matcher.from == "":
+    ns = frame.ns.root.parent
+  else:
+    ns = self.modules[expr.import_matcher.from]
   self.import_from_ns(frame, ns, expr.import_matcher.children)
 
 EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =

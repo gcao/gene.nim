@@ -1,7 +1,6 @@
 import unittest
 
 import gene/types
-import gene/parser
 import gene/interpreter
 
 import ./helpers
@@ -95,3 +94,8 @@ test_import_matcher "(import a b/c)", proc(r: ImportMatcherRoot) =
 #   check r.children[1].children.len == 1
 #   check r.children[1].children[0].name == "c"
 #   check r.children[1].children[0].as == "my_c"
+
+test_core """
+  (import assert)
+  (assert true)
+"""

@@ -935,11 +935,17 @@ proc new_namespace*(parent: Namespace, name: string): Namespace =
     members: OrderedTable[string, GeneValue](),
   )
 
-proc hasKey*(self: Namespace, key: string): bool {.inline.} =
+proc root*(self: Namespace): Namespace =
+  if self.name == "<root>":
+    return self
+  else:
+    return self.parent.root
+
+proc has_key*(self: Namespace, key: string): bool {.inline.} =
   return self.members.hasKey(key)
 
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
-  if self.hasKey(key):
+  if self.has_key(key):
     return self.members[key]
   elif self.parent != nil:
     return self.parent[key]
@@ -1639,6 +1645,7 @@ proc new_doc*(data: seq[GeneValue]): GeneDocument =
 
 proc new_app*(): Application =
   GLOBAL_NS = new_namespace("global")
+  GLOBAL_NS.internal.ns["global"] = GLOBAL_NS
   result = Application(
     ns: GLOBAL_NS.internal.ns,
   )
