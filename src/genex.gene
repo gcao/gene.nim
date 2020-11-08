@@ -5,6 +5,6 @@
   (macro test code
   )
 
-  (fn skip _
+  (macro skip_test _
   )
 )
