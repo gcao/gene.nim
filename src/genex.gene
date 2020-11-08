@@ -1,2 +1,10 @@
 (class genex/Http
 )
+
+(ns genex/tests
+  (macro test code
+  )
+
+  (fn skip _
+  )
+)
