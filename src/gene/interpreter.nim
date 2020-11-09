@@ -72,7 +72,7 @@ proc eval*(self: VM, code: string): GeneValue =
   return self.eval(frame, self.prepare(code))
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
-  if self.modules.hasKey(name):
+  if self.modules.has_key(name):
     return self.modules[name]
   var module = new_module(name)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
@@ -150,7 +150,7 @@ proc call_fn*(
   if fn.expr.kind == ExFn:
     fn_scope.set_parent(fn.parent_scope, fn.parent_scope_max)
   var new_frame: Frame
-  if options.hasKey(FnMethod):
+  if options.has_key(FnMethod):
     new_frame = FrameMgr.get(FrMethod, ns, fn_scope)
     fn_scope.def_member("$class", options[FnClass])
     var meth = options[FnMethod]
@@ -333,7 +333,7 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue) =
   case name.kind:
   of GeneSymbol:
-    if frame.scope.hasKey(name.symbol):
+    if frame.scope.has_key(name.symbol):
       frame.scope[name.symbol] = value
     else:
       frame.ns[name.symbol] = value
@@ -742,7 +742,7 @@ EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
   expr.class.internal.class.ns.parent = frame.ns
   var super_class: Class
   if expr.super_class == nil:
-    if GENE_NS != nil and GENE_NS.internal.ns.hasKey("Object"):
+    if GENE_NS != nil and GENE_NS.internal.ns.has_key("Object"):
       super_class = GENE_NS.internal.ns["Object"].internal.class
   else:
     super_class = self.eval(frame, expr.super_class).internal.class

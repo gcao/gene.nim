@@ -967,7 +967,7 @@ proc root*(self: Namespace): Namespace =
     return self.parent.root
 
 proc has_key*(self: Namespace, key: string): bool {.inline.} =
-  return self.members.hasKey(key)
+  return self.members.has_key(key)
 
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
   if self.has_key(key):
@@ -1000,31 +1000,31 @@ proc reset*(self: var Scope) {.inline.} =
   self.parent = nil
   self.members.setLen(0)
 
-proc hasKey(self: Scope, key: string, max: int): bool {.inline.} =
-  if self.mappings.hasKey(key):
+proc has_key(self: Scope, key: string, max: int): bool {.inline.} =
+  if self.mappings.has_key(key):
     # If first >= max, all others will be >= max
     if self.mappings[key][0] < max:
       return true
 
   if self.parent != nil:
-    return self.parent.hasKey(key, self.parent_index_max)
+    return self.parent.has_key(key, self.parent_index_max)
 
-proc hasKey*(self: Scope, key: string): bool {.inline.} =
-  if self.mappings.hasKey(key):
+proc has_key*(self: Scope, key: string): bool {.inline.} =
+  if self.mappings.has_key(key):
     return true
   elif self.parent != nil:
-    return self.parent.hasKey(key, self.parent_index_max)
+    return self.parent.has_key(key, self.parent_index_max)
 
 proc def_member*(self: var Scope, key: string, val: GeneValue) {.inline.} =
   var index = self.members.len
   self.members.add(val)
-  if self.mappings.hasKey(key):
+  if self.mappings.has_key(key):
     self.mappings[key].add(index)
   else:
     self.mappings[key] = @[cast[NameIndexScope](index)]
 
 proc `[]`(self: Scope, key: string, max: int): GeneValue {.inline.} =
-  if self.mappings.hasKey(key):
+  if self.mappings.has_key(key):
     var found = self.mappings[key]
     var i = found.len - 1
     while i >= 0:
@@ -1037,14 +1037,14 @@ proc `[]`(self: Scope, key: string, max: int): GeneValue {.inline.} =
     return self.parent[key, self.parent_index_max]
 
 proc `[]`*(self: Scope, key: string): GeneValue {.inline.} =
-  if self.mappings.hasKey(key):
+  if self.mappings.has_key(key):
     var i: int = self.mappings[key][^1]
     return self.members[i]
   elif self.parent != nil:
     return self.parent[key, self.parent_index_max]
 
 proc `[]=`(self: var Scope, key: string, val: GeneValue, max: int) {.inline.} =
-  if self.mappings.hasKey(key):
+  if self.mappings.has_key(key):
     var found = self.mappings[key]
     var i = found.len - 1
     while i >= 0:
@@ -1060,7 +1060,7 @@ proc `[]=`(self: var Scope, key: string, val: GeneValue, max: int) {.inline.} =
     not_allowed()
 
 proc `[]=`*(self: var Scope, key: string, val: GeneValue) {.inline.} =
-  if self.mappings.hasKey(key):
+  if self.mappings.has_key(key):
     var i: int = self.mappings[key][^1]
     self.members[i] = val
   elif self.parent != nil:
@@ -1081,7 +1081,7 @@ proc reset*(self: var Frame) {.inline.} =
   self.extra = nil
 
 proc `[]`*(self: Frame, name: string): GeneValue {.inline.} =
-  if self.scope.hasKey(name):
+  if self.scope.has_key(name):
     return self.scope[name]
   else:
     return self.ns[name]
@@ -1123,7 +1123,7 @@ proc new_class*(name: string): Class =
   )
 
 proc get_method*(self: Class, name: string): Method =
-  if self.methods.hasKey(name):
+  if self.methods.has_key(name):
     return self.methods[name]
   elif self.parent != nil:
     return self.parent.get_method(name)
@@ -1766,7 +1766,7 @@ converter to_macro*(node: GeneValue): Macro =
 
 converter to_block*(node: GeneValue): Block =
   var matcher = new_arg_matcher()
-  if node.gene.props.hasKey("args"):
+  if node.gene.props.has_key("args"):
     matcher.parse(node.gene.props["args"])
   var body: seq[GeneValue] = @[]
   for i in 0..<node.gene.data.len:
@@ -2000,7 +2000,7 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
       # for i in state.data_index..<input.len - self.min_left:
       #   value.vec.add(input[i])
       #   state.data_index += 1
-    elif input.gene.props.hasKey(name):
+    elif input.gene.props.has_key(name):
       value = input.gene.props[name]
     else:
       if self.default_value == nil:
@@ -2236,7 +2236,7 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
       else:
         option.multiple = item.gene.props.get_or_default("multiple", false)
         option.required = item.gene.props.get_or_default("required", false)
-      if item.gene.props.hasKey("default"):
+      if item.gene.props.has_key("default"):
         option.default = item.gene.props["default"]
         option.required = false
       for item in item.gene.data:
@@ -2256,7 +2256,7 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
     of "argument":
       var arg = ArgMatcher(kind: ArgPositional)
       arg.arg_name = item.gene.data[0].symbol
-      if item.gene.props.hasKey("default"):
+      if item.gene.props.has_key("default"):
         arg.default = item.gene.props["default"]
         arg.required = false
       arg.parse_data_type(item)
@@ -2297,7 +2297,7 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
       in_extra = true
       continue
     elif item[0] == '-':
-      if self.options.hasKey(item):
+      if self.options.has_key(item):
         var option = self.options[item]
         if option.toggle:
           result.options[option.name] = true
@@ -2307,7 +2307,7 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
           if option.multiple:
             for s in value.split(","):
               var v = option.translate(s)
-              if result.options.hasKey(option.name):
+              if result.options.has_key(option.name):
                 result.options[option.name].vec.add(v)
               else:
                 result.options[option.name] = @[v]
@@ -2321,7 +2321,7 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
         var name = arg.name
         var value = arg.translate(item)
         if arg.multiple:
-          if result.args.hasKey(name):
+          if result.args.has_key(name):
             result.args[name].vec.add(value)
           else:
             result.args[name] = @[value]
@@ -2333,14 +2333,14 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
 
   # Assign values for mandatory options and arguments
   for _, v in self.options:
-    if not result.options.hasKey(v.name):
+    if not result.options.has_key(v.name):
       if v.required:
         raise newException(ArgumentError, "Missing mandatory option: " & v.name)
       else:
         result.options[v.name] = v.default_value
 
   for v in self.args:
-    if not result.args.hasKey(v.name):
+    if not result.args.has_key(v.name):
       if v.required:
         raise newException(ArgumentError, "Missing mandatory argument: " & v.name)
       else:

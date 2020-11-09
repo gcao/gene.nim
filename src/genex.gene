@@ -1,10 +1,45 @@
 (class genex/Http
 )
 
+(ns genex/console
+  # Create styled text for console
+  (fn style []
+  )
+)
+
 (ns genex/tests
-  (macro test code
+  (macro suite [name code...]
   )
 
-  (macro skip_test _
+  (macro skip_suite [name code...]
+  )
+
+  (macro test [name code...]
+    (var success true)
+    (for e in code
+      (try
+        (caller_eval e)
+      catch global/AssertionError   # TODO: AssertionError should work but doesn't for some reason
+        (success = false)
+      )
+    )
+    (if success
+      (println "[v] " name)
+    else
+      (println "[x] " name)
+    )
+  )
+
+  (macro skip_test [name code...]
+    (println "Skipped " name)
+  )
+
+  (macro fail message
+  )
+
+  (macro setup code...
+  )
+
+  (macro teardown code...
   )
 )

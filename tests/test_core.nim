@@ -11,3 +11,5 @@ test_core "genex", proc(r: GeneValue) =
   check r.internal.ns.name == "genex"
 
 test_core "(assert true)", GeneNil
+
+test_core "(AssertionError .name)", "AssertionError"

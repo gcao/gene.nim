@@ -132,3 +132,12 @@ proc test_args*(schema, input: string, callback: proc(r: ArgMatchingResult)) =
     m.parse(read(schema))
     var r = m.match(input)
     callback r
+
+proc test_file*(file: string) =
+  test "Tests " & file & ":":
+    var app = new_app()
+    var interpreter = new_vm(app)
+    interpreter.load_core_module()
+    interpreter.load_gene_module()
+    interpreter.load_genex_module()
+    discard interpreter.eval(read_file(file))
