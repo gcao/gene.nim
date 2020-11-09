@@ -1,5 +1,6 @@
 import strutils, tables, dynlib, unicode, hashes, sets, json
 
+const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
   "+", "-", "*", "/",
   "=", "+=", "-=", "*=", "/=",
@@ -10,7 +11,7 @@ const BINARY_OPS* = [
 
 type
   GeneException* = object of CatchableError
-    instance: Instance  # instance of Gene exception class
+    instance*: GeneValue  # instance of Gene exception class
 
   NotDefinedException* = object of GeneException
 
@@ -846,6 +847,10 @@ var GLOBAL_NS*: GeneValue
 var GENE_NS*:   GeneValue
 var GENEX_NS*:  GeneValue
 
+var GeneObjectClass*   : GeneValue
+var GeneClassClass*    : GeneValue
+var GeneExceptionClass*: GeneValue
+
 var EvaluatorMgr* = EvaluatorManager()
 var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
@@ -878,6 +883,20 @@ proc not_allowed*(message: string) =
 
 proc not_allowed*() =
   not_allowed("Error: should not arrive here.")
+
+proc new_gene_exception*(message: string, instance: GeneValue): ref Exception =
+  var e = new_exception(GeneException, message)
+  e.instance = instance
+  return e
+
+proc new_gene_exception*(message: string): ref Exception =
+  return new_gene_exception(message, nil)
+
+proc new_gene_exception*(instance: GeneValue): ref Exception =
+  return new_gene_exception(DEFAULT_ERROR_MESSAGE, instance)
+
+proc new_gene_exception*(): ref Exception =
+  return new_gene_exception(DEFAULT_ERROR_MESSAGE, nil)
 
 #################### Converters ##################
 

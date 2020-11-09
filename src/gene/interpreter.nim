@@ -90,6 +90,9 @@ proc load_core_module*(self: VM) =
 
 proc load_gene_module*(self: VM) =
   discard self.import_module("gene", readFile("src/gene.gene"))
+  GeneObjectClass    = GENE_NS["Object"]
+  GeneClassClass     = GENE_NS["Class"]
+  GeneExceptionClass = GENE_NS["Exception"]
 
 proc load_genex_module*(self: VM) =
   discard self.import_module("genex", readFile("src/genex.gene"))
@@ -634,14 +637,25 @@ EvaluatorMgr[ExExplode] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.
   result = new_gene_explode(val)
 
 EvaluatorMgr[ExThrow] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  todo()
-  # if expr.throw_type != nil:
-  #   var typ = self.eval(frame, expr.throw_type)
-  #   if expr.throw_mesg != nil:
-  #     var msg = self.eval(frame, expr.throw_mesg)
-  #     todo()
-  #   else:
-  #     todo()
+  if expr.throw_type != nil:
+    var class = self.eval(frame, expr.throw_type)
+    if expr.throw_mesg != nil:
+      var message = self.eval(frame, expr.throw_mesg)
+      var instance = new_instance(class.internal.class)
+      raise new_gene_exception(message.str, instance)
+    elif class.kind == GeneInternal and class.internal.kind == GeneClass:
+      var instance = new_instance(class.internal.class)
+      raise new_gene_exception(instance)
+    elif class.kind == GeneString:
+      raise new_gene_exception(class.str)
+    else:
+      todo()
+  else:
+    # Create instance of gene/Exception
+    var class = GeneExceptionClass
+    var instance = new_instance(class.internal.class)
+    # Create nim exception of GeneException type
+    raise new_gene_exception(instance)
 
 EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   try:

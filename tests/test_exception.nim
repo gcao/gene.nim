@@ -1,7 +1,4 @@
-import unittest, tables
-
 import gene/types
-import gene/interpreter
 
 import ./helpers
 
@@ -49,11 +46,11 @@ test_interpreter """
   )
 """, 2
 
-# test_interpreter """
-#   (try
-#     (throw Exception)
-#     1
-#   catch _
-#     2
-#   )
-# """, 2
+test_core """
+  (try
+    (throw)
+    1
+  catch _
+    2
+  )
+""", 2
