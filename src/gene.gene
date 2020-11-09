@@ -221,12 +221,14 @@
   )
 
   (method props _
+    (call_native "gene_props" self)
   )
 
-  (method prop _
+  (method prop name
   )
 
   (method data _
+    (call_native "gene_data" self)
   )
 
   (method get [i]
@@ -273,3 +275,16 @@
     (call_native "json_parse" json_string)
   )
 )
+
+(class gene/AssertionError < gene/Exception
+)
+
+(var global/AssertionError gene/AssertionError)
+
+(macro gene/assert [expr mesg = ""]
+  (if not (caller_eval expr)
+    (throw AssertionError ("AssertionError with " expr ": " mesg))
+  )
+)
+
+(var global/assert gene/assert)

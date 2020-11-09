@@ -1,7 +1,1 @@
 # VM initialization etc goes here
-
-(macro global/assert [expr mesg = ""]
-  (if not (caller_eval expr)
-    (throw ("AssertionError: " expr))
-  )
-)

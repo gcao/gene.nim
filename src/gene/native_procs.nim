@@ -138,6 +138,12 @@ proc init_native_procs*() =
   NativeProcs.add_only "gene_type", proc(args: seq[GeneValue]): GeneValue =
     return args[0].gene.type
 
+  NativeProcs.add_only "gene_props", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].gene.props
+
+  NativeProcs.add_only "gene_data", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].gene.data
+
   NativeProcs.add_only "file_open", proc(args: seq[GeneValue]): GeneValue =
     var file = open(args[0].str)
     result = file
