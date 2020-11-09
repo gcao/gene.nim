@@ -10,11 +10,11 @@
   )
 
   (method to_s _
-    (call_native "gene_to_s" self)
+    (call_native "object_to_s" self)
   )
 
   (method is cls
-    (call_native "gene_is" self cls)
+    (call_native "object_is" self cls)
   )
 )
 
@@ -217,6 +217,7 @@
 
 (class gene/Gene
   (method type _
+    (call_native "gene_type" self)
   )
 
   (method props _

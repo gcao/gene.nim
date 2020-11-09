@@ -7,7 +7,7 @@ proc init_native_procs*() =
     todo()
     # return CatchableError
 
-  NativeProcs.add_only "gene_is", proc(args: seq[GeneValue]): GeneValue =
+  NativeProcs.add_only "object_is", proc(args: seq[GeneValue]): GeneValue =
     return args[0].is_a(args[1].internal.class)
 
   NativeProcs.add_only "class_new", proc(args: seq[GeneValue]): GeneValue =
@@ -134,6 +134,9 @@ proc init_native_procs*() =
 
   NativeProcs.add_only "map_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].map.len
+
+  NativeProcs.add_only "gene_type", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].gene.type
 
   NativeProcs.add_only "file_open", proc(args: seq[GeneValue]): GeneValue =
     var file = open(args[0].str)

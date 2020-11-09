@@ -890,12 +890,6 @@ EvaluatorMgr[ExComplexSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneVa
 EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var target = self.eval(frame, expr.gene_type)
   case target.kind:
-  of GeneSymbol, GenePlaceholderKind:
-    result = new_gene_gene(target)
-    for e in expr.gene_props:
-      result.gene.props[e.map_key] = self.eval(frame, e.map_val)
-    for e in expr.gene_data:
-      result.gene.data.add(self.eval(frame, e))
   of GeneInternal:
     case target.internal.kind:
     of GeneFunction:
@@ -934,7 +928,11 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inl
       str &= self.eval(frame, item).to_s
     result = new_gene_string_move(str)
   else:
-    todo()
+    result = new_gene_gene(target)
+    for e in expr.gene_props:
+      result.gene.props[e.map_key] = self.eval(frame, e.map_val)
+    for e in expr.gene_data:
+      result.gene.data.add(self.eval(frame, e))
 
 EvaluatorMgr[ExEnum] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var e = expr.enum
