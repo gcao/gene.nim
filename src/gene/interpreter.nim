@@ -752,6 +752,9 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
     ns = self.modules[expr.import_matcher.from]
   self.import_from_ns(frame, ns, expr.import_matcher.children)
 
+EvaluatorMgr[ExStopInheritance] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  frame.ns.stop_inheritance = true
+
 EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   expr.class.internal.class.ns.parent = frame.ns
   var super_class: Class

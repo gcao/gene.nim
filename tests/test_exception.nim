@@ -5,6 +5,13 @@ import gene/interpreter
 
 import ./helpers
 
+# Native Nim exception vs Gene exception:
+# Nim exceptions can be accessed from nim/ namespace
+# Nim exceptions should be translated to Gene exceptions eventually
+# Gene core exceptions are defined in gene/ namespace
+# Gene exceptions share same Nim class: GeneException
+# For convenience purpose all exception classes like gene/XyzException are aliased as XyzException
+
 # (throw)
 # (throw message)
 # (throw Exception)
@@ -41,3 +48,12 @@ test_interpreter """
     2
   )
 """, 2
+
+# test_interpreter """
+#   (try
+#     (throw Exception)
+#     1
+#   catch _
+#     2
+#   )
+# """, 2

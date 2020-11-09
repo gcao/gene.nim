@@ -10,6 +10,8 @@ const BINARY_OPS* = [
 
 type
   GeneException* = object of CatchableError
+    instance: Instance  # instance of Gene exception class
+
   NotDefinedException* = object of GeneException
 
   # index of a name in a scope
@@ -46,6 +48,7 @@ type
 
   Namespace* = ref object
     parent*: Namespace
+    stop_inheritance*: bool  # When set to true, stop looking up for members
     name*: string
     members*: OrderedTable[string, GeneValue]
 
@@ -449,6 +452,7 @@ type
     ExSelf
     ExGlobal
     ExImport
+    ExStopInheritance
     ExCall
     ExCallNative
     ExGetClass
@@ -611,6 +615,8 @@ type
       discard
     of ExImport:
       import_matcher*: ImportMatcherRoot
+    of ExStopInheritance:
+      discard
     of ExCall:
       # call_props*: OrderedTable[string, Expr]
       call_target*: Expr
@@ -947,7 +953,7 @@ proc has_key*(self: Namespace, key: string): bool {.inline.} =
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
   if self.has_key(key):
     return self.members[key]
-  elif self.parent != nil:
+  elif not self.stop_inheritance and self.parent != nil:
     return self.parent[key]
   else:
     raise new_exception(NotDefinedException, key & " is not defined")

@@ -96,6 +96,16 @@ test_import_matcher "(import a b/c)", proc(r: ImportMatcherRoot) =
 #   check r.children[1].children[0].as == "my_c"
 
 test_core """
-  (import assert)
-  (assert true)
+  (import gene/Class)
+  (assert ((Class .name) == "Class"))
 """
+
+test_core """
+  ($stop_inheritance)
+  (try
+    (assert true)  # assert is not inherited any more
+    1
+  catch _
+    2
+  )
+""", 2

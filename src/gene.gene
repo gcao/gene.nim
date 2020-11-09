@@ -28,6 +28,14 @@
   )
 )
 
+(class gene/Exception     # All exceptions should inherit from this class
+  (method message _
+  )
+
+  # (method extra _       # additional data related to the exception
+  # )
+)
+
 (class gene/Nil
 )
 

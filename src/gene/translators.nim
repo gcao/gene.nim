@@ -681,6 +681,8 @@ TranslatorMgr["before"        ] = new_advice_expr
 TranslatorMgr["after"         ] = new_advice_expr
 TranslatorMgr["ns"            ] = new_ns_expr
 TranslatorMgr["import"        ] = new_import_expr
+TranslatorMgr["$stop_inheritance"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExStopInheritance)
 TranslatorMgr["class"         ] = new_class_expr
 TranslatorMgr["method"        ] = new_method_expr
 TranslatorMgr["native_method" ] = new_method_expr
