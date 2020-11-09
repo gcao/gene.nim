@@ -100,12 +100,12 @@ test_core """
   (assert ((Class .name) == "Class"))
 """
 
-test_core """
-  ($stop_inheritance)
-  (try
-    (assert true)  # assert is not inherited any more
-    1
-  catch _
-    2
-  )
-""", 2
+# test_core """
+#   ($stop_inheritance)
+#   (try
+#     (assert true)  # assert is not inherited any more
+#     1
+#   catch _
+#     2
+#   )
+# """, 2

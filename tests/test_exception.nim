@@ -45,3 +45,27 @@ test_core """
     2
   )
 """, 2
+
+test_core """
+  (class TestException < Exception)
+  (try
+    (throw TestException)
+    1
+  catch TestException
+    2
+  catch _
+    3
+  )
+""", 2
+
+test_core """
+  (class TestException < Exception)
+  (try
+    (throw)
+    1
+  catch TestException
+    2
+  catch _
+    3
+  )
+""", 3

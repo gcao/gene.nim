@@ -1795,6 +1795,57 @@ converter json_to_gene*(node: JsonNode): GeneValue =
     for elem in node.elems:
       result.vec.add(elem.json_to_gene)
 
+proc get_class*(val: GeneValue): Class =
+  case val.kind:
+  of GeneInternal:
+    case val.internal.kind:
+    of GeneInstance:
+      return val.internal.instance.class
+    of GeneClass:
+      return GENE_NS.internal.ns["Class"].internal.class
+    of GeneFile:
+      return GENE_NS.internal.ns["File"].internal.class
+    else:
+      todo()
+  of GeneNilKind:
+    return GENE_NS.internal.ns["Nil"].internal.class
+  of GeneBool:
+    return GENE_NS.internal.ns["Bool"].internal.class
+  of GeneInt:
+    return GENE_NS.internal.ns["Int"].internal.class
+  of GeneChar:
+    return GENE_NS.internal.ns["Char"].internal.class
+  of GeneString:
+    return GENE_NS.internal.ns["String"].internal.class
+  of GeneSymbol:
+    return GENE_NS.internal.ns["Symbol"].internal.class
+  of GeneComplexSymbol:
+    return GENE_NS.internal.ns["ComplexSymbol"].internal.class
+  of GeneVector:
+    return GENE_NS.internal.ns["Array"].internal.class
+  of GeneMap:
+    return GENE_NS.internal.ns["Map"].internal.class
+  of GeneSet:
+    return GENE_NS.internal.ns["Set"].internal.class
+  of GeneGene:
+    return GENE_NS.internal.ns["Gene"].internal.class
+  of GeneRegex:
+    return GENE_NS.internal.ns["Regex"].internal.class
+  of GeneRange:
+    return GENE_NS.internal.ns["Range"].internal.class
+  else:
+    todo()
+
+proc is_a*(self: GeneValue, class: Class): bool =
+  var my_class = self.get_class
+  while true:
+    if my_class == class:
+      return true
+    if my_class.parent == nil:
+      return false
+    else:
+      my_class = my_class.parent
+
 #################### Pattern Matching ############
 
 proc new_match_matcher*(): RootMatcher =

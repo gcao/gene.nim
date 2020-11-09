@@ -12,6 +12,10 @@
   (method to_s _
     (call_native "gene_to_s" self)
   )
+
+  (method is cls
+    (call_native "gene_is" self cls)
+  )
 )
 
 (class gene/Class
@@ -35,6 +39,8 @@
   # (method extra _       # additional data related to the exception
   # )
 )
+
+(var global/Exception gene/Exception)
 
 (class gene/Nil
 )

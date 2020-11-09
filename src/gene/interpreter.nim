@@ -18,7 +18,6 @@ proc import_module*(self: VM, name: string, code: string): Namespace
 proc load_core_module*(self: VM)
 proc load_gene_module*(self: VM)
 proc load_genex_module*(self: VM)
-proc get_class*(self: VM, val: GeneValue): Class
 proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue)
@@ -96,47 +95,6 @@ proc load_gene_module*(self: VM) =
 
 proc load_genex_module*(self: VM) =
   discard self.import_module("genex", readFile("src/genex.gene"))
-
-proc get_class*(self: VM, val: GeneValue): Class =
-  case val.kind:
-  of GeneInternal:
-    case val.internal.kind:
-    of GeneInstance:
-      return val.internal.instance.class
-    of GeneClass:
-      return GENE_NS.internal.ns["Class"].internal.class
-    of GeneFile:
-      return GENE_NS.internal.ns["File"].internal.class
-    else:
-      todo()
-  of GeneNilKind:
-    return GENE_NS.internal.ns["Nil"].internal.class
-  of GeneBool:
-    return GENE_NS.internal.ns["Bool"].internal.class
-  of GeneInt:
-    return GENE_NS.internal.ns["Int"].internal.class
-  of GeneChar:
-    return GENE_NS.internal.ns["Char"].internal.class
-  of GeneString:
-    return GENE_NS.internal.ns["String"].internal.class
-  of GeneSymbol:
-    return GENE_NS.internal.ns["Symbol"].internal.class
-  of GeneComplexSymbol:
-    return GENE_NS.internal.ns["ComplexSymbol"].internal.class
-  of GeneVector:
-    return GENE_NS.internal.ns["Array"].internal.class
-  of GeneMap:
-    return GENE_NS.internal.ns["Map"].internal.class
-  of GeneSet:
-    return GENE_NS.internal.ns["Set"].internal.class
-  of GeneGene:
-    return GENE_NS.internal.ns["Gene"].internal.class
-  of GeneRegex:
-    return GENE_NS.internal.ns["Regex"].internal.class
-  of GeneRange:
-    return GENE_NS.internal.ns["Range"].internal.class
-  else:
-    todo()
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
@@ -669,7 +627,9 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
         var class = self.eval(frame, catch[0])
         if class == GenePlaceholder:
           class = GeneExceptionClass
-        if ex.instance.internal.instance.class == class.internal.class:
+        if ex.instance == nil:
+          raise
+        if ex.instance.is_a(class.internal.class):
           handled = true
           for e in catch[1]:
             result = self.eval(frame, e)
@@ -835,7 +795,7 @@ EvaluatorMgr[ExMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
 
 EvaluatorMgr[ExInvokeMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var instance = self.eval(frame, expr.invoke_self)
-  var class = self.get_class(instance)
+  var class = instance.get_class
   result = self.call_method(frame, instance, class, expr.invoke_meth, expr.invoke_args)
 
 EvaluatorMgr[ExSuper] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
@@ -877,7 +837,7 @@ EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
 
 EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var val = self.eval(frame, expr.get_class_val)
-  result = self.get_class(val)
+  result = val.get_class
 
 EvaluatorMgr[ExEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var old_self = frame.self
