@@ -661,12 +661,21 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
   try:
     for e in expr.try_body:
       result = self.eval(frame, e)
-  except:
+  except GeneException as ex:
+    var handled = false
     if expr.try_catches.len > 0:
       for catch in expr.try_catches:
-        # TODO: check whether the thrown exception matches exception in catch statement
-        for e in catch[1]:
-          result = self.eval(frame, e)
+        # check whether the thrown exception matches exception in catch statement
+        var class = self.eval(frame, catch[0])
+        if class == GenePlaceholder:
+          class = GeneExceptionClass
+        if ex.instance.internal.instance.class == class.internal.class:
+          handled = true
+          for e in catch[1]:
+            result = self.eval(frame, e)
+          break
+    if not handled:
+      raise
 
 EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   expr.fn.internal.fn.ns = frame.ns

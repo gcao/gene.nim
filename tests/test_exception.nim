@@ -37,15 +37,6 @@ import ./helpers
 #     # except:
 #     #   discard
 
-test_interpreter """
-  (try
-    (not_allowed)
-    1
-  catch _
-    2
-  )
-""", 2
-
 test_core """
   (try
     (throw)
