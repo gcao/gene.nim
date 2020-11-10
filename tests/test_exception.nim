@@ -69,3 +69,11 @@ test_core """
     3
   )
 """, 3
+
+test_core """
+  (try
+    (throw "test")
+  catch _
+    ($ex .message)
+  )
+""", "test"

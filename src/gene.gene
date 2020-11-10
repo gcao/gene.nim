@@ -34,6 +34,7 @@
 
 (class gene/Exception     # All exceptions should inherit from this class
   (method message _
+    (call_native "exception_message" self)
   )
 
   # (method extra _       # additional data related to the exception

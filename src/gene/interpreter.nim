@@ -605,7 +605,8 @@ EvaluatorMgr[ExThrow] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
       var instance = new_instance(class.internal.class)
       raise new_gene_exception(instance)
     elif class.kind == GeneString:
-      raise new_gene_exception(class.str)
+      var instance = new_instance(GeneExceptionClass.internal.class)
+      raise new_gene_exception(class.str, instance)
     else:
       todo()
   else:
@@ -620,6 +621,7 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
     for e in expr.try_body:
       result = self.eval(frame, e)
   except GeneException as ex:
+    self.def_member(frame, "$ex", new_gene_internal(ex), false)
     var handled = false
     if expr.try_catches.len > 0:
       for catch in expr.try_catches:

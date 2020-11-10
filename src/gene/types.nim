@@ -288,7 +288,7 @@ type
     of GeneFile:
       file*: File
     of GeneExceptionKind:
-      exception: CatchableError
+      exception*: ref CatchableError
     of GeneNativeProc:
       native_proc*: NativeProc
 
@@ -1594,6 +1594,12 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
+converter new_gene_internal*(ex: ref CatchableError): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneExceptionKind, exception: ex),
+  )
+
 proc new_gene_explode*(v: GeneValue): GeneValue =
   return GeneValue(
     kind: GeneInternal,
@@ -1805,6 +1811,16 @@ proc get_class*(val: GeneValue): Class =
       return GENE_NS.internal.ns["Class"].internal.class
     of GeneFile:
       return GENE_NS.internal.ns["File"].internal.class
+    of GeneExceptionKind:
+      var ex = val.internal.exception
+      if ex is GeneException:
+        var ex = cast[GeneException](ex)
+        if ex.instance != nil:
+          return ex.instance.internal.class
+        else:
+          return GeneExceptionClass.internal.class
+      else:
+        return GeneExceptionClass.internal.class
     else:
       todo()
   of GeneNilKind:

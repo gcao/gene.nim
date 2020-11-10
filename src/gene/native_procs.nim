@@ -29,6 +29,10 @@ proc init_native_procs*() =
     else:
       not_allowed($self & " is not a class.")
 
+  NativeProcs.add_only "exception_message", proc(args: seq[GeneValue]): GeneValue =
+    var ex = args[0].internal.exception
+    return ex.msg
+
   NativeProcs.add_only "str_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].str.len
 
