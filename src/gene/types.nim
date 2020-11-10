@@ -142,13 +142,6 @@ type
     options*: OrderedTable[AdviceOptionKind, GeneValue]
     logic*: Function
 
-  TargetWithAdvices* = ref object
-    target: GeneValue
-    before_advices*: seq[Advice]
-    after_advices*:  seq[Advice]
-    around_advices*: seq[Advice]
-    # invariants*:     seq[Advice] # invariants are added to before/after advices list
-
   # ClassAdviceKind* = enum
   #   ClPreProcess
   #   ClPreCondition  # if false is returned, throw PreconditionError
@@ -245,7 +238,6 @@ type
     GeneAspect
     GeneAdvice
     GeneAspectInstance
-    GeneTargetWithAdvices
     GeneExplode
     GeneFile
     GeneExceptionKind
@@ -281,8 +273,6 @@ type
       advice*: Advice
     of GeneAspectInstance:
       aspect_instance*: AspectInstance
-    of GeneTargetWithAdvices:
-      twa*: TargetWithAdvices
     of GeneExplode:
       explode*: GeneValue
     of GeneFile:
@@ -1384,11 +1374,6 @@ proc new_advice*(kind: AdviceKind, logic: Function): Advice =
     logic: logic,
   )
 
-proc new_target_with_advices*(target: GeneValue): TargetWithAdvices =
-  return TargetWithAdvices(
-    target: target,
-  )
-
 #################### Constructors ################
 
 proc new_gene_string*(s: string): GeneValue =
@@ -1594,7 +1579,10 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
-converter new_gene_internal*(ex: ref CatchableError): GeneValue =
+# Do not allow auto conversion between CatchableError and GeneValue
+# because there are sub-classes of CatchableError that need to be
+# handled differently.
+proc error_to_gene*(ex: ref CatchableError): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneExceptionKind, exception: ex),

@@ -621,7 +621,7 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
     for e in expr.try_body:
       result = self.eval(frame, e)
   except GeneException as ex:
-    self.def_member(frame, "$ex", new_gene_internal(ex), false)
+    self.def_member(frame, "$ex", error_to_gene(ex), false)
     var handled = false
     if expr.try_catches.len > 0:
       for catch in expr.try_catches:
