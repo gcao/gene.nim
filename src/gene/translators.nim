@@ -692,6 +692,9 @@ TranslatorMgr["$invoke_method"] = new_invoke_expr
 TranslatorMgr["mixin"         ] = new_mixin_expr
 TranslatorMgr["include"       ] = new_include_expr
 TranslatorMgr["call_native"   ] = new_call_native_expr
+TranslatorMgr["$parse"        ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExParse)
+  result.parse = new_expr(parent, node.gene.data[0])
 TranslatorMgr["eval"          ] = new_eval_expr
 TranslatorMgr["caller_eval"   ] = new_caller_eval_expr
 TranslatorMgr["match"         ] = new_match_expr

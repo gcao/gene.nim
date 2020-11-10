@@ -5,6 +5,7 @@
     [
       program
       (option ^^toggle -d --debug)
+      (option -r --run)
       (argument ^!required file)
     ]
     args

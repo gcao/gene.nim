@@ -841,6 +841,10 @@ EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {
   var val = self.eval(frame, expr.get_class_val)
   result = val.get_class
 
+EvaluatorMgr[ExParse] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var s = self.eval(frame, expr.parse).str
+  return read(s)
+
 EvaluatorMgr[ExEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var old_self = frame.self
   try:

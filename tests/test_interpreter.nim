@@ -301,3 +301,7 @@ test_interpreter """
   ($def_member "a" 1)
   a
 """, 1
+
+test_interpreter """
+  ($parse "1")
+""", 1
