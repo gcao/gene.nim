@@ -1,0 +1,14 @@
+#!/usr/bin/env gene
+
+(fn main args
+  ($parse_cmd_args
+    [
+      program
+      (option ^^toggle -d --debug)
+    ]
+    args
+  )
+  (println "Debug: " debug)
+)
+
+(main $cmd_args)

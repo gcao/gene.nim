@@ -1,4 +1,4 @@
-import strutils, tables, dynlib, unicode, hashes, sets, json
+import os, sequtils, strutils, tables, dynlib, unicode, hashes, sets, json
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
@@ -647,7 +647,7 @@ type
       print*: seq[Expr]
     of ExParseCmdArgs:
       cmd_args_schema*: ArgMatcherRoot
-      cmd_args*: GeneValue
+      cmd_args*: Expr
 
   VM* = ref object
     app*: Application
@@ -1683,6 +1683,8 @@ proc new_app*(): Application =
   GLOBAL_NS.internal.ns["stdin"]  = stdin
   GLOBAL_NS.internal.ns["stdout"] = stdout
   GLOBAL_NS.internal.ns["stderr"] = stderr
+  var cmd_args = command_line_params().map(str_to_gene)
+  GLOBAL_NS.internal.ns["$cmd_args"] = cmd_args
 
 var APP* = new_app()
 
