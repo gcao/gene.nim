@@ -19,6 +19,12 @@ import gene/parser
 import gene/interpreter
 import cmdline/option_parser
 
+# https://rosettacode.org/wiki/Handle_a_signal#Nim
+type KeyboardInterrupt = object of CatchableError
+proc handler() {.noconv.} =
+  raise newException(KeyboardInterrupt, "Keyboard Interrupt")
+setControlCHook(handler)
+
 proc setupLogger(debugging: bool) =
   var consoleLogger = newConsoleLogger()
   addHandler(consoleLogger)
@@ -59,10 +65,12 @@ proc main() =
 
     var vm = init_vm()
     var input = ""
+    var ctrl_c_caught = false
     while true:
       write(stdout, prompt("Gene> "))
       try:
         input = input & readLine(stdin)
+        ctrl_c_caught = false
         case input:
         of "":
           continue
@@ -82,6 +90,13 @@ proc main() =
         if e.msg.startsWith("EOF"):
           continue
         else:
+          input = ""
+      except KeyboardInterrupt:
+        if ctrl_c_caught:
+          quit_with(1, true)
+        else:
+          ctrl_c_caught = true
+          echo "\n"
           input = ""
       except Exception as e:
         input = ""
