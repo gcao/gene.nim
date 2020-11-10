@@ -289,3 +289,11 @@
 )
 
 (var global/assert gene/assert)
+
+(ns global/nim) # Namespace for Nim classes
+
+(class nim/CatchableError   # Base class for Nim exception classes
+  (method message _
+    (call_native "exception_message" self)
+  )
+)

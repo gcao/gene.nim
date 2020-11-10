@@ -1819,6 +1819,9 @@ proc get_class*(val: GeneValue): Class =
           return ex.instance.internal.class
         else:
           return GeneExceptionClass.internal.class
+      # elif ex is CatchableError:
+      #   var nim = GLOBAL_NS.internal.ns["nim"]
+      #   return nim.internal.ns["CatchableError"].internal.class
       else:
         return GeneExceptionClass.internal.class
     else:

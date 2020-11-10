@@ -3,10 +3,6 @@ import strutils, tables, osproc, json
 import ./types
 
 proc init_native_procs*() =
-  NativeProcs.add_only "CatchableError", proc(args: seq[GeneValue]): GeneValue =
-    todo()
-    # return CatchableError
-
   NativeProcs.add_only "object_is", proc(args: seq[GeneValue]): GeneValue =
     return args[0].is_a(args[1].internal.class)
 
