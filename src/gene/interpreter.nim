@@ -66,6 +66,13 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   else:
     return result
 
+proc eval_prepare*(self: VM): Frame =
+  var module = new_module()
+  return FrameMgr.get(FrModule, module.root_ns, new_scope())
+
+proc eval_only*(self: VM, frame: Frame, code: string): GeneValue =
+  return self.eval(frame, self.prepare(code))
+
 proc eval*(self: VM, code: string): GeneValue =
   var module = new_module()
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
@@ -866,6 +873,13 @@ EvaluatorMgr[ExMatch] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.in
 
 EvaluatorMgr[ExQuote] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   result = expr.quote_val
+
+EvaluatorMgr[ExExit] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  if expr.exit == nil:
+    quit()
+  else:
+    var code = self.eval(frame, expr.exit)
+    quit(code.int)
 
 EvaluatorMgr[ExEnv] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var env = self.eval(frame, expr.env)

@@ -452,6 +452,7 @@ type
     ExEval
     ExCallerEval
     ExMatch
+    ExExit
     ExEnv
     ExPrint
     ExParseCmdArgs
@@ -631,6 +632,8 @@ type
     of ExMatch:
       match_pattern*: GeneValue
       match_val*: Expr
+    of ExExit:
+      exit*: Expr
     of ExEnv:
       env*: Expr
       env_default*: Expr

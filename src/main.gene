@@ -5,11 +5,19 @@
     [
       program
       (option ^^toggle -d --debug)
+      # All includes and run are joined or run will replace #<REPLACE_ME># in includes
+      (option ^^multiple -i --include)
       (option -r --run)
       (argument ^!required file)
     ]
     args
   )
+
+  (if run
+    (eval ($parse run))
+    (exit)
+  )
+
   (if file
     (println "TODO: parse and evaluate file")
   else

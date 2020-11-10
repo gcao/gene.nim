@@ -701,6 +701,10 @@ TranslatorMgr["match"         ] = new_match_expr
 TranslatorMgr["quote"         ] = new_quote_expr
 # TranslatorMgr["..."           ] = new_explode_expr
 TranslatorMgr["env"           ] = new_env_expr
+TranslatorMgr["exit"          ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExExit)
+  if node.gene.data.len > 0:
+    result.exit = new_expr(parent, node.gene.data[0])
 TranslatorMgr["print"         ] = new_print_expr
 TranslatorMgr["println"       ] = new_print_expr
 TranslatorMgr["="             ] = new_assignment_expr

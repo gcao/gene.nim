@@ -170,3 +170,16 @@ test_core """
   (assert (second == 1))
   (assert (third == [2 3]))
 """
+
+test_core """
+  ($parse_cmd_args  # parse arguments and define members in current scope
+    [
+      program
+      (option ^^toggle -d --debug)
+      (option -r --run)
+      (argument ^!required file)
+    ]
+    ["program" "-r" "test"]
+  )
+  (assert (run == "test"))
+"""

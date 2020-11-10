@@ -58,23 +58,26 @@ proc main() =
       echo "The logger level is set to DEBUG."
 
     var vm = init_vm()
+    var frame = vm.eval_prepare()
     var input = ""
     while true:
       write(stdout, prompt("Gene> "))
       try:
         input = input & readLine(stdin)
+        input = input.strip
         case input:
         of "":
           continue
+        of "help":
+          echo "TODO"
         else:
           discard
 
-        var r = vm.eval(input)
+        var r = vm.eval_only(frame, input)
+        writeLine(stdout, r)
 
         # Reset input
         input = ""
-
-        writeLine(stdout, r)
       except EOFError:
         quit_with(0, true)
       except ParseError as e:
