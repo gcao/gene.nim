@@ -14,12 +14,12 @@
   )
 
   (if run
-    (eval ($parse run))
+    (eval (...($parse run)))
     (exit)
   )
 
   (if file
-    (println "TODO: parse and evaluate file")
+    (eval ($parse (gene/File/read file)))
   else
     (println "Welcome to interactive Gene!")
     (println "Note: press Ctrl-D to exit.")

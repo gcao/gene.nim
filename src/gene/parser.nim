@@ -505,7 +505,7 @@ proc read_delimited_list(p: var Parser, delimiter: char, is_recursive: bool): De
       p.bufpos = pos
       let node = m(p)
       if node != nil:
-        if ch == ';' and node.kind == GeneCommentLine:
+        if node.kind == GeneCommentLine:
           if with_comments:
             comment_lines.add(node.comment)
           else:
@@ -844,8 +844,8 @@ proc read_internal(p: var Parser): GeneValue =
 
 proc read*(p: var Parser): GeneValue =
   result = read_internal(p)
-  let noComments = p.options.comments_handling != KeepComments
-  while result != nil and noComments and result.kind == GeneCommentLine:
+  let no_comments = p.options.comments_handling != KeepComments
+  while result != nil and no_comments and result.kind == GeneCommentLine:
     result = read_internal(p)
 
 proc read*(s: Stream, filename: string): GeneValue =
