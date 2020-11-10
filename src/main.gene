@@ -5,10 +5,17 @@
     [
       program
       (option ^^toggle -d --debug)
+      (argument ^!required file)
     ]
     args
   )
-  (println "Debug: " debug)
+  (if file
+    (println "TODO: parse and evaluate file")
+  else
+    (println "Welcome to interactive Gene!")
+    (println "Note: press Ctrl-D to exit.")
+    (if debug (println "Debug mode is enabled."))
+  )
 )
 
 (main $cmd_args)

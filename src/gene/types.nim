@@ -1697,6 +1697,8 @@ converter to_bool*(v: GeneValue): bool =
     return false
   of GeneBool:
     return v.bool
+  of GeneString:
+    return v.str != ""
   else:
     return true
 
