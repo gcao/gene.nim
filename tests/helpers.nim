@@ -65,6 +65,11 @@ proc test_interpreter*(code: string, callback: proc(result: GeneValue)) =
     var interpreter = new_vm()
     callback interpreter.eval(code)
 
+proc test_parse_document*(code: string, callback: proc(result: GeneDocument)) =
+  var code = cleanup(code)
+  test "Parse document: " & code:
+    callback read_document(code)
+
 proc test_core*(code: string) =
   var code = cleanup(code)
   test "Interpreter / eval: " & code:

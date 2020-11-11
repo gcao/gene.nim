@@ -181,3 +181,9 @@ test_parser """
   #>>#
   #># 1
 """, 1
+
+# test_parse_document """
+#   ^name "Test document"
+#   1 2
+# """, proc(r: GeneDocument) =
+#   check r.props["name"] == "Test document"
