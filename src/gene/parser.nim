@@ -21,6 +21,7 @@ type
     token*: TokenKind
     error: ParseErrorKind
     # stored_references: Table[string, GeneValue]
+    document_props_done: bool  # flag to tell whether we have read document properties
 
   ParseError* = object of CatchableError
   ParseInfo = tuple[line, col: int]
@@ -57,6 +58,7 @@ var dispatch_macros: MacroArray
 
 #################### Interfaces ##################
 
+proc read*(self: var Parser): GeneValue
 proc read_internal(self: var Parser): GeneValue
 proc skip_comment(self: var Parser)
 proc skip_block_comment(self: var Parser)
@@ -64,6 +66,21 @@ proc skip_block_comment(self: var Parser)
 #################### Implementations #############
 
 converter to_int(c: char): int = result = ord(c)
+
+proc new_parser*(options: ParseOptions): Parser =
+  return Parser(
+    document: GeneDocument(),
+    options: options,
+  )
+
+proc new_parser*(): Parser =
+  return Parser(
+    document: GeneDocument(),
+    options: ParseOptions(
+      eof_is_error: false,
+      suppress_read: false,
+    ),
+  )
 
 proc non_constituent(c: char): bool =
   result = non_constituents.contains(c)
@@ -80,11 +97,9 @@ proc get_macro(ch: char): MacroReader =
 ### === ERROR HANDLING UTILS ===
 
 proc err_info(self: Parser): ParseInfo =
-  result = (self.line_number, get_col_number(self, self.bufpos))
+  result = (self.line_number, self.get_col_number(self.bufpos))
 
 ### === MACRO READERS ===
-
-proc read*(self: var Parser): GeneValue
 
 proc handle_hex_char(c: char, x: var int): bool =
   result = true
@@ -182,13 +197,13 @@ proc read_quoted_internal(self: var Parser, quote_name: string): GeneValue =
   result.gene.type = new_gene_symbol(quote_name)
   result.gene.data = @[quoted]
 
-proc read_quoted*(self: var Parser): GeneValue =
+proc read_quoted(self: var Parser): GeneValue =
   return self.read_quoted_internal("quote")
 
-# proc read_quasiquoted*(self: var Parser): GeneValue =
+# proc read_quasiquoted(self: var Parser): GeneValue =
 #   return self.read_quoted_internal("quasiquote")
 
-# proc read_unquoted*(self: var Parser): GeneValue =
+# proc read_unquoted(self: var Parser): GeneValue =
 #   return self.read_quoted_internal("unquote")
 
 proc skip_block_comment(self: var Parser) =
@@ -251,7 +266,7 @@ proc read_character(self: var Parser): GeneValue =
     raise new_exception(ParseError, "EOF while reading character")
 
   result = GeneValue(kind: GeneChar)
-  let token = read_token(self, false)
+  let token = self.read_token(false)
   if token.len == 1:
     result.char = token[0]
   elif token == "\\n" or token == "\\newline":
@@ -354,7 +369,6 @@ proc read_gene_type(self: var Parser): GeneValue =
         break
 
 proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue] =
-  result = OrderedTable[string, GeneValue]()
   var ch: char
   var key: string
   var state = PropState.PropKey
@@ -368,43 +382,38 @@ proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneVa
     case state:
     of PropKey:
       if ch == '^':
-        self.bufPos.inc
+        self.bufPos.inc()
         if self.buf[self.bufPos] == '^':
-          self.bufPos.inc
-          key = read_token(self, false)
+          self.bufPos.inc()
+          key = self.read_token(false)
           result[key] = GeneTrue
         elif self.buf[self.bufPos] == '!':
-          self.bufPos.inc
-          key = read_token(self, false)
+          self.bufPos.inc()
+          key = self.read_token(false)
           result[key] = GeneFalse
         else:
-          key = read_token(self, false)
+          key = self.read_token(false)
           state = PropState.PropValue
       elif part_of_gene:
         # Do not consume ')'
         # if ch == ')':
-        #   p.bufPos.inc
+        #   self.bufPos.inc()
         return
       elif ch == '}':
-        self.bufPos.inc
+        self.bufPos.inc()
         return
       else:
         raise new_exception(ParseError, "Expect key at " & $self.bufpos & " but found " & self.buf[self.bufpos])
     of PropState.PropValue:
-      if ch == '^':
+      if ch == EndOfFile or ch == '^':
         raise new_exception(ParseError, "Expect value for " & key)
       elif part_of_gene:
         if ch == ')':
           raise new_exception(ParseError, "Expect value for " & key)
-        else:
-          state = PropState.PropKey
-          result[key] = read(self)
-      else:
-        if ch == '}':
-          raise new_exception(ParseError, "Expect value for " & key)
-        else:
-          state = PropState.PropKey
-          result[key] = read(self)
+      elif ch == '}':
+        raise new_exception(ParseError, "Expect value for " & key)
+      state = PropState.PropKey
+      result[key] = self.read_internal()
 
 proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.
@@ -426,7 +435,7 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
         raise new_exception(ParseError, format(msg, delimiter, self.filename, self.line_number))
       else:
         map_found = true
-        result.map = read_map(self, true)
+        result.map = self.read_map(true)
         continue
 
     if ch == delimiter:
@@ -443,7 +452,7 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
         inc(count)
         list.add(node)
     else:
-      let node = read(self)
+      let node = self.read_internal()
       if node != nil:
         inc(count)
         list.add(node)
@@ -563,7 +572,7 @@ proc read_dispatch(self: var Parser): GeneValue =
   let m = dispatch_macros[ch]
   if m == nil:
     self.bufpos -= 1
-    var token = read_token(self, false)
+    var token = self.read_token(false)
     result = interpret_token(token)
   else:
     self.bufpos += 1
@@ -688,7 +697,7 @@ proc read_internal(self: var Parser): GeneValue =
   case ch
   of EndOfFile:
     if opts.eof_is_error:
-      let position = (self.line_number, get_col_number(self, self.bufpos))
+      let position = (self.line_number, self.get_col_number(self.bufpos))
       raise new_exception(ParseError, "EOF while reading " & $position)
     else:
       self.token = TkEof
@@ -713,43 +722,45 @@ proc read_internal(self: var Parser): GeneValue =
   else:
     result = interpret_token(token)
 
+proc read_document_properties(self: var Parser) =
+  if self.document_props_done:
+    return
+  else:
+    self.document_props_done = true
+  self.skip_ws()
+  var ch = self.buf[self.bufpos]
+  if ch == '^':
+    self.document.props = self.read_map(true)
+
 proc read*(self: var Parser): GeneValue =
+  self.read_document_properties()
   result = self.read_internal()
-  while result == nil:
-    result = self.read_internal()
 
-proc read*(s: Stream, filename: string): GeneValue =
-  var parser = Parser(
-    options: ParseOptions(
-      eof_is_error: true,
-      suppress_read: false,
-    )
-  )
-  parser.open(s, filename)
-  defer: parser.close()
-  result = parser.read()
+proc read*(self: var Parser, s: Stream, filename: string): GeneValue =
+  self.open(s, filename)
+  defer: self.close()
+  result = self.read()
 
-proc read*(buffer: string): GeneValue =
-  result = read(new_string_stream(buffer), "*input*")
-
-proc read*(buffer: string, options: ParseOptions): GeneValue =
-  var parser = Parser(options: options)
+proc read*(self: var Parser, buffer: string): GeneValue =
   var s = new_string_stream(buffer)
-  parser.open(s, "*input*")
-  defer: parser.close()
-  result = read(parser)
+  self.open(s, "<input>")
+  defer: self.close()
+  result = self.read()
 
-proc read_all*(buffer: string): seq[GeneValue] =
-  var parser = Parser()
+proc read_all*(self: var Parser, buffer: string): seq[GeneValue] =
   var s = new_string_stream(buffer)
-  parser.open(s, "*input*")
-  defer: parser.close()
-  while true:
-    var node = parser.read_internal()
-    if node == nil:
-      return result
+  self.open(s, "<input>")
+  defer: self.close()
+  self.read_document_properties()
+  var node = self.read_internal()
+  while node != nil:
+    result.add(node)
+    self.skip_ws()
+    if self.buf[self.bufpos] == EndOfFile:
+      break
     else:
-      result.add(node)
+      node = self.read_internal()
 
-proc read_document*(buffer: string): GeneDocument =
-  return new_doc(read_all(buffer))
+proc read_document*(self: var Parser, buffer: string): GeneDocument =
+  self.document.data = self.read_all(buffer)
+  return self.document

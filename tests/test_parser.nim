@@ -33,7 +33,7 @@ test_parser "n/A", new_gene_complex_symbol("n", @["A"])
 test_parser "n/m/A", new_gene_complex_symbol("n", @["m", "A"])
 test_parser "/A", new_gene_complex_symbol("", @["A"])
 test_parser "\\true", new_gene_symbol("true")
-test_parser "^a", new_gene_symbol("^a")
+# test_parser "^a", new_gene_symbol("^a")
 test_parser "symbol-👋", new_gene_symbol("symbol-👋")
 test_parser "+foo+", new_gene_symbol("+foo+")
 
@@ -174,8 +174,8 @@ test_parser """
   #># 1
 """, 1
 
-# test_parse_document """
-#   ^name "Test document"
-#   1 2
-# """, proc(r: GeneDocument) =
-#   check r.props["name"] == "Test document"
+test_parse_document """
+  ^name "Test document"
+  1 2
+""", proc(r: GeneDocument) =
+  check r.props["name"] == "Test document"
