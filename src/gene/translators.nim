@@ -594,7 +594,6 @@ proc new_expr*(parent: Expr, kind: ExprKind): Expr =
   )
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr =
-  node.strip_comments
   case node.kind:
   of GeneNilKind, GeneBool, GeneInt, GeneString:
     return new_literal_expr(parent, node)

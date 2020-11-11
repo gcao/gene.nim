@@ -90,13 +90,6 @@ test_parser "(1 ^!a 2 3)", proc(r: GeneValue) =
   check r.gene.props == {"a": GeneFalse}.toOrderedTable
   check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
-test_parser """
-  (
-    ;; comment in a list
-  )
-""", proc(r: GeneValue) =
-  check r.kind == GeneGene
-
 test_parser "{^^x ^!y ^^z}", proc(r: GeneValue) =
   check r.kind == GeneMap
   check r.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toOrderedTable
@@ -106,8 +99,8 @@ test_parser ":foo", proc(r: GeneValue) = # -> (quote foo)
   check r.gene.type == new_gene_symbol("quote")
   check r.gene.data == @[new_gene_symbol("foo")]
 
-test_parser "#_ [foo bar]", proc(r: GeneValue) =
-  check r == nil
+# test_parser "#_ [foo bar]", proc(r: GeneValue) =
+#   check r == nil
 
 test_parser "1/2", proc(r: GeneValue) =
   check r.kind == GeneRatio
@@ -118,7 +111,6 @@ test_parser "{^ratio -1/2}", proc(r: GeneValue) =
   check r.map["ratio"] == new_gene_ratio(-1, 2)
 
 test_parser_error "{^ratio 1/-2}"
-test_parser_error ";; foo bar"
 
 test_read_all """
   1 # comment

@@ -12,7 +12,6 @@ type
     eof_is_error*: bool
     eof_value*: GeneValue
     suppress_read*: bool
-    comments_handling*: CommentsHandling
 
   Parser* = object of BaseLexer
     options*: ParseOptions
@@ -40,10 +39,6 @@ type
     ErrQuoteExpected
     ErrRegexEndExpected
 
-  CommentsHandling* = enum
-    DiscardComments
-    KeepComments
-
   MacroReader = proc(p: var Parser): GeneValue
   MacroArray = array[char, MacroReader]
 
@@ -54,13 +49,17 @@ type
   DelimitedListResult = object
     list: seq[GeneValue]
     map: OrderedTable[string, GeneValue]
-    comment_lines: seq[string]
-    comment_placement: CommentPlacement
 
 const non_constituents = ['`', '~']
 
 var macros: MacroArray
 var dispatch_macros: MacroArray
+
+#################### Interfaces ##################
+
+proc read_internal(self: var Parser): GeneValue
+
+#################### Implementations #############
 
 converter to_int(c: char): int = result = ord(c)
 
@@ -190,7 +189,6 @@ proc read_quasiquoted*(self: var Parser): GeneValue =
 proc read_unquoted*(self: var Parser): GeneValue =
   return self.read_quoted_internal("unquote")
 
-# TODO: save comment like what read_comment does
 proc read_block_comment(self: var Parser): GeneValue =
   var pos = self.bufpos
   var buf = self.buf
@@ -208,45 +206,23 @@ proc read_block_comment(self: var Parser): GeneValue =
       inc(pos)
   self.bufpos = pos
   self.str = ""
-  return GeneValue(kind: GeneCommentLine, comment: "")
 
 proc read_comment(self: var Parser): GeneValue =
   var pos = self.bufpos
   var buf = self.buf
-  result = GeneValue(kind: GeneCommentLine)
-  if self.options.comments_handling == KeepComments:
-    while true:
-      case buf[pos]
-      of '\L':
-        pos = lexbase.handleLF(self, pos)
-        break
-      of '\c':
-        pos = lexbase.handleCR(self, pos)
-        break
-      of EndOfFile:
-        break
-        # raise new_exception(ParseError, "EOF while reading comment")
-      else:
-        add(self.str, buf[pos])
-        inc(pos)
-    self.bufpos = pos
-    result.comment = self.str
-    self.str = ""
-  else:
-    while true:
-      case buf[pos]
-      of '\L':
-        pos = lexbase.handleLF(self, pos)
-        break
-      of '\c':
-        pos = lexbase.handleCR(self, pos)
-        break
-      of EndOfFile:
-        break
-        # raise new_exception(ParseError, "EOF while reading comment")
-      else:
-        inc(pos)
-    self.bufpos = pos
+  while true:
+    case buf[pos]
+    of '\L':
+      pos = lexbase.handleLF(self, pos)
+      break
+    of '\c':
+      pos = lexbase.handleCR(self, pos)
+      break
+    of EndOfFile:
+      break
+    else:
+      inc(pos)
+  self.bufpos = pos
 
 proc read_token(self: var Parser, lead_constituent: bool): string =
   var pos = self.bufpos
@@ -337,21 +313,10 @@ proc interpret_token(token: string): GeneValue =
     if result == nil:
       raise new_exception(ParseError, "Invalid token: " & token)
 
-
-proc attach_comment_lines(node: GeneValue, comment_lines: seq[string], placement: CommentPlacement): void =
-  todo()
-  # var co = new(Comment)
-  # co.placement = placement
-  # co.comment_lines = comment_lines
-  # if node.comments.len == 0: node.comments = @[co]
-  # else: node.comments.add(co)
-
 proc read_gene_type(self: var Parser): GeneValue =
   var delimiter = ')'
   # the bufpos should be already be past the opening paren etc.
-  var comment_lines: seq[string] = @[]
   var count = 0
-  let with_comments = self.options.comments_handling == KeepComments
   while true:
     self.skip_ws()
     var pos = self.bufpos
@@ -364,10 +329,6 @@ proc read_gene_type(self: var Parser): GeneValue =
       # Do not increase position because we need to read other components in Gene
       # inc(pos)
       # p.bufpos = pos
-      # make sure any comments get attached
-      if with_comments and comment_lines.len > 0:
-        attach_comment_lines(result, comment_lines, After)
-        comment_lines = @[]
       break
 
     if is_macro(ch):
@@ -376,38 +337,13 @@ proc read_gene_type(self: var Parser): GeneValue =
       self.bufpos = pos
       result = m(self)
       if result != nil:
-        if ch == ';' and result.kind == GeneCommentLine:
-          if with_comments:
-            comment_lines.add(result.comment)
-          else:
-            discard
-        else:
-          inc(count)
-          # attach comments encountered before this node
-          if with_comments and comment_lines.len > 0:
-            attach_comment_lines(result, comment_lines, Before)
-            comment_lines = @[]
-          break
+        inc(count)
+        break
     else:
       result = self.read()
       if result != nil:
-        if with_comments:
-          case result.kind
-          of GeneCommentLine:
-            comment_lines.add(result.comment)
-          else:
-            if comment_lines.len > 0:
-              attach_comment_lines(result, comment_lines, Before)
-              comment_lines = @[]
-            inc(count)
-            break
-        else: # DiscardComments
-          case result.kind
-          of GeneCommentLine:
-            discard
-          else:
-            inc(count)
-            break
+        inc(count)
+        break
 
 proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue] =
   result = OrderedTable[string, GeneValue]()
@@ -421,9 +357,6 @@ proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneVa
       raise new_exception(ParseError, "EOF while reading Gene")
     elif ch == ']' or (part_of_gene and ch == '}') or (not part_of_gene and ch == ')'):
       raise new_exception(ParseError, "Unmatched delimiter: " & self.buf[self.bufpos])
-    elif ch == ';':
-      discard read_comment(self)
-      continue
     case state:
     of PropKey:
       if ch == '^':
@@ -470,9 +403,7 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
   var list: seq[GeneValue] = @[]
   var in_gene = delimiter == ')'
   var map_found = false
-  var comment_lines: seq[string] = @[]
   var count = 0
-  let with_comments = KeepComments == self.options.comments_handling
   while true:
     self.skip_ws()
     var pos = self.bufpos
@@ -493,11 +424,6 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
     if ch == delimiter:
       inc(pos)
       self.bufpos = pos
-      # make sure any comments get attached
-      if with_comments and list.len > 0 and comment_lines.len > 0:
-        var node = list[list.high]
-        attach_comment_lines(node, comment_lines, After)
-        comment_lines = @[]
       break
 
     if is_macro(ch):
@@ -506,60 +432,20 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
       self.bufpos = pos
       let node = m(self)
       if node != nil:
-        if node.kind == GeneCommentLine:
-          if with_comments:
-            comment_lines.add(node.comment)
-          else:
-            discard
-        else:
-          inc(count)
-          list.add(node)
-          # attach comments encountered before this node
-          if with_comments and comment_lines.len > 0:
-            attach_comment_lines(node, comment_lines, Before)
-            comment_lines = @[]
+        inc(count)
+        list.add(node)
     else:
       let node = read(self)
       if node != nil:
-        if with_comments:
-          case node.kind
-          of GeneCommentLine:
-            comment_lines.add(node.comment)
-          else:
-            if comment_lines.len > 0:
-              attach_comment_lines(node, comment_lines, Before)
-              comment_lines = @[]
-            inc(count)
-            list.add(node)
-        else: # DiscardComments
-          case node.kind
-          of GeneCommentLine:
-            discard
-          else:
-            inc(count)
-            list.add(node)
+        inc(count)
+        list.add(node)
 
-  if comment_lines.len == 0:
-    result.comment_lines = @[]
-  else:
-    result.comment_lines = comment_lines
-    result.comment_placement = Inside
   result.list = list
 
 proc add_line_col(self: var Parser, node: var GeneValue): void =
   discard
   # node.line = self.line_number
   # node.column = self.getColNumber(self.bufpos)
-
-proc maybe_add_comments(node: GeneValue, list_result: DelimitedListResult): GeneValue =
-  discard
-  # if list_result.comment_lines.len > 0:
-  #   var co = new(Comment)
-  #   co.placement = Inside
-  #   co.comment_lines = list_result.comment_lines
-  #   if node.comments.len == 0: node.comments = @[co]
-  #   else: node.comments.add(co)
-  #   return node
 
 proc read_gene(self: var Parser): GeneValue =
   result = GeneValue(kind: GeneGene, gene: Gene())
@@ -570,7 +456,6 @@ proc read_gene(self: var Parser): GeneValue =
   var result_list = self.read_delimited_list(')', true)
   result.gene.props = result_list.map
   result.gene.data = result_list.list
-  discard maybe_add_comments(result, result_list)
 
 proc read_map(self: var Parser): GeneValue =
   result = GeneValue(kind: GeneMap)
@@ -581,7 +466,6 @@ proc read_vector(self: var Parser): GeneValue =
   result = GeneValue(kind: GeneVector)
   let list_result = self.read_delimited_list(']', true)
   result.vec = list_result.list
-  discard maybe_add_comments(result, list_result)
 
 proc read_set(self: var Parser): GeneValue =
   result = GeneValue(
@@ -591,7 +475,6 @@ proc read_set(self: var Parser): GeneValue =
   let list_result = self.read_delimited_list(']', true)
   for item in list_result.list:
     result.set.incl(item)
-  discard maybe_add_comments(result, list_result)
 
 proc read_regex(self: var Parser): GeneValue =
   var pos = self.bufpos
@@ -663,9 +546,9 @@ proc read_regex(self: var Parser): GeneValue =
 proc read_unmatched_delimiter(self: var Parser): GeneValue =
   raise new_exception(ParseError, "Unmatched delimiter: " & self.buf[self.bufpos])
 
-proc read_discard(self: var Parser): GeneValue =
-  discard self.read()
-  result = nil
+# proc read_discard(self: var Parser): GeneValue =
+#   discard self.read()
+#   result = nil
 
 proc read_dispatch(self: var Parser): GeneValue =
   let ch = self.buf[self.bufpos]
@@ -674,29 +557,29 @@ proc read_dispatch(self: var Parser): GeneValue =
   elif ch == '\n':      # special case for "#\n"
     self.bufpos += 1
     self.str = ""
-    return GeneValue(kind: GeneCommentLine, comment: "")
   elif ch == '\r':      # special case "#\r\n"
     self.bufpos += 1
     if self.buf[self.bufpos] == '\n':
       self.bufpos += 1
     self.str = ""
-    return GeneValue(kind: GeneCommentLine, comment: "")
-
-  let m = dispatch_macros[ch]
-  if m == nil:
-    self.bufpos -= 1
-    var token = read_token(self, false)
-    result = interpret_token(token)
   else:
-    self.bufpos += 1
-    result = m(self)
+    let m = dispatch_macros[ch]
+    if m == nil:
+      self.bufpos -= 1
+      var token = read_token(self, false)
+      result = interpret_token(token)
+    else:
+      self.bufpos += 1
+      result = m(self)
+
+  if result == nil:
+    return self.read_internal()
 
 proc init_macro_array() =
   macros['"'] = read_string
   macros[':'] = read_quoted
   macros['\''] = read_character
   macros['`'] = read_quasi_quoted
-  macros[';'] = read_comment
   macros['~'] = read_unquoted
   macros['#'] = read_dispatch
   macros['('] = read_gene
@@ -711,7 +594,7 @@ proc init_dispatch_macro_array() =
   dispatch_macros['!'] = read_comment
   dispatch_macros[' '] = read_comment
   dispatch_macros['<'] = read_block_comment
-  dispatch_macros['_'] = read_discard
+  # dispatch_macros['_'] = read_discard
   dispatch_macros['/'] = read_regex
 
 proc init_readers() =
@@ -841,8 +724,7 @@ proc read_internal(self: var Parser): GeneValue =
 
 proc read*(self: var Parser): GeneValue =
   result = self.read_internal()
-  let no_comments = self.options.comments_handling != KeepComments
-  while result != nil and no_comments and result.kind == GeneCommentLine:
+  while result == nil:
     result = self.read_internal()
 
 proc read*(s: Stream, filename: string): GeneValue =
@@ -850,7 +732,6 @@ proc read*(s: Stream, filename: string): GeneValue =
     options: ParseOptions(
       eof_is_error: true,
       suppress_read: false,
-      comments_handling: DiscardComments,
     )
   )
   parser.open(s, filename)
@@ -876,8 +757,6 @@ proc read_all*(buffer: string): seq[GeneValue] =
     var node = parser.read_internal()
     if node == nil:
       return result
-    elif parser.options.comments_handling != KeepComments and node.kind == GeneCommentLine:
-      continue
     else:
       result.add(node)
 

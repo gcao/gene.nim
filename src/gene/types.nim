@@ -322,16 +322,6 @@ type
     GeneStream
     GeneInternal
     GeneAny
-    GeneCommentLine
-
-  CommentPlacement* = enum
-    Before
-    After
-    Inside
-
-  Comment* = ref object
-    placement*: CommentPlacement
-    comment_lines*: seq[string]
 
   GeneValue* {.acyclic.} = ref object
     case kind*: GeneKind
@@ -375,11 +365,8 @@ type
       internal*: Internal
     of GeneAny:
       any*: pointer
-    of GeneCommentLine:
-      comment*: string
     # line*: int
     # column*: int
-    # comments*: seq[Comment]
 
   GeneDocument* = ref object
     `type`: GeneValue
@@ -1244,8 +1231,6 @@ proc `==`*(this, that: GeneValue): bool =
       return this.vec == that.vec
     of GeneStream:
       return this.stream == that.stream
-    of GeneCommentLine:
-      return this.comment == that.comment
     of GeneRegex:
       return this.regex == that.regex
     of GeneRange:
@@ -1298,8 +1283,6 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.vec)
   of GeneStream:
     h = h !& hash(node.stream)
-  of GeneCommentLine:
-    h = h !& hash(node.comment)
   of GeneRegex:
     h = h !& hash(node.regex)
   of GeneRange:
@@ -1651,29 +1634,6 @@ proc merge*(self: var GeneValue, value: GeneValue) =
       todo()
   else:
     todo()
-
-proc strip_comments*(node: GeneValue) =
-  case node.kind:
-  of GeneVector:
-    var has_comments = false
-    var vec: seq[GeneValue] = @[]
-    for item in node.vec:
-      if item.kind != GeneCommentLine:
-        has_comments = true
-        vec.add(item)
-    if has_comments:
-      node.vec = vec
-  of GeneGene:
-    var has_comments = false
-    var vec: seq[GeneValue] = @[]
-    for item in node.gene.data:
-      if item.kind != GeneCommentLine:
-        has_comments = true
-        vec.add(item)
-    if has_comments:
-      node.gene.data = vec
-  else:
-    discard
 
 #################### Document ####################
 
