@@ -619,6 +619,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
     return new_complex_symbol_expr(parent, node)
   of GeneVector:
     return new_array_expr(parent, node)
+  of GeneStream:
+    return new_group_expr(parent, node.stream)
   of GeneMap:
     return new_map_expr(parent, node)
   of GeneGene:

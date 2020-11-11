@@ -319,6 +319,7 @@ type
     GeneVector
     GeneSet
     GeneGene
+    GeneStream
     GeneInternal
     GeneAny
     GeneCommentLine
@@ -368,6 +369,8 @@ type
       set*: OrderedSet[GeneValue]
     of GeneGene:
       gene*: Gene
+    of GeneStream:
+      stream*: seq[GeneValue]
     of GeneInternal:
       internal*: Internal
     of GeneAny:
@@ -1238,6 +1241,8 @@ proc `==`*(this, that: GeneValue): bool =
       return table_equals(this.map, that.map)
     of GeneVector:
       return this.vec == that.vec
+    of GeneStream:
+      return this.stream == that.stream
     of GeneCommentLine:
       return this.comment == that.comment
     of GeneRegex:
@@ -1290,6 +1295,8 @@ proc hash*(node: GeneValue): Hash =
       h = h !& hash(val)
   of GeneVector:
     h = h !& hash(node.vec)
+  of GeneStream:
+    h = h !& hash(node.stream)
   of GeneCommentLine:
     h = h !& hash(node.comment)
   of GeneRegex:
@@ -1450,6 +1457,12 @@ proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
   )
 
 proc new_gene_vec*(items: varargs[GeneValue]): GeneValue = new_gene_vec(@items)
+
+proc new_gene_stream*(items: seq[GeneValue]): GeneValue =
+  return GeneValue(
+    kind: GeneStream,
+    stream: items,
+  )
 
 proc new_gene_map*(): GeneValue =
   return GeneValue(

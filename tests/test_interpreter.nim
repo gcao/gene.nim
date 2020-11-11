@@ -303,5 +303,5 @@ test_interpreter """
 """, 1
 
 test_interpreter """
-  ($parse "1")
+  (eval ($parse "1"))
 """, 1
