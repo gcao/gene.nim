@@ -83,6 +83,7 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
     return self.modules[name]
   var module = new_module(name)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  self.def_member(frame, "$file", name, true)
   discard self.eval(frame, self.prepare(code))
   result = module.root_ns
   self.modules[name] = result
@@ -738,10 +739,17 @@ EvaluatorMgr[ExGlobal] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
 EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var ns: Namespace
   # If "from" is not given, import from parent of root namespace.
-  if expr.import_matcher.from == "":
+  var `from` = expr.import_from
+  if `from` == nil:
     ns = frame.ns.root.parent
   else:
-    ns = self.modules[expr.import_matcher.from]
+    var `from` = self.eval(frame, `from`).str
+    if self.modules.has_key(`from`):
+      ns = self.modules[`from`]
+    else:
+      var code = read_file(`from`)
+      ns = self.import_module(`from`, code)
+      self.modules[`from`] = ns
   self.import_from_ns(frame, ns, expr.import_matcher.children)
 
 EvaluatorMgr[ExStopInheritance] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =

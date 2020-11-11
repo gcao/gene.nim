@@ -14,7 +14,7 @@
   )
 
   (if run
-    (eval (...($parse run)))
+    (eval ($parse run))
     (exit)
   )
 

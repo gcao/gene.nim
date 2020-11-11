@@ -363,11 +363,14 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   result.ns_body = body
 
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
+  var matcher = new_import_matcher(val)
   result = Expr(
     kind: ExImport,
     parent: parent,
-    import_matcher: new_import_matcher(val),
+    import_matcher: matcher,
   )
+  if matcher.from != nil:
+    result.import_from = new_expr(result, matcher.from)
 
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var name = val.gene.data[0]

@@ -39,7 +39,7 @@ type
 
   ImportMatcherRoot* = ref object
     children*: seq[ImportMatcher]
-    `from`*: string
+    `from`*: GeneValue
 
   ImportMatcher* = ref object
     name*: string
@@ -611,6 +611,7 @@ type
       discard
     of ExImport:
       import_matcher*: ImportMatcherRoot
+      import_from*: Expr
     of ExStopInheritance:
       discard
     of ExCall:
@@ -2098,7 +2099,7 @@ proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatc
     case item.kind:
     of GeneSymbol:
       if item.symbol == "from":
-        self.from = data[i].str
+        self.from = data[i]
         i += 1
       else:
         group[].add(ImportMatcher(name: item.symbol))
