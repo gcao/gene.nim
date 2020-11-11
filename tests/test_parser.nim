@@ -125,12 +125,12 @@ test_read_all "a,b", proc(r: seq[GeneValue]) =
 
 test_read_all "1 2", @[new_gene_int(1), new_gene_int(2)]
 
-# TODO
-# test "Parse document":
-#   var doc: GeneDocument
-#   doc = read_document("1 2 3")
+test_parser """
+  [
+    1 # test
+  ]
+""", @[new_gene_int(1)]
 
-# TODO:
 test_parser """
   #
   # comment

@@ -58,6 +58,8 @@ var dispatch_macros: MacroArray
 #################### Interfaces ##################
 
 proc read_internal(self: var Parser): GeneValue
+proc skip_comment(self: var Parser)
+proc skip_block_comment(self: var Parser)
 
 #################### Implementations #############
 
@@ -183,13 +185,13 @@ proc read_quoted_internal(self: var Parser, quote_name: string): GeneValue =
 proc read_quoted*(self: var Parser): GeneValue =
   return self.read_quoted_internal("quote")
 
-proc read_quasiquoted*(self: var Parser): GeneValue =
-  return self.read_quoted_internal("quasiquote")
+# proc read_quasiquoted*(self: var Parser): GeneValue =
+#   return self.read_quoted_internal("quasiquote")
 
-proc read_unquoted*(self: var Parser): GeneValue =
-  return self.read_quoted_internal("unquote")
+# proc read_unquoted*(self: var Parser): GeneValue =
+#   return self.read_quoted_internal("unquote")
 
-proc read_block_comment(self: var Parser): GeneValue =
+proc skip_block_comment(self: var Parser) =
   var pos = self.bufpos
   var buf = self.buf
   while true:
@@ -207,7 +209,7 @@ proc read_block_comment(self: var Parser): GeneValue =
   self.bufpos = pos
   self.str = ""
 
-proc read_comment(self: var Parser): GeneValue =
+proc skip_comment(self: var Parser) =
   var pos = self.bufpos
   var buf = self.buf
   while true:
@@ -272,23 +274,29 @@ proc read_character(self: var Parser): GeneValue =
   else:
     raise new_exception(ParseError, "Unknown character: " & token)
 
-proc skip_ws(p: var Parser) =
+proc skip_ws(self: var Parser) =
   # commas are whitespace in gene collections
-  var pos = p.bufpos
-  var buf = p.buf
+  var buf = self.buf
   while true:
-    case buf[pos]
+    case buf[self.bufpos]
     of ' ', '\t', ',':
-      inc(pos)
+      inc(self.bufpos)
     of '\c':
-      pos = lexbase.handleCR(p, pos)
-      buf = p.buf
+      self.bufpos = lexbase.handleCR(self, self.bufpos)
+      buf = self.buf
     of '\L':
-      pos = lexbase.handleLF(p, pos)
-      buf = p.buf
+      self.bufpos = lexbase.handleLF(self, self.bufpos)
+      buf = self.buf
+    of '#':
+      case buf[self.bufpos + 1]:
+      of ' ', '!', '\r', '\n':
+        self.skip_comment()
+      of '<':
+        self.skip_block_comment()
+      else:
+        break
     else:
       break
-  p.bufpos = pos
 
 proc match_symbol(s: string): GeneValue =
   var s = s
@@ -552,35 +560,21 @@ proc read_unmatched_delimiter(self: var Parser): GeneValue =
 
 proc read_dispatch(self: var Parser): GeneValue =
   let ch = self.buf[self.bufpos]
-  if ch == EndOfFile:   # special case for "#<EOF>"
-    return
-  elif ch == '\n':      # special case for "#\n"
-    self.bufpos += 1
-    self.str = ""
-  elif ch == '\r':      # special case "#\r\n"
-    self.bufpos += 1
-    if self.buf[self.bufpos] == '\n':
-      self.bufpos += 1
-    self.str = ""
+  let m = dispatch_macros[ch]
+  if m == nil:
+    self.bufpos -= 1
+    var token = read_token(self, false)
+    result = interpret_token(token)
   else:
-    let m = dispatch_macros[ch]
-    if m == nil:
-      self.bufpos -= 1
-      var token = read_token(self, false)
-      result = interpret_token(token)
-    else:
-      self.bufpos += 1
-      result = m(self)
-
-  if result == nil:
-    return self.read_internal()
+    self.bufpos += 1
+    result = m(self)
 
 proc init_macro_array() =
   macros['"'] = read_string
   macros[':'] = read_quoted
   macros['\''] = read_character
-  macros['`'] = read_quasi_quoted
-  macros['~'] = read_unquoted
+  # macros['`'] = read_quasi_quoted
+  # macros['~'] = read_unquoted
   macros['#'] = read_dispatch
   macros['('] = read_gene
   macros['{'] = read_map
@@ -591,9 +585,6 @@ proc init_macro_array() =
 
 proc init_dispatch_macro_array() =
   dispatch_macros['['] = read_set
-  dispatch_macros['!'] = read_comment
-  dispatch_macros[' '] = read_comment
-  dispatch_macros['<'] = read_block_comment
   # dispatch_macros['_'] = read_discard
   dispatch_macros['/'] = read_regex
 
@@ -708,7 +699,7 @@ proc read_internal(self: var Parser): GeneValue =
     let m = macros[ch] # save line:col metadata here?
     inc(self.bufpos)
     return m(self)
-  elif ch in {'+', '-'}:
+  elif ch in ['+', '-']:
     if isDigit(self.buf[self.bufpos + 1]):
       return self.read_number()
     else:
