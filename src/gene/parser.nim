@@ -58,7 +58,6 @@ var dispatch_macros: MacroArray
 
 #################### Interfaces ##################
 
-proc read*(self: var Parser): GeneValue
 proc read_internal(self: var Parser): GeneValue
 proc skip_comment(self: var Parser)
 proc skip_block_comment(self: var Parser)
@@ -192,7 +191,7 @@ proc read_string(self: var Parser): GeneValue =
   self.str = ""
 
 proc read_quoted_internal(self: var Parser, quote_name: string): GeneValue =
-  let quoted = self.read()
+  let quoted = self.read_internal()
   result = GeneValue(kind: GeneGene, gene: Gene())
   result.gene.type = new_gene_symbol(quote_name)
   result.gene.data = @[quoted]
@@ -363,7 +362,7 @@ proc read_gene_type(self: var Parser): GeneValue =
         inc(count)
         break
     else:
-      result = self.read()
+      result = self.read_internal()
       if result != nil:
         inc(count)
         break
@@ -732,20 +731,16 @@ proc read_document_properties(self: var Parser) =
   if ch == '^':
     self.document.props = self.read_map(true)
 
-proc read*(self: var Parser): GeneValue =
-  self.read_document_properties()
-  result = self.read_internal()
-
 proc read*(self: var Parser, s: Stream, filename: string): GeneValue =
   self.open(s, filename)
   defer: self.close()
-  result = self.read()
+  result = self.read_internal()
 
 proc read*(self: var Parser, buffer: string): GeneValue =
   var s = new_string_stream(buffer)
   self.open(s, "<input>")
   defer: self.close()
-  result = self.read()
+  result = self.read_internal()
 
 proc read_all*(self: var Parser, buffer: string): seq[GeneValue] =
   var s = new_string_stream(buffer)
@@ -764,3 +759,19 @@ proc read_all*(self: var Parser, buffer: string): seq[GeneValue] =
 proc read_document*(self: var Parser, buffer: string): GeneDocument =
   self.document.data = self.read_all(buffer)
   return self.document
+
+proc read*(s: Stream, filename: string): GeneValue =
+  var parser = new_parser()
+  return parser.read(s, filename)
+
+proc read*(buffer: string): GeneValue =
+  var parser = new_parser()
+  return parser.read(buffer)
+
+proc read_all*(buffer: string): seq[GeneValue] =
+  var parser = new_parser()
+  return parser.read_all(buffer)
+
+proc read_document*(buffer: string): GeneDocument =
+  var parser = new_parser()
+  return parser.read_document(buffer)

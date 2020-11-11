@@ -48,8 +48,7 @@ proc new_vm*(): VM =
   result = new_vm(APP)
 
 proc prepare*(self: VM, code: string): Expr =
-  var parser = new_parser()
-  var parsed = parser.read_all(code)
+  var parsed = read_all(code)
   result = Expr(
     kind: ExRoot,
   )
@@ -859,8 +858,7 @@ EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {
 
 EvaluatorMgr[ExParse] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var s = self.eval(frame, expr.parse).str
-  var parser = new_parser()
-  return new_gene_stream(parser.read_all(s))
+  return new_gene_stream(read_all(s))
 
 EvaluatorMgr[ExEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var old_self = frame.self
