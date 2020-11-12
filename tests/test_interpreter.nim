@@ -33,16 +33,16 @@ test_interpreter """
   check r.gene.data[0] == 1
   check r.gene.data[1] == 2
 
-# test_interpreter """
-#   :(test
-#     %_(var a 1)
-#     %a
-#     2
-#   )
-# """, proc(r: GeneValue) =
-#   check r.gene.type == new_gene_symbol("test")
-#   check r.gene.data[0] == 1
-#   check r.gene.data[1] == 2
+test_interpreter """
+  :(test
+    %_(var a 1)
+    %a
+    2
+  )
+""", proc(r: GeneValue) =
+  check r.gene.type == new_gene_symbol("test")
+  check r.gene.data[0] == 1
+  check r.gene.data[1] == 2
 
 test_interpreter "(range 0 100)", proc(r: GeneValue) =
   check r.range_start == 0

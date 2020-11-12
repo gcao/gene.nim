@@ -104,6 +104,17 @@ test_parser "%foo", proc(r: GeneValue) = # -> (unquote foo)
   check r.gene.type == new_gene_symbol("unquote")
   check r.gene.data == @[new_gene_symbol("foo")]
 
+test_parser "%_foo", proc(r: GeneValue) = # -> (unquote foo)
+  check r.kind == GeneGene
+  check r.gene.type == new_gene_symbol("unquote")
+  check r.gene.props["discard"] == GeneTrue
+  check r.gene.data == @[new_gene_symbol("foo")]
+
+# TODO: %_ is not allowed on gene type and property value
+# (%_foo)         should throw error
+# (a ^name %_foo) should throw error
+# {^name %_foo}   should throw error
+
 # test_parser "#_ [foo bar]", proc(r: GeneValue) =
 #   check r == nil
 

@@ -191,10 +191,17 @@ proc read_string(self: var Parser): GeneValue =
   self.str = ""
 
 proc read_quoted_internal(self: var Parser, quote_name: string): GeneValue =
+  # Special logic for %_
+  var unquote_discard = false
+  if quote_name == "unquote" and self.buf[self.bufpos] == '_':
+    self.bufpos.inc()
+    unquote_discard = true
   let quoted = self.read_internal()
   result = GeneValue(kind: GeneGene, gene: Gene())
   result.gene.type = new_gene_symbol(quote_name)
   result.gene.data = @[quoted]
+  if unquote_discard:
+    result.gene.props["discard"] = true
 
 proc read_quoted(self: var Parser): GeneValue =
   return self.read_quoted_internal("quote")
