@@ -879,8 +879,38 @@ EvaluatorMgr[ExCallerEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
 EvaluatorMgr[ExMatch] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
 
+proc unquote(self: VM, frame: Frame, expr: Expr, val: GeneValue): GeneValue {.inline.} =
+  case val.kind:
+  of GeneVector:
+    result = new_gene_vec()
+    for item in val.vec:
+      result.vec.add(self.unquote(frame, expr, item))
+  of GeneMap:
+    result = new_gene_map()
+    for k, v in val.map:
+      result.map[k]= self.unquote(frame, expr, v)
+  of GeneGene:
+    if val.gene.type == Unquote:
+      var e = new_expr(expr, val.gene.data[0])
+      result = self.eval(frame, e)
+    else:
+      result = new_gene_gene(self.unquote(frame, expr, val.gene.type))
+      for k, v in val.gene.props:
+        result.gene.props[k]= self.unquote(frame, expr, v)
+      for item in val.gene.data:
+        result.gene.data.add(self.unquote(frame, expr, item))
+  of GeneSet:
+    todo()
+  of GeneSymbol:
+    return val
+  of GeneComplexSymbol:
+    return val
+  else:
+    return val
+
 EvaluatorMgr[ExQuote] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  result = expr.quote_val
+  var val = expr.quote_val
+  result = self.unquote(frame, expr, val)
 
 EvaluatorMgr[ExExit] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   if expr.exit == nil:

@@ -202,8 +202,8 @@ proc read_quoted(self: var Parser): GeneValue =
 # proc read_quasiquoted(self: var Parser): GeneValue =
 #   return self.read_quoted_internal("quasiquote")
 
-# proc read_unquoted(self: var Parser): GeneValue =
-#   return self.read_quoted_internal("unquote")
+proc read_unquoted(self: var Parser): GeneValue =
+  return self.read_quoted_internal("unquote")
 
 proc skip_block_comment(self: var Parser) =
   var pos = self.bufpos
@@ -582,7 +582,7 @@ proc init_macro_array() =
   macros[':'] = read_quoted
   macros['\''] = read_character
   # macros['`'] = read_quasi_quoted
-  # macros['~'] = read_unquoted
+  macros['%'] = read_unquoted
   macros['#'] = read_dispatch
   macros['('] = read_gene
   macros['{'] = read_map

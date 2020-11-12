@@ -438,6 +438,7 @@ type
     ExCallNative
     ExGetClass
     ExQuote
+    ExUnquote
     ExParse
     ExEval
     ExCallerEval
@@ -613,6 +614,8 @@ type
       get_class_val*: Expr
     of ExQuote:
       quote_val*: GeneValue
+    of ExUnquote:
+      unquote_val*: GeneValue
     of ExParse:
       parse*: Expr
     of ExEval:
@@ -817,6 +820,7 @@ let
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
 
   Quote*     = GeneValue(kind: GeneSymbol, symbol: "quote")
+  Unquote*   = GeneValue(kind: GeneSymbol, symbol: "unquote")
   If*        = GeneValue(kind: GeneSymbol, symbol: "if")
   Then*      = GeneValue(kind: GeneSymbol, symbol: "then")
   Elif*      = GeneValue(kind: GeneSymbol, symbol: "elif")

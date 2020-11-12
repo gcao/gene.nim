@@ -99,6 +99,11 @@ test_parser ":foo", proc(r: GeneValue) = # -> (quote foo)
   check r.gene.type == new_gene_symbol("quote")
   check r.gene.data == @[new_gene_symbol("foo")]
 
+test_parser "%foo", proc(r: GeneValue) = # -> (unquote foo)
+  check r.kind == GeneGene
+  check r.gene.type == new_gene_symbol("unquote")
+  check r.gene.data == @[new_gene_symbol("foo")]
+
 # test_parser "#_ [foo bar]", proc(r: GeneValue) =
 #   check r == nil
 

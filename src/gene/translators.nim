@@ -703,6 +703,9 @@ TranslatorMgr["eval"          ] = new_eval_expr
 TranslatorMgr["caller_eval"   ] = new_caller_eval_expr
 TranslatorMgr["match"         ] = new_match_expr
 TranslatorMgr["quote"         ] = new_quote_expr
+TranslatorMgr["unquote"       ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExExit)
+  result.unquote_val = node.gene.data[0]
 # TranslatorMgr["..."           ] = new_explode_expr
 TranslatorMgr["env"           ] = new_env_expr
 TranslatorMgr["exit"          ] = proc(parent: Expr, node: GeneValue): Expr =
