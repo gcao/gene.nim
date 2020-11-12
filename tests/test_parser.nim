@@ -179,3 +179,4 @@ test_parse_document """
   1 2
 """, proc(r: GeneDocument) =
   check r.props["name"] == "Test document"
+  check r.data == @[new_gene_int(1), new_gene_int(2)]
