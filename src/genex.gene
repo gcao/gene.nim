@@ -9,7 +9,55 @@
 )
 
 (ns genex/tests
+  (class TestFailure < gene/Exception
+  )
+
+  (class TestSuite
+    (method new [parent = nil, name]
+      (@parent = parent)
+      (@name = name)
+      (@tests = [])
+      (@setups = [])
+      (@teardowns = [])
+    )
+
+    (method add_test test
+      (@tests .add test)
+    )
+
+    (method run _
+      (for test in @tests
+        (test .run)
+      )
+    )
+  )
+
+  (class TestCase
+    (method new [parent = nil, name, body]
+      (@parent = parent)
+      (@name = name)
+      (@body = body)
+    )
+
+    (method run _
+      (@body)
+    )
+  )
+
   (macro suite [name code...]
+    (var success true)
+    (println name " running...")
+    (for e in code
+      (if not (caller_eval e)
+        (success = false)
+      )
+    )
+    (if success
+      (println name " [v]" )
+      true
+    else
+      (println name " [x]" )
+    )
   )
 
   (macro skip_suite [name code...]
@@ -17,17 +65,27 @@
 
   (macro test [name code...]
     (var success true)
+    (var messages [])
     (for e in code
       (try
         (caller_eval e)
       catch global/AssertionError   # TODO: AssertionError should work but doesn't for some reason
         (success = false)
+        (messages .add ($ex .message))
+      catch TestFailure
+        (success = false)
+        (messages .add ($ex .message))
+        (break)
       )
     )
     (if success
       (println "[v] " name)
+      true
     else
       (println "[x] " name)
+      (for mesg in messages
+        (println mesg)
+      )
     )
   )
 
@@ -35,7 +93,8 @@
     (println "Skipped " name)
   )
 
-  (macro fail message
+  (macro fail [message = ""]
+    (throw TestFailure message)
   )
 
   (macro setup code...
