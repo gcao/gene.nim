@@ -8,6 +8,8 @@
   )
 )
 
+# TODO: support mocking / stubbing, how?
+
 (ns genex/tests
   (class TestFailure < gene/Exception
   )

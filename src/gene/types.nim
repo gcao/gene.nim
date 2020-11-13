@@ -606,6 +606,7 @@ type
     of ExImport:
       import_matcher*: ImportMatcherRoot
       import_from*: Expr
+      import_native*: bool
     of ExStopInheritance:
       discard
     of ExCall:

@@ -1,4 +1,4 @@
-import tables, os, sequtils, strutils
+import tables, os, sequtils, strutils, dynlib
 
 import ./types
 import ./parser
@@ -761,19 +761,32 @@ EvaluatorMgr[ExGlobal] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
 
 EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var ns: Namespace
-  # If "from" is not given, import from parent of root namespace.
   var `from` = expr.import_from
-  if `from` == nil:
-    ns = frame.ns.root.parent
-  else:
-    var `from` = self.eval(frame, `from`).str
-    if self.modules.has_key(`from`):
-      ns = self.modules[`from`]
+  if expr.import_native:
+    var path = self.eval(frame, `from`).str
+    let lib = load_lib("tests/lib" & path & ".dylib")
+    if lib == nil:
+      todo()
     else:
-      var code = read_file(`from`)
-      ns = self.import_module(`from`, code)
-      self.modules[`from`] = ns
-  self.import_from_ns(frame, ns, expr.import_matcher.children)
+      for m in expr.import_matcher.children:
+        var v = lib.sym_addr(m.name)
+        if v == nil:
+          todo()
+        else:
+          self.def_member(frame, m.name, new_gene_internal(cast[NativeProc](v)), true)
+  else:
+    # If "from" is not given, import from parent of root namespace.
+    if `from` == nil:
+      ns = frame.ns.root.parent
+    else:
+      var `from` = self.eval(frame, `from`).str
+      if self.modules.has_key(`from`):
+        ns = self.modules[`from`]
+      else:
+        var code = read_file(`from`)
+        ns = self.import_module(`from`, code)
+        self.modules[`from`] = ns
+    self.import_from_ns(frame, ns, expr.import_matcher.children)
 
 EvaluatorMgr[ExStopInheritance] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   frame.ns.stop_inheritance = true

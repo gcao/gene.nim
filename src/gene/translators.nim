@@ -368,6 +368,7 @@ proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
     kind: ExImport,
     parent: parent,
     import_matcher: matcher,
+    import_native: val.gene.type.symbol == "import_native",
   )
   if matcher.from != nil:
     result.import_from = new_expr(result, matcher.from)
@@ -685,6 +686,7 @@ TranslatorMgr["before"        ] = new_advice_expr
 TranslatorMgr["after"         ] = new_advice_expr
 TranslatorMgr["ns"            ] = new_ns_expr
 TranslatorMgr["import"        ] = new_import_expr
+TranslatorMgr["import_native" ] = new_import_expr
 TranslatorMgr["$stop_inheritance"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExStopInheritance)
 TranslatorMgr["class"         ] = new_class_expr
