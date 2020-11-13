@@ -1,4 +1,4 @@
-import os, sequtils, strutils, tables, dynlib, unicode, hashes, sets, json
+import os, strutils, tables, dynlib, unicode, hashes, sets, json
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
@@ -17,6 +17,12 @@ type
 
   # index of a name in a scope
   NameIndexScope* = distinct int
+
+  Runtime* = ref object
+    name*: string     # default/...
+    home*: string     # GENE_HOME directory
+    version*: string
+    features*: Table[string, GeneValue]
 
   ## This is the root of a running application
   Application* = ref object
@@ -1643,22 +1649,6 @@ proc merge*(self: var GeneValue, value: GeneValue) =
 
 proc new_doc*(data: seq[GeneValue]): GeneDocument =
   return GeneDocument(data: data)
-
-#################### Application #################
-
-proc new_app*(): Application =
-  GLOBAL_NS = new_namespace("global")
-  GLOBAL_NS.internal.ns["global"] = GLOBAL_NS
-  result = Application(
-    ns: GLOBAL_NS.internal.ns,
-  )
-  GLOBAL_NS.internal.ns["stdin"]  = stdin
-  GLOBAL_NS.internal.ns["stdout"] = stdout
-  GLOBAL_NS.internal.ns["stderr"] = stderr
-  var cmd_args = command_line_params().map(str_to_gene)
-  GLOBAL_NS.internal.ns["$cmd_args"] = cmd_args
-
-var APP* = new_app()
 
 #################### Converters ##################
 

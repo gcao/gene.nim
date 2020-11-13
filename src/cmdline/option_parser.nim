@@ -1,7 +1,5 @@
 import parseopt
 
-import ../gene/types
-
 type
   Options* = ref object
     debugging*: bool

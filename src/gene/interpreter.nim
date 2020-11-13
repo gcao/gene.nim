@@ -12,6 +12,13 @@ type
 
 init_native_procs()
 
+let GENE_HOME*    = get_env("GENE_HOME", parent_dir(get_app_dir()))
+let GENE_RUNTIME* = Runtime(
+  home: GENE_HOME,
+  name: "default",
+  version: read_file("VERSION").strip(),
+)
+
 #################### Interfaces ##################
 
 proc import_module*(self: VM, name: string, code: string): Namespace
@@ -36,6 +43,22 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
 proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue
 
 #################### Implementations #############
+
+#################### Application #################
+
+proc new_app*(): Application =
+  GLOBAL_NS = new_namespace("global")
+  GLOBAL_NS.internal.ns["global"] = GLOBAL_NS
+  result = Application(
+    ns: GLOBAL_NS.internal.ns,
+  )
+  GLOBAL_NS.internal.ns["stdin"]  = stdin
+  GLOBAL_NS.internal.ns["stdout"] = stdout
+  GLOBAL_NS.internal.ns["stderr"] = stderr
+  var cmd_args = command_line_params().map(str_to_gene)
+  GLOBAL_NS.internal.ns["$cmd_args"] = cmd_args
+
+var APP* = new_app()
 
 #################### VM #########################
 
@@ -93,16 +116,16 @@ proc load_core_module*(self: VM) =
   GLOBAL_NS.internal.ns["gene"] = GENE_NS
   GENEX_NS = new_namespace("genex")
   GLOBAL_NS.internal.ns["genex"] = GENEX_NS
-  discard self.import_module("core", readFile("src/core.gene"))
+  discard self.import_module("core", readFile(GENE_HOME & "/src/core.gene"))
 
 proc load_gene_module*(self: VM) =
-  discard self.import_module("gene", readFile("src/gene.gene"))
+  discard self.import_module("gene", readFile(GENE_HOME & "/src/gene.gene"))
   GeneObjectClass    = GENE_NS["Object"]
   GeneClassClass     = GENE_NS["Class"]
   GeneExceptionClass = GENE_NS["Exception"]
 
 proc load_genex_module*(self: VM) =
-  discard self.import_module("genex", readFile("src/genex.gene"))
+  discard self.import_module("genex", readFile(GENE_HOME & "/src/genex.gene"))
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
