@@ -1,4 +1,4 @@
-import unittest, strutils
+import unittest, strutils, dynlib
 
 import gene/types
 import gene/parser
@@ -146,3 +146,13 @@ proc test_file*(file: string) =
     interpreter.load_gene_module()
     interpreter.load_genex_module()
     discard interpreter.eval(read_file(file))
+
+proc test_extension*(path: string, name: string, callback: proc(r: NativeProc)) =
+  test "Interpreter / eval - extension: " & path & "." & name:
+    let lib = load_lib("tests/lib" & path & ".dylib")
+    if lib == nil:
+      skip()
+    else:
+      let ext = lib.sym_addr(name)
+      if ext != nil:
+        callback cast[NativeProc](ext)
