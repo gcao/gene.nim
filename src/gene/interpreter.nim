@@ -63,6 +63,15 @@ GLOBAL_NS.internal.ns["$app"] = APP
 
 #################### Package #####################
 
+proc parse_deps(deps: seq[GeneValue]): Table[string, Package] =
+  for dep in deps:
+    var name = dep.gene.data[0].str
+    var version = dep.gene.data[1]
+    var location = dep.gene.props["location"]
+    var pkg = Package(name: name, version: version)
+    pkg.dir = location.str
+    result[name] = pkg
+
 proc new_package*(dir: string): Package =
   result = Package()
   var d = absolute_path(dir)
@@ -74,6 +83,7 @@ proc new_package*(dir: string): Package =
       result.version = doc.props["version"]
       result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
       result.dir = d
+      result.dependencies = parse_deps(doc.props["deps"].vec)
       result.ns["$pkg"] = result
       return result
     else:
@@ -798,6 +808,9 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
   if frame.ns.has_key("$pkg"):
     var pkg = frame.ns["$pkg"].internal.pkg
     dir = pkg.dir & "/"
+  # TODO: load import_pkg on demand
+  # Set dir to import_pkg's root directory
+
   var `from` = expr.import_from
   if expr.import_native:
     var path = self.eval(frame, `from`).str

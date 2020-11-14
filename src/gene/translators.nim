@@ -372,6 +372,8 @@ proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
   )
   if matcher.from != nil:
     result.import_from = new_expr(result, matcher.from)
+  if val.gene.props.has_key("pkg"):
+    result.import_pkg = new_expr(result, val.gene.props["pkg"])
 
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var name = val.gene.data[0]

@@ -33,14 +33,16 @@ type
     args*: seq[string]
 
   Package* = ref object
+    dir*: string          # Where the package assets are installed
     adhoc*: bool          # Adhoc package is created when package.gene is not found
     ns*: Namespace
     name*: string
     version*: GeneValue
     license*: GeneValue
-    source*: GeneValue # Git, Cenral repository, File system etc
-    dependencies*: seq[Package]
-    dir*: string
+    dependencies*: Table[string, Package]
+    homepage*: string
+    props*: Table[string, GeneValue]  # Additional properties
+    doc*: GeneDocument    # content of package.gene
 
   Module* = ref object
     pkg*: Package         # Package in which the module belongs, or stdlib if not set
@@ -616,6 +618,7 @@ type
     of ExImport:
       import_matcher*: ImportMatcherRoot
       import_from*: Expr
+      import_pkg*: Expr
       import_native*: bool
     of ExStopInheritance:
       discard
