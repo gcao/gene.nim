@@ -27,19 +27,23 @@ type
   ## This is the root of a running application
   Application* = ref object
     name*: string         # default to base name of command
-    # package*: Package   # Entry package for the application
+    pkg*: Package         # Entry package for the application
     ns*: Namespace
-    cmd*: string          # full command
+    cmd*: string
     args*: seq[string]
 
-  # Package* = ref object
-  #   ns*: Namespace
-  #   name*: string
-  #   version*: string
-  #   source*: GeneValue # Git, Cenral repository, File system etc
-  #   dependencies*: seq[Package]
+  Package* = ref object
+    adhoc*: bool          # Adhoc package is created when package.gene is not found
+    ns*: Namespace
+    name*: string
+    version*: GeneValue
+    license*: GeneValue
+    source*: GeneValue # Git, Cenral repository, File system etc
+    dependencies*: seq[Package]
+    dir*: string
 
   Module* = ref object
+    pkg*: Package         # Package in which the module belongs, or stdlib if not set
     name*: string
     root_ns*: Namespace
 
@@ -230,6 +234,8 @@ type
     value*: int
 
   GeneInternalKind* = enum
+    GeneApplication
+    GenePackage
     GeneFunction
     GeneMacro
     GeneBlock
@@ -251,6 +257,10 @@ type
 
   Internal* = ref object
     case kind*: GeneInternalKind
+    of GeneApplication:
+      app*: Application
+    of GenePackage:
+      pkg*: Package
     of GeneFunction:
       fn*: Function
     of GeneMacro:
@@ -930,6 +940,15 @@ proc new_module*(name: string): Module =
 proc new_module*(): Module =
   result = new_module("<unknown>")
 
+proc new_module*(ns: Namespace, name: string): Module =
+  result = Module(
+    name: name,
+    root_ns: new_namespace(ns),
+  )
+
+proc new_module*(ns: Namespace): Module =
+  result = new_module(ns, "<unknown>")
+
 #################### Namespace ###################
 
 proc new_namespace*(): Namespace =
@@ -1509,6 +1528,18 @@ converter new_gene_internal*(m: EnumMember): GeneValue =
     internal: Internal(kind: GeneEnumMember, enum_member: m),
   )
 
+converter new_gene_internal*(app: Application): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneApplication, app: app),
+  )
+
+converter new_gene_internal*(pkg: Package): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GenePackage, pkg: pkg),
+  )
+
 converter new_gene_internal*(fn: Function): GeneValue =
   return GeneValue(
     kind: GeneInternal,
@@ -1772,6 +1803,10 @@ proc get_class*(val: GeneValue): Class =
   case val.kind:
   of GeneInternal:
     case val.internal.kind:
+    of GeneApplication:
+      return GENE_NS.internal.ns["Application"].internal.class
+    of GenePackage:
+      return GENE_NS.internal.ns["Package"].internal.class
     of GeneInstance:
       return val.internal.instance.class
     of GeneClass:

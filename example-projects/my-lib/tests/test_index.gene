@@ -2,7 +2,12 @@
 
 (import genex/tests/[test skip_test])
 
-(import str_size from "src/index.gene")
+(println ($pkg .name))
+(import str_size from "src/index")
+
+(test "Package"
+  (assert (($pkg .name) == "my-lib"))
+)
 
 (test "str_size"
   (assert ((str_size "ab") == 2))

@@ -12,7 +12,7 @@
 # Ctrl-C to cancel current line
 # Ctrl-C Ctrl-C to exit
 
-import times, strutils, logging
+import times, strutils, logging, os
 
 import gene/types
 import gene/parser
@@ -96,8 +96,9 @@ proc main() =
   else:
     var vm = init_vm()
     var file = options.file
+    vm.init_package(parentDir(file))
     let start = cpuTime()
-    let result = vm.eval(readFile(file))
+    let result = vm.run_file(file)
     if options.print_result:
       echo result
     if options.benchmark:

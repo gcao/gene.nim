@@ -29,6 +29,9 @@ proc init_native_procs*() =
     var ex = args[0].internal.exception
     return ex.msg
 
+  NativeProcs.add_only "package_name", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].internal.pkg.name
+
   NativeProcs.add_only "str_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].str.len
 

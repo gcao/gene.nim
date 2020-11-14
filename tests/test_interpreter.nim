@@ -349,3 +349,8 @@ test_interpreter """
 test_interpreter """
   (eval ($parse "1"))
 """, 1
+
+test_interpreter """
+  $app
+""", proc(r: GeneValue) =
+  check r.internal.app.ns.name == "global"

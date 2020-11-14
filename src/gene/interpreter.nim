@@ -59,8 +59,33 @@ proc new_app*(): Application =
   GLOBAL_NS.internal.ns["$cmd_args"] = cmd_args
 
 var APP* = new_app()
+GLOBAL_NS.internal.ns["$app"] = APP
 
-#################### VM #########################
+#################### Package #####################
+
+proc new_package*(dir: string): Package =
+  result = Package()
+  var d = absolute_path(dir)
+  while d.len > 1:  # not "/"
+    var package_file = d & "/package.gene"
+    if file_exists(package_file):
+      echo package_file
+      var doc = read_document(package_file)
+      result.name = doc.props["name"].str
+      result.version = doc.props["version"]
+      result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
+      result.dir = d
+      result.ns["$pkg"] = result
+      return result
+    else:
+      d = parent_dir(d)
+
+  result.adhoc = true
+  result.ns = new_namespace(GLOBAL_NS, "package:<adhoc>")
+  result.dir = d
+  result.ns["$pkg"] = result
+
+#################### VM ##########################
 
 proc new_vm*(app: Application): VM =
   result = VM(
@@ -99,6 +124,15 @@ proc eval_only*(self: VM, frame: Frame, code: string): GeneValue =
 proc eval*(self: VM, code: string): GeneValue =
   var module = new_module()
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  return self.eval(frame, self.prepare(code))
+
+proc init_package*(self: VM, dir: string) =
+  APP.pkg = new_package(dir)
+
+proc run_file*(self: VM, file: string): GeneValue =
+  var module = new_module(APP.pkg.ns, file)
+  var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  var code = read_file(file)
   return self.eval(frame, self.prepare(code))
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
@@ -761,10 +795,14 @@ EvaluatorMgr[ExGlobal] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
 
 EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var ns: Namespace
+  var dir = ""
+  if frame.ns.has_key("$pkg"):
+    var pkg = frame.ns["$pkg"].internal.pkg
+    dir = pkg.dir & "/"
   var `from` = expr.import_from
   if expr.import_native:
     var path = self.eval(frame, `from`).str
-    let lib = load_lib("tests/lib" & path & ".dylib")
+    let lib = load_lib(dir & path & ".dylib")
     if lib == nil:
       todo()
     else:
@@ -783,7 +821,7 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
       if self.modules.has_key(`from`):
         ns = self.modules[`from`]
       else:
-        var code = read_file(`from`)
+        var code = read_file(dir & `from`)
         ns = self.import_module(`from`, code)
         self.modules[`from`] = ns
     self.import_from_ns(frame, ns, expr.import_matcher.children)

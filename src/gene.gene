@@ -239,6 +239,19 @@
 (class gene/Regex
 )
 
+(class gene/Application
+)
+
+(class gene/Package
+  (method name _
+    (call_native "package_name" self)
+  )
+
+  (method version _
+    (call_native "package_version" self)
+  )
+)
+
 (class gene/File
   (method new _
     (not_allowed "File objects can not be created with (new File ...)")

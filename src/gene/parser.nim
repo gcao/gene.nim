@@ -43,6 +43,11 @@ type
   MacroReader = proc(p: var Parser): GeneValue
   MacroArray = array[char, MacroReader]
 
+  MapKind = enum
+    MkMap
+    MkGene
+    MkDocument
+
   PropState = enum
     PropKey
     PropValue
@@ -374,7 +379,7 @@ proc read_gene_type(self: var Parser): GeneValue =
         inc(count)
         break
 
-proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneValue] =
+proc read_map(self: var Parser, mode: MapKind): OrderedTable[string, GeneValue] =
   var ch: char
   var key: string
   var state = PropState.PropKey
@@ -382,8 +387,11 @@ proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneVa
     self.skip_ws()
     ch = self.buf[self.bufpos]
     if ch == EndOfFile:
-      raise new_exception(ParseError, "EOF while reading Gene")
-    elif ch == ']' or (part_of_gene and ch == '}') or (not part_of_gene and ch == ')'):
+      if mode == MkDocument:
+        return result
+      else:
+        raise new_exception(ParseError, "EOF while reading Gene")
+    elif ch == ']' or (mode == MkGene and ch == '}') or (mode == MkMap and ch == ')'):
       raise new_exception(ParseError, "Unmatched delimiter: " & self.buf[self.bufpos])
     case state:
     of PropKey:
@@ -400,7 +408,7 @@ proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneVa
         else:
           key = self.read_token(false)
           state = PropState.PropValue
-      elif part_of_gene:
+      elif mode == MkGene or mode == MkDocument:
         # Do not consume ')'
         # if ch == ')':
         #   self.bufPos.inc()
@@ -413,7 +421,7 @@ proc read_map(self: var Parser, part_of_gene: bool): OrderedTable[string, GeneVa
     of PropState.PropValue:
       if ch == EndOfFile or ch == '^':
         raise new_exception(ParseError, "Expect value for " & key)
-      elif part_of_gene:
+      elif mode == MkGene:
         if ch == ')':
           raise new_exception(ParseError, "Expect value for " & key)
       elif ch == '}':
@@ -441,7 +449,7 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
         raise new_exception(ParseError, format(msg, delimiter, self.filename, self.line_number))
       else:
         map_found = true
-        result.map = self.read_map(true)
+        result.map = self.read_map(MkGene)
         continue
 
     if ch == delimiter:
@@ -482,7 +490,7 @@ proc read_gene(self: var Parser): GeneValue =
 
 proc read_map(self: var Parser): GeneValue =
   result = GeneValue(kind: GeneMap)
-  let map = self.read_map(false)
+  let map = self.read_map(MkMap)
   result.map = map
 
 proc read_vector(self: var Parser): GeneValue =
@@ -736,7 +744,7 @@ proc read_document_properties(self: var Parser) =
   self.skip_ws()
   var ch = self.buf[self.bufpos]
   if ch == '^':
-    self.document.props = self.read_map(true)
+    self.document.props = self.read_map(MkDocument)
 
 proc read*(self: var Parser, s: Stream, filename: string): GeneValue =
   self.open(s, filename)

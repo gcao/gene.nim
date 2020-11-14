@@ -192,6 +192,12 @@ test_parser """
 
 test_parse_document """
   ^name "Test document"
+""", proc(r: GeneDocument) =
+  check r.props["name"] == "Test document"
+  check r.data.len == 0
+
+test_parse_document """
+  ^name "Test document"
   1 2
 """, proc(r: GeneDocument) =
   check r.props["name"] == "Test document"
