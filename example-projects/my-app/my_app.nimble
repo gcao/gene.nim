@@ -13,4 +13,4 @@ bin           = @[]
 requires "nim >= 1.0.0"
 
 task buildext, "Build the Nim extension":
-  exec "nim c --app:lib --outdir:build/ src/index.nim"
+  exec "nim c --app:lib --outdir:build/ src/my_app.nim"

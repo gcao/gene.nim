@@ -1,6 +1,6 @@
 import dynlib
 
-import ./test_ext
+import ../src/my_app
 
 type
   test_dynamic = proc(s: string) {.nimcall.}

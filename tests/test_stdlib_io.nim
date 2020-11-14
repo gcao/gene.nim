@@ -17,8 +17,9 @@ test_core """
   (file .read)
 """, "line1\nline2"
 
-test_core """
-  (var f "tests/fixtures/file.gene")
-  (import file from f)
-  (assert (file == f))
-"""
+# TODO: file should be a file object
+# test_core """
+#   (var f "tests/fixtures/file.gene")
+#   (import file from f)
+#   (assert (file == f))
+# """
