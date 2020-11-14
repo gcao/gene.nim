@@ -69,8 +69,7 @@ proc new_package*(dir: string): Package =
   while d.len > 1:  # not "/"
     var package_file = d & "/package.gene"
     if file_exists(package_file):
-      echo package_file
-      var doc = read_document(package_file)
+      var doc = read_document(read_file(package_file))
       result.name = doc.props["name"].str
       result.version = doc.props["version"]
       result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
@@ -821,7 +820,7 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
       if self.modules.has_key(`from`):
         ns = self.modules[`from`]
       else:
-        var code = read_file(dir & `from`)
+        var code = read_file(dir & `from` & ".gene")
         ns = self.import_module(`from`, code)
         self.modules[`from`] = ns
     self.import_from_ns(frame, ns, expr.import_matcher.children)

@@ -2,7 +2,6 @@
 
 (import genex/tests/[test skip_test])
 
-(println ($pkg .name))
 (import str_size from "src/index")
 
 (test "Package"
