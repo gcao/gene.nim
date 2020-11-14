@@ -6,6 +6,9 @@ proc init_native_procs*() =
   NativeProcs.add_only "object_is", proc(args: seq[GeneValue]): GeneValue =
     return args[0].is_a(args[1].internal.class)
 
+  NativeProcs.add_only "object_to_json", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].to_json()
+
   NativeProcs.add_only "class_new", proc(args: seq[GeneValue]): GeneValue =
     var name = args[0].symbol_or_str
     result = new_class(name)

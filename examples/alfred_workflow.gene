@@ -1,0 +1,3 @@
+#!/usr/bin/env gene
+
+# Run "ls -l" and generate JSON data for Alfred Workflow

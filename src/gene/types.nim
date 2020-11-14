@@ -1383,6 +1383,30 @@ proc to_s*(self: GeneValue): string =
     of GeneString: self.str
     else: $self
 
+proc `%`*(self: GeneValue): JsonNode =
+  case self.kind:
+  of GeneNilKind:
+    return newJNull()
+  of GeneBool:
+    return %self.bool
+  of GeneInt:
+    return %self.int
+  of GeneString:
+    return %self.str
+  of GeneVector:
+    result = newJArray()
+    for item in self.vec:
+      result.add(%item)
+  of GeneMap:
+    result = newJObject()
+    for k, v in self.map:
+      result[k] = %v
+  else:
+    todo()
+
+proc to_json*(self: GeneValue): string =
+  return $(%self)
+
 #################### AOP #########################
 
 proc new_aspect*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Aspect =

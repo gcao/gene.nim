@@ -1,4 +1,19 @@
 (class genex/Http
+  # Support:
+  # HTTP
+  # HTTPS
+  # Get
+  # Post
+  # Put
+  # Basic auth
+  # Headers
+  # Cookies
+  # Query parameter
+  # Post body - application/x-www-form
+  # Post body - JSON
+  # Response code
+  # Response body
+  # Response body - JSON
 )
 
 # https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html
