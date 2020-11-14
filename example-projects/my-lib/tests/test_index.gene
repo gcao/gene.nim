@@ -2,12 +2,16 @@
 
 (import genex/tests/[test skip_test])
 
-(import str_size from "src/index")
+(import upcase, str_size from "src/index")
 
-(test "Package"
+(test "($pkg .name)"
   (assert (($pkg .name) == "my-lib"))
 )
 
 (test "str_size"
   (assert ((str_size "ab") == 2))
+)
+
+(test "native: upcase"
+  (assert ((upcase "ab") == "AB"))
 )

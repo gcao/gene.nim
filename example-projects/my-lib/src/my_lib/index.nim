@@ -1,11 +1,11 @@
-# import strutils
-# import gene/types
+import strutils
 
-# {.push dynlib exportc.}
+# Nimble does not support path to dependency yet
+import ../../../../src/gene/types
 
-# proc upcase(args: seq[GeneValue]): GeneValue =
-#   return args[0].to_upper()
+{.push dynlib exportc.}
 
-# {.pop.}
+proc upcase(args: seq[GeneValue]): GeneValue =
+  return args[0].str.to_upper()
 
-# Add to package namespace
+{.pop.}
