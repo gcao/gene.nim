@@ -75,7 +75,6 @@ Normalizers.add proc(self: GeneValue): bool =
           names.add(val)
       self.gene.props["names"] = new_gene_vec(names)
       self.gene.props["module"] = module
-      self.gene.props["pkg"] = self.gene.props["pkg"]
       return true
 
 Normalizers.add proc(self: GeneValue): bool =

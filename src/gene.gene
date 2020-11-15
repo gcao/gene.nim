@@ -3,6 +3,16 @@
     (println message)
   )
 )
+(var global/assert gene/assert)
+
+(macro gene/debug [expr]
+  (var s (expr .to_s))
+  (println s " begin")
+  (var result (caller_eval expr))
+  (println s " end => " result)
+  result
+)
+(var global/debug gene/debug)
 
 (fn gene/base64 s
   (call_native "base64" s)
@@ -297,14 +307,6 @@
 )
 
 (var global/AssertionError gene/AssertionError)
-
-(macro gene/assert [expr mesg = ""]
-  (if not (caller_eval expr)
-    (throw AssertionError ("AssertionError with " expr ": " mesg))
-  )
-)
-
-(var global/assert gene/assert)
 
 (ns global/nim) # Namespace for Nim classes
 
