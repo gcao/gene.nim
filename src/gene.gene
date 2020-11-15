@@ -4,6 +4,10 @@
   )
 )
 
+(fn gene/base64 s
+  (call_native "base64" s)
+)
+
 (class gene/Object
   (method class _
     ($get_class self)

@@ -1,4 +1,4 @@
-import strutils, tables, osproc, json
+import strutils, tables, osproc, json, httpclient, base64
 
 import ./types
 
@@ -180,3 +180,15 @@ proc init_native_procs*() =
 
   NativeProcs.add_only "json_parse", proc(args: seq[GeneValue]): GeneValue =
     return args[0].str.parse_json
+
+  NativeProcs.add_only "http_get", proc(args: seq[GeneValue]): GeneValue =
+    var url = args[0].str
+    var headers = newHttpHeaders()
+    for k, v in args[2].map:
+      headers.add(k, v.str)
+    var client = newHttpClient()
+    client.headers = headers
+    return client.get_content(url)
+
+  NativeProcs.add_only "base64", proc(args: seq[GeneValue]): GeneValue =
+    return encode(args[0].str)

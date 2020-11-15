@@ -1,1 +1,18 @@
 #!/usr/bin/env gene
+
+#< USAGE:
+examples/http.gene | json_pp
+#>#
+
+(var base_url "https://jira.vonage.com/rest/api/2")
+(var user "gcao")
+(var pass ((gene/File/read ((env "HOME") "/temp/1")).trim))
+(var headers {
+  ^Authorization ("Basic " (gene/base64 (user ":" pass)))
+})
+
+(println
+  (genex/http/get
+    (base_url "/issue/ZEUS-5427?fields=status,summary,assignee,customfield_10005,customfield_100020")
+    {}
+    headers))

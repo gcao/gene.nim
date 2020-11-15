@@ -1,4 +1,4 @@
-(class genex/Http
+(ns genex/http
   # Support:
   # HTTP
   # HTTPS
@@ -14,6 +14,21 @@
   # Response code
   # Response body
   # Response body - JSON
+
+  (fn get [url params = {} headers = {}]
+    (call_native "http_get" url params headers)
+  )
+
+  (class Response
+    (method new [code body]
+      (@code = code)
+      (@body = body)
+    )
+
+    (method json _
+      ((gene/Json/parse @body) .to_json)
+    )
+  )
 )
 
 # https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html
