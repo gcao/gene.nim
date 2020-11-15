@@ -235,6 +235,9 @@ type
     name*: string
     value*: int
 
+  Future* = ref object
+    discard
+
   GeneInternalKind* = enum
     GeneApplication
     GenePackage
@@ -255,6 +258,7 @@ type
     GeneExplode
     GeneFile
     GeneExceptionKind
+    GeneFuture
     GeneNativeProc
 
   Internal* = ref object
@@ -297,6 +301,8 @@ type
       file*: File
     of GeneExceptionKind:
       exception*: ref CatchableError
+    of GeneFuture:
+      future*: Future
     of GeneNativeProc:
       native_proc*: NativeProc
 
