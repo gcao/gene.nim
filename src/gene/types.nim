@@ -847,6 +847,9 @@ let
   Else*      = GeneValue(kind: GeneSymbol, symbol: "else")
   Not*       = GeneValue(kind: GeneSymbol, symbol: "not")
   Equal*     = GeneValue(kind: GeneSymbol, symbol: "=")
+  Try*       = GeneValue(kind: GeneSymbol, symbol: "try")
+  Catch*     = GeneValue(kind: GeneSymbol, symbol: "catch")
+  Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
 
 var NativeProcs* = NativeProcsType()
 
@@ -1752,6 +1755,16 @@ converter to_aspect*(node: GeneValue): Aspect =
 
   return new_aspect(name, matcher, body)
 
+proc wrap_with_try*(body: seq[GeneValue]): seq[GeneValue] =
+  var found_catch_or_finally = false
+  for item in body:
+    if item == Catch or item == Finally:
+      found_catch_or_finally = true
+  if found_catch_or_finally:
+    return @[new_gene_gene(Try, body)]
+  else:
+    return body
+
 converter to_function*(node: GeneValue): Function =
   case node.kind:
   of GeneInternal:
@@ -1774,6 +1787,7 @@ converter to_function*(node: GeneValue): Function =
     for i in 2..<node.gene.data.len:
       body.add node.gene.data[i]
 
+    body = wrap_with_try(body)
     return new_fn(name, matcher, body)
   else:
     not_allowed()
@@ -1793,6 +1807,7 @@ converter to_macro*(node: GeneValue): Macro =
   for i in 2..<node.gene.data.len:
     body.add node.gene.data[i]
 
+  body = wrap_with_try(body)
   return new_macro(name, matcher, body)
 
 converter to_block*(node: GeneValue): Block =
@@ -1803,6 +1818,7 @@ converter to_block*(node: GeneValue): Block =
   for i in 0..<node.gene.data.len:
     body.add node.gene.data[i]
 
+  body = wrap_with_try(body)
   return new_block(matcher, body)
 
 converter json_to_gene*(node: JsonNode): GeneValue =

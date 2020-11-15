@@ -6,7 +6,7 @@
 (var s ((gene/os/exec "ls").trim))
 (println ({
   ^items
-    ((s .split "\n") .map
+    ((s .lines) .map
       (item -> {^title item})
     )
 }.to_json))

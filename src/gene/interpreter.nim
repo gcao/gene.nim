@@ -710,6 +710,11 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
           for e in catch[1]:
             result = self.eval(frame, e)
           break
+    for e in expr.try_finally:
+      try:
+        discard self.eval(frame, e)
+      except Return, Break:
+        discard
     if not handled:
       raise
 

@@ -107,6 +107,10 @@
     )
   )
 
+  (method lines _
+    (self .split "\n")
+  )
+
   (method index s
     (call_native "str_index" self s)
   )

@@ -170,7 +170,9 @@ proc new_do_expr*(parent: Expr, node: GeneValue): Expr =
   )
   for k, v in node.gene.props:
     result.do_props.add(new_map_key_expr(result, k, v))
-  for item in node.gene.data:
+  var data = node.gene.data
+  data = wrap_with_try(data)
+  for item in data:
     result.do_body.add(new_expr(result, item))
 
 proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
@@ -249,7 +251,7 @@ proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
       if item == CATCH:
         state = TryCatch
       elif item == FINALLY:
-        todo()
+        state = TryFinally
       else:
         result.try_body.add(new_expr(result, item))
     of TryCatch:
@@ -271,11 +273,12 @@ proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
       else:
         catch_body.add(new_expr(result, item))
     of TryFinally:
-      todo()
+      result.try_finally.add(new_expr(result, item))
   if state in [TryCatch, TryCatchBody]:
     result.try_catches.add((catch_exception, catch_body))
   elif state == TryFinally:
-    todo()
+    if catch_exception != nil:
+      result.try_catches.add((catch_exception, catch_body))
 
 # Create expressions for default values
 proc update_matchers*(fn: Function, group: seq[Matcher]) =
