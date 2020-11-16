@@ -32,48 +32,54 @@ proc prompt(message: string): string =
 proc error(message: string): string =
   return "\u001B[31m" & message & "\u001B[0m"
 
-proc repl*(self: VM, frame: Frame, eval: Eval) =
+proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
   echo "Welcome to interactive Gene!"
   echo "Note: press Ctrl-D to exit."
 
   set_control_c_hook(handler)
-  var input = ""
-  while true:
-    stdout.write(prompt("Gene> "))
-    try:
-      input = input & stdin.read_line()
-      input = input.strip()
-      case input:
-      of "":
-        continue
-      of "help":
-        echo "TODO"
+  try:
+    var input = ""
+    while true:
+      stdout.write(prompt("Gene> "))
+      try:
+        input = input & stdin.read_line()
+        input = input.strip()
+        case input:
+        of "":
+          continue
+        of "help":
+          echo "TODO"
+          input = ""
+          continue
+        of "exit", "quit":
+          quit(0)
+        else:
+          discard
+
+        result = eval(self, frame, input)
+        stdout.write_line(result)
+
+        # Reset input
         input = ""
-        continue
-      else:
-        discard
-
-      var r = eval(self, frame, input)
-      stdout.write_line(r)
-
-      # Reset input
-      input = ""
-    except EOFError:
-      break
-    except ParseError as e:
-      # Incomplete expression
-      if e.msg.starts_with("EOF"):
-        continue
-      else:
+      except EOFError:
+        break
+      except ParseError as e:
+        # Incomplete expression
+        if e.msg.starts_with("EOF"):
+          continue
+        else:
+          input = ""
+      except KeyboardInterrupt:
+        echo()
         input = ""
-    except KeyboardInterrupt:
-      echo()
-      input = ""
-    except Exception as e:
-      input = ""
-      var s = e.get_stack_trace()
-      s.strip_line_end()
-      echo s
-      echo error("$#: $#" % [$e.name, $e.msg])
-
-  unset_control_c_hook()
+      except CatchableError as e:
+        result = GeneNil
+        input = ""
+        var s = e.get_stack_trace()
+        s.strip_line_end()
+        echo s
+        echo error("$#: $#" % [$e.name, $e.msg])
+  finally:
+    unset_control_c_hook()
+  if not return_value:
+    return GeneNil

@@ -37,7 +37,7 @@ proc main() =
   var vm = init_vm()
   if options.repl:
     var frame = vm.eval_prepare()
-    repl(vm, frame, eval_only)
+    discard repl(vm, frame, eval_only, false)
   else:
     var file = options.file
     vm.init_package(parent_dir(file))

@@ -1174,7 +1174,7 @@ EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
     todo()
 
 EvaluatorMgr[ExRepl] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  repl(self, frame, eval_only)
+  return repl(self, frame, eval_only, true)
 
 when isMainModule:
   import os, times
