@@ -12,7 +12,7 @@
 # Ctrl-C to cancel current line
 # Ctrl-C Ctrl-C to exit
 
-import times, strutils, logging, os
+import times, strutils, logging, os, posix
 
 import gene/types
 import gene/parser
@@ -22,15 +22,21 @@ import cmdline/option_parser
 # https://rosettacode.org/wiki/Handle_a_signal#Nim
 type KeyboardInterrupt = object of CatchableError
 proc handler() {.noconv.} =
-  raise newException(KeyboardInterrupt, "Keyboard Interrupt")
-setControlCHook(handler)
+  var nmask, omask: Sigset
+  discard sigemptyset(nmask)
+  discard sigemptyset(omask)
+  discard sigaddset(nmask, SIGINT)
+  if sigprocmask(SIG_UNBLOCK, nmask, omask) == -1:
+    raiseOSError(osLastError())
+  raise new_exception(KeyboardInterrupt, "Keyboard Interrupt")
+set_control_chook(handler)
 
-proc setupLogger(debugging: bool) =
-  var consoleLogger = newConsoleLogger()
-  addHandler(consoleLogger)
-  consoleLogger.levelThreshold = Level.lvlInfo
+proc setup_logger(debugging: bool) =
+  var console_logger = new_console_logger()
+  add_handler(console_logger)
+  console_logger.level_threshold = Level.lvlInfo
   if debugging:
-    consoleLogger.levelThreshold = Level.lvlDebug
+    console_logger.level_threshold = Level.lvlDebug
 
 proc quit_with*(errorcode: int, newline = false) =
   if newline:
@@ -53,8 +59,8 @@ proc init_vm(): VM =
   result.load_genex_module()
 
 proc main() =
-  var options = parseOptions()
-  setupLogger(options.debugging)
+  var options = parse_options()
+  setup_logger(options.debugging)
 
   if options.repl:
     echo "Welcome to interactive Gene!"
@@ -70,7 +76,7 @@ proc main() =
     while true:
       write(stdout, prompt("Gene> "))
       try:
-        input = input & readLine(stdin)
+        input = input & read_line(stdin)
         input = input.strip
         ctrl_c_caught = false
         case input:
@@ -82,7 +88,7 @@ proc main() =
           discard
 
         var r = vm.eval_only(frame, input)
-        writeLine(stdout, r)
+        write_line(stdout, r)
 
         # Reset input
         input = ""
@@ -90,7 +96,7 @@ proc main() =
         quit_with(0, true)
       except ParseError as e:
         # Incomplete expression
-        if e.msg.startsWith("EOF"):
+        if e.msg.starts_with("EOF"):
           continue
         else:
           input = ""
@@ -99,25 +105,25 @@ proc main() =
           quit_with(1, true)
         else:
           ctrl_c_caught = true
-          echo "\n"
+          echo()
           input = ""
       except Exception as e:
         input = ""
         var s = e.getStackTrace()
-        s.stripLineEnd
+        s.strip_line_end()
         echo s
         echo error("$#: $#" % [$e.name, $e.msg])
 
   else:
     var vm = init_vm()
     var file = options.file
-    vm.init_package(parentDir(file))
-    let start = cpuTime()
+    vm.init_package(parent_dir(file))
+    let start = cpu_time()
     let result = vm.run_file(file)
     if options.print_result:
       echo result
     if options.benchmark:
-      echo "Time: " & $(cpuTime() - start)
+      echo "Time: " & $(cpu_time() - start)
 
 when isMainModule:
   main()
