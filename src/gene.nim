@@ -8,9 +8,7 @@
 # https://stackoverflow.com/questions/61079605/how-to-write-a-text-prompt-in-nim-that-has-readline-style-line-editing
 # https://github.com/jangko/nim-noise
 #
-# TODO:
-# Ctrl-C to cancel current line
-# Ctrl-C Ctrl-C to exit
+# Ctrl-C to cancel current input
 
 import times, strutils, logging, os, posix
 
@@ -72,13 +70,11 @@ proc main() =
     var vm = init_vm()
     var frame = vm.eval_prepare()
     var input = ""
-    var ctrl_c_caught = false
     while true:
       write(stdout, prompt("Gene> "))
       try:
         input = input & read_line(stdin)
         input = input.strip
-        ctrl_c_caught = false
         case input:
         of "":
           continue
@@ -101,12 +97,8 @@ proc main() =
         else:
           input = ""
       except KeyboardInterrupt:
-        if ctrl_c_caught:
-          quit_with(1, true)
-        else:
-          ctrl_c_caught = true
-          echo()
-          input = ""
+        echo()
+        input = ""
       except Exception as e:
         input = ""
         var s = e.getStackTrace()
