@@ -71,20 +71,21 @@ proc main() =
     var frame = vm.eval_prepare()
     var input = ""
     while true:
-      write(stdout, prompt("Gene> "))
+      stdout.write(prompt("Gene> "))
       try:
-        input = input & read_line(stdin)
-        input = input.strip
+        input = input & stdin.read_line()
+        input = input.strip()
         case input:
         of "":
           continue
         of "help":
           echo "TODO"
+          continue
         else:
           discard
 
         var r = vm.eval_only(frame, input)
-        write_line(stdout, r)
+        stdout.write_line(r)
 
         # Reset input
         input = ""
@@ -101,7 +102,7 @@ proc main() =
         input = ""
       except Exception as e:
         input = ""
-        var s = e.getStackTrace()
+        var s = e.get_stack_trace()
         s.strip_line_end()
         echo s
         echo error("$#: $#" % [$e.name, $e.msg])

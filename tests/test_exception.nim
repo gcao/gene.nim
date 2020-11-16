@@ -9,6 +9,9 @@ import ./helpers
 # Gene exceptions share same Nim class: GeneException
 # For convenience purpose all exception classes like gene/XyzException are aliased as XyzException
 
+# Retry support - from the beginning of try?
+# (try...catch...(retry))
+
 # (throw)
 # (throw message)
 # (throw Exception)

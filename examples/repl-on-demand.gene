@@ -1,0 +1,8 @@
+#!/usr/bin/env gene
+
+# (repl) to open a repl at the current location
+# if some global option is set, open repl on exception
+
+(var a 1)
+(var b 2)
+(repl)
