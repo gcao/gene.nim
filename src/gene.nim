@@ -12,7 +12,7 @@
 # Ctrl-C to cancel current line
 # Ctrl-C Ctrl-C to exit
 
-import times, strutils, logging
+import times, strutils, logging, os
 
 import gene/types
 import gene/parser
@@ -64,25 +64,28 @@ proc main() =
       echo "The logger level is set to DEBUG."
 
     var vm = init_vm()
+    var frame = vm.eval_prepare()
     var input = ""
     var ctrl_c_caught = false
     while true:
       write(stdout, prompt("Gene> "))
       try:
         input = input & readLine(stdin)
+        input = input.strip
         ctrl_c_caught = false
         case input:
         of "":
           continue
+        of "help":
+          echo "TODO"
         else:
           discard
 
-        var r = vm.eval(input)
+        var r = vm.eval_only(frame, input)
+        writeLine(stdout, r)
 
         # Reset input
         input = ""
-
-        writeLine(stdout, r)
       except EOFError:
         quit_with(0, true)
       except ParseError as e:
@@ -108,8 +111,9 @@ proc main() =
   else:
     var vm = init_vm()
     var file = options.file
+    vm.init_package(parentDir(file))
     let start = cpuTime()
-    let result = vm.eval(readFile(file))
+    let result = vm.run_file(file)
     if options.print_result:
       echo result
     if options.benchmark:

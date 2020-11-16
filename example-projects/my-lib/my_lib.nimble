@@ -10,3 +10,6 @@ installExt    = @["nim"]
 # Dependencies
 
 requires "nim >= 1.0.0"
+
+task buildext, "Build the Nim extension":
+  exec "nim c --app:lib --outdir:build/ src/my_lib/index.nim"

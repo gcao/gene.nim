@@ -1,10 +1,16 @@
-import strutils, tables, osproc, json
+import strutils, tables, osproc, json, httpclient, base64
 
 import ./types
 
 proc init_native_procs*() =
   NativeProcs.add_only "object_is", proc(args: seq[GeneValue]): GeneValue =
     return args[0].is_a(args[1].internal.class)
+
+  NativeProcs.add_only "object_to_s", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].to_s
+
+  NativeProcs.add_only "object_to_json", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].to_json()
 
   NativeProcs.add_only "class_new", proc(args: seq[GeneValue]): GeneValue =
     var name = args[0].symbol_or_str
@@ -28,6 +34,9 @@ proc init_native_procs*() =
   NativeProcs.add_only "exception_message", proc(args: seq[GeneValue]): GeneValue =
     var ex = args[0].internal.exception
     return ex.msg
+
+  NativeProcs.add_only "package_name", proc(args: seq[GeneValue]): GeneValue =
+    return args[0].internal.pkg.name
 
   NativeProcs.add_only "str_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].str.len
@@ -174,3 +183,15 @@ proc init_native_procs*() =
 
   NativeProcs.add_only "json_parse", proc(args: seq[GeneValue]): GeneValue =
     return args[0].str.parse_json
+
+  NativeProcs.add_only "http_get", proc(args: seq[GeneValue]): GeneValue =
+    var url = args[0].str
+    var headers = newHttpHeaders()
+    for k, v in args[2].map:
+      headers.add(k, v.str)
+    var client = newHttpClient()
+    client.headers = headers
+    return client.get_content(url)
+
+  NativeProcs.add_only "base64", proc(args: seq[GeneValue]): GeneValue =
+    return encode(args[0].str)

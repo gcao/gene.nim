@@ -170,7 +170,9 @@ proc new_do_expr*(parent: Expr, node: GeneValue): Expr =
   )
   for k, v in node.gene.props:
     result.do_props.add(new_map_key_expr(result, k, v))
-  for item in node.gene.data:
+  var data = node.gene.data
+  data = wrap_with_try(data)
+  for item in data:
     result.do_body.add(new_expr(result, item))
 
 proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
@@ -249,7 +251,7 @@ proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
       if item == CATCH:
         state = TryCatch
       elif item == FINALLY:
-        todo()
+        state = TryFinally
       else:
         result.try_body.add(new_expr(result, item))
     of TryCatch:
@@ -271,11 +273,12 @@ proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
       else:
         catch_body.add(new_expr(result, item))
     of TryFinally:
-      todo()
+      result.try_finally.add(new_expr(result, item))
   if state in [TryCatch, TryCatchBody]:
     result.try_catches.add((catch_exception, catch_body))
   elif state == TryFinally:
-    todo()
+    if catch_exception != nil:
+      result.try_catches.add((catch_exception, catch_body))
 
 # Create expressions for default values
 proc update_matchers*(fn: Function, group: seq[Matcher]) =
@@ -363,11 +366,17 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
   result.ns_body = body
 
 proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
+  var matcher = new_import_matcher(val)
   result = Expr(
     kind: ExImport,
     parent: parent,
-    import_matcher: new_import_matcher(val),
+    import_matcher: matcher,
+    import_native: val.gene.type.symbol == "import_native",
   )
+  if matcher.from != nil:
+    result.import_from = new_expr(result, matcher.from)
+  if val.gene.props.has_key("pkg"):
+    result.import_pkg = new_expr(result, val.gene.props["pkg"])
 
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var name = val.gene.data[0]
@@ -591,7 +600,6 @@ proc new_expr*(parent: Expr, kind: ExprKind): Expr =
   )
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr =
-  node.strip_comments
   case node.kind:
   of GeneNilKind, GeneBool, GeneInt, GeneString:
     return new_literal_expr(parent, node)
@@ -619,6 +627,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
     return new_complex_symbol_expr(parent, node)
   of GeneVector:
     return new_array_expr(parent, node)
+  of GeneStream:
+    return new_group_expr(parent, node.stream)
   of GeneMap:
     return new_map_expr(parent, node)
   of GeneGene:
@@ -681,6 +691,7 @@ TranslatorMgr["before"        ] = new_advice_expr
 TranslatorMgr["after"         ] = new_advice_expr
 TranslatorMgr["ns"            ] = new_ns_expr
 TranslatorMgr["import"        ] = new_import_expr
+TranslatorMgr["import_native" ] = new_import_expr
 TranslatorMgr["$stop_inheritance"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExStopInheritance)
 TranslatorMgr["class"         ] = new_class_expr
@@ -692,12 +703,22 @@ TranslatorMgr["$invoke_method"] = new_invoke_expr
 TranslatorMgr["mixin"         ] = new_mixin_expr
 TranslatorMgr["include"       ] = new_include_expr
 TranslatorMgr["call_native"   ] = new_call_native_expr
+TranslatorMgr["$parse"        ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExParse)
+  result.parse = new_expr(parent, node.gene.data[0])
 TranslatorMgr["eval"          ] = new_eval_expr
 TranslatorMgr["caller_eval"   ] = new_caller_eval_expr
 TranslatorMgr["match"         ] = new_match_expr
 TranslatorMgr["quote"         ] = new_quote_expr
+TranslatorMgr["unquote"       ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExExit)
+  result.unquote_val = node.gene.data[0]
 # TranslatorMgr["..."           ] = new_explode_expr
 TranslatorMgr["env"           ] = new_env_expr
+TranslatorMgr["exit"          ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExExit)
+  if node.gene.data.len > 0:
+    result.exit = new_expr(parent, node.gene.data[0])
 TranslatorMgr["print"         ] = new_print_expr
 TranslatorMgr["println"       ] = new_print_expr
 TranslatorMgr["="             ] = new_assignment_expr
@@ -757,4 +778,4 @@ TranslatorMgr["$parse_cmd_args"] = proc(parent: Expr, node: GeneValue): Expr =
   var m = new_cmd_args_matcher()
   m.parse(node.gene.data[0])
   result.cmd_args_schema = m
-  result.cmd_args = node.gene.data[1]
+  result.cmd_args = new_expr(result, node.gene.data[1])

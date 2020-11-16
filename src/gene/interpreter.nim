@@ -1,4 +1,4 @@
-import tables, os, sequtils, strutils
+import tables, os, sequtils, strutils, dynlib
 
 import ./types
 import ./parser
@@ -11,6 +11,13 @@ type
     FnMethod
 
 init_native_procs()
+
+let GENE_HOME*    = get_env("GENE_HOME", parent_dir(get_app_dir()))
+let GENE_RUNTIME* = Runtime(
+  home: GENE_HOME,
+  name: "default",
+  version: read_file(GENE_HOME & "/VERSION").strip(),
+)
 
 #################### Interfaces ##################
 
@@ -37,7 +44,57 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
 
 #################### Implementations #############
 
-#################### VM #########################
+#################### Application #################
+
+proc new_app*(): Application =
+  GLOBAL_NS = new_namespace("global")
+  GLOBAL_NS.internal.ns["global"] = GLOBAL_NS
+  result = Application(
+    ns: GLOBAL_NS.internal.ns,
+  )
+  GLOBAL_NS.internal.ns["stdin"]  = stdin
+  GLOBAL_NS.internal.ns["stdout"] = stdout
+  GLOBAL_NS.internal.ns["stderr"] = stderr
+  var cmd_args = command_line_params().map(str_to_gene)
+  GLOBAL_NS.internal.ns["$cmd_args"] = cmd_args
+
+var APP* = new_app()
+GLOBAL_NS.internal.ns["$app"] = APP
+
+#################### Package #####################
+
+proc parse_deps(deps: seq[GeneValue]): Table[string, Package] =
+  for dep in deps:
+    var name = dep.gene.data[0].str
+    var version = dep.gene.data[1]
+    var location = dep.gene.props["location"]
+    var pkg = Package(name: name, version: version)
+    pkg.dir = location.str
+    result[name] = pkg
+
+proc new_package*(dir: string): Package =
+  result = Package()
+  var d = absolute_path(dir)
+  while d.len > 1:  # not "/"
+    var package_file = d & "/package.gene"
+    if file_exists(package_file):
+      var doc = read_document(read_file(package_file))
+      result.name = doc.props["name"].str
+      result.version = doc.props["version"]
+      result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
+      result.dir = d
+      result.dependencies = parse_deps(doc.props["deps"].vec)
+      result.ns["$pkg"] = result
+      return result
+    else:
+      d = parent_dir(d)
+
+  result.adhoc = true
+  result.ns = new_namespace(GLOBAL_NS, "package:<adhoc>")
+  result.dir = d
+  result.ns["$pkg"] = result
+
+#################### VM ##########################
 
 proc new_vm*(app: Application): VM =
   result = VM(
@@ -66,9 +123,25 @@ proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   else:
     return result
 
+proc eval_prepare*(self: VM): Frame =
+  var module = new_module()
+  return FrameMgr.get(FrModule, module.root_ns, new_scope())
+
+proc eval_only*(self: VM, frame: Frame, code: string): GeneValue =
+  return self.eval(frame, self.prepare(code))
+
 proc eval*(self: VM, code: string): GeneValue =
   var module = new_module()
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  return self.eval(frame, self.prepare(code))
+
+proc init_package*(self: VM, dir: string) =
+  APP.pkg = new_package(dir)
+
+proc run_file*(self: VM, file: string): GeneValue =
+  var module = new_module(APP.pkg.ns, file)
+  var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  var code = read_file(file)
   return self.eval(frame, self.prepare(code))
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
@@ -76,6 +149,7 @@ proc import_module*(self: VM, name: string, code: string): Namespace =
     return self.modules[name]
   var module = new_module(name)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
+  self.def_member(frame, "$file", name, true)
   discard self.eval(frame, self.prepare(code))
   result = module.root_ns
   self.modules[name] = result
@@ -85,16 +159,16 @@ proc load_core_module*(self: VM) =
   GLOBAL_NS.internal.ns["gene"] = GENE_NS
   GENEX_NS = new_namespace("genex")
   GLOBAL_NS.internal.ns["genex"] = GENEX_NS
-  discard self.import_module("core", readFile("src/core.gene"))
+  discard self.import_module("core", readFile(GENE_HOME & "/src/core.gene"))
 
 proc load_gene_module*(self: VM) =
-  discard self.import_module("gene", readFile("src/gene.gene"))
+  discard self.import_module("gene", readFile(GENE_HOME & "/src/gene.gene"))
   GeneObjectClass    = GENE_NS["Object"]
   GeneClassClass     = GENE_NS["Class"]
   GeneExceptionClass = GENE_NS["Exception"]
 
 proc load_genex_module*(self: VM) =
-  discard self.import_module("genex", readFile("src/genex.gene"))
+  discard self.import_module("genex", readFile(GENE_HOME & "/src/genex.gene"))
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
   var meth = class.get_method(method_name)
@@ -621,7 +695,7 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
     for e in expr.try_body:
       result = self.eval(frame, e)
   except GeneException as ex:
-    self.def_member(frame, "$ex", new_gene_internal(ex), false)
+    self.def_member(frame, "$ex", error_to_gene(ex), false)
     var handled = false
     if expr.try_catches.len > 0:
       for catch in expr.try_catches:
@@ -636,6 +710,11 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
           for e in catch[1]:
             result = self.eval(frame, e)
           break
+    for e in expr.try_finally:
+      try:
+        discard self.eval(frame, e)
+      except Return, Break:
+        discard
     if not handled:
       raise
 
@@ -730,12 +809,39 @@ EvaluatorMgr[ExGlobal] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.i
 
 EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var ns: Namespace
-  # If "from" is not given, import from parent of root namespace.
-  if expr.import_matcher.from == "":
-    ns = frame.ns.root.parent
+  var dir = ""
+  if frame.ns.has_key("$pkg"):
+    var pkg = frame.ns["$pkg"].internal.pkg
+    dir = pkg.dir & "/"
+  # TODO: load import_pkg on demand
+  # Set dir to import_pkg's root directory
+
+  var `from` = expr.import_from
+  if expr.import_native:
+    var path = self.eval(frame, `from`).str
+    let lib = load_lib(dir & path & ".dylib")
+    if lib == nil:
+      todo()
+    else:
+      for m in expr.import_matcher.children:
+        var v = lib.sym_addr(m.name)
+        if v == nil:
+          todo()
+        else:
+          self.def_member(frame, m.name, new_gene_internal(cast[NativeProc](v)), true)
   else:
-    ns = self.modules[expr.import_matcher.from]
-  self.import_from_ns(frame, ns, expr.import_matcher.children)
+    # If "from" is not given, import from parent of root namespace.
+    if `from` == nil:
+      ns = frame.ns.root.parent
+    else:
+      var `from` = self.eval(frame, `from`).str
+      if self.modules.has_key(`from`):
+        ns = self.modules[`from`]
+      else:
+        var code = read_file(dir & `from` & ".gene")
+        ns = self.import_module(`from`, code)
+        self.modules[`from`] = ns
+    self.import_from_ns(frame, ns, expr.import_matcher.children)
 
 EvaluatorMgr[ExStopInheritance] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   frame.ns.stop_inheritance = true
@@ -841,6 +947,10 @@ EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {
   var val = self.eval(frame, expr.get_class_val)
   result = val.get_class
 
+EvaluatorMgr[ExParse] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var s = self.eval(frame, expr.parse).str
+  return new_gene_stream(read_all(s))
+
 EvaluatorMgr[ExEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var old_self = frame.self
   try:
@@ -860,8 +970,52 @@ EvaluatorMgr[ExCallerEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
 EvaluatorMgr[ExMatch] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
 
+proc unquote(self: VM, frame: Frame, expr: Expr, val: GeneValue): GeneValue {.inline.}
+proc unquote(self: VM, frame: Frame, expr: Expr, val: seq[GeneValue]): seq[GeneValue] {.inline.} =
+  for item in val:
+    var r = self.unquote(frame, expr, item)
+    if item.kind == GeneGene and item.gene.type == Unquote and item.gene.props.get_or_default("discard", false):
+      discard
+    else:
+      result.add(r)
+
+proc unquote(self: VM, frame: Frame, expr: Expr, val: GeneValue): GeneValue {.inline.} =
+  case val.kind:
+  of GeneVector:
+    result = new_gene_vec()
+    result.vec = self.unquote(frame, expr, val.vec)
+  of GeneMap:
+    result = new_gene_map()
+    for k, v in val.map:
+      result.map[k]= self.unquote(frame, expr, v)
+  of GeneGene:
+    if val.gene.type == Unquote:
+      var e = new_expr(expr, val.gene.data[0])
+      result = self.eval(frame, e)
+    else:
+      result = new_gene_gene(self.unquote(frame, expr, val.gene.type))
+      for k, v in val.gene.props:
+        result.gene.props[k]= self.unquote(frame, expr, v)
+      result.gene.data = self.unquote(frame, expr, val.gene.data)
+  of GeneSet:
+    todo()
+  of GeneSymbol:
+    return val
+  of GeneComplexSymbol:
+    return val
+  else:
+    return val
+
 EvaluatorMgr[ExQuote] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  result = expr.quote_val
+  var val = expr.quote_val
+  result = self.unquote(frame, expr, val)
+
+EvaluatorMgr[ExExit] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  if expr.exit == nil:
+    quit()
+  else:
+    var code = self.eval(frame, expr.exit)
+    quit(code.int)
 
 EvaluatorMgr[ExEnv] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var env = self.eval(frame, expr.env)
@@ -1005,7 +1159,8 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
     discard
 
 EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  var r = expr.cmd_args_schema.match(expr.cmd_args.vec.map(proc(v: GeneValue): string = v.str))
+  var cmd_args = self.eval(frame, expr.cmd_args)
+  var r = expr.cmd_args_schema.match(cmd_args.vec.map(proc(v: GeneValue): string = v.str))
   if r.kind == AmSuccess:
     for k, v in r.fields:
       var name = k

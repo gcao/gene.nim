@@ -11,6 +11,6 @@ test_core """
   )
 """, {"a": GeneTrue}.toOrderedTable
 
-# test_core """
-#   ([1 2].to_json)
-# """, "[1,2]"
+test_core """
+  ([1 2].to_json)
+""", "[1,2]"

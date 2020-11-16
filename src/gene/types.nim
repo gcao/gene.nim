@@ -1,4 +1,4 @@
-import strutils, tables, dynlib, unicode, hashes, sets, json
+import os, strutils, tables, dynlib, unicode, hashes, sets, json
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
@@ -18,28 +18,40 @@ type
   # index of a name in a scope
   NameIndexScope* = distinct int
 
+  Runtime* = ref object
+    name*: string     # default/...
+    home*: string     # GENE_HOME directory
+    version*: string
+    features*: Table[string, GeneValue]
+
   ## This is the root of a running application
   Application* = ref object
     name*: string         # default to base name of command
-    # package*: Package   # Entry package for the application
+    pkg*: Package         # Entry package for the application
     ns*: Namespace
-    cmd*: string          # full command
+    cmd*: string
     args*: seq[string]
 
-  # Package* = ref object
-  #   ns*: Namespace
-  #   name*: string
-  #   version*: string
-  #   source*: GeneValue # Git, Cenral repository, File system etc
-  #   dependencies*: seq[Package]
+  Package* = ref object
+    dir*: string          # Where the package assets are installed
+    adhoc*: bool          # Adhoc package is created when package.gene is not found
+    ns*: Namespace
+    name*: string
+    version*: GeneValue
+    license*: GeneValue
+    dependencies*: Table[string, Package]
+    homepage*: string
+    props*: Table[string, GeneValue]  # Additional properties
+    doc*: GeneDocument    # content of package.gene
 
   Module* = ref object
+    pkg*: Package         # Package in which the module belongs, or stdlib if not set
     name*: string
     root_ns*: Namespace
 
   ImportMatcherRoot* = ref object
     children*: seq[ImportMatcher]
-    `from`*: string
+    `from`*: GeneValue
 
   ImportMatcher* = ref object
     name*: string
@@ -142,13 +154,6 @@ type
     options*: OrderedTable[AdviceOptionKind, GeneValue]
     logic*: Function
 
-  TargetWithAdvices* = ref object
-    target: GeneValue
-    before_advices*: seq[Advice]
-    after_advices*:  seq[Advice]
-    around_advices*: seq[Advice]
-    # invariants*:     seq[Advice] # invariants are added to before/after advices list
-
   # ClassAdviceKind* = enum
   #   ClPreProcess
   #   ClPreCondition  # if false is returned, throw PreconditionError
@@ -231,6 +236,8 @@ type
     value*: int
 
   GeneInternalKind* = enum
+    GeneApplication
+    GenePackage
     GeneFunction
     GeneMacro
     GeneBlock
@@ -245,7 +252,6 @@ type
     GeneAspect
     GeneAdvice
     GeneAspectInstance
-    GeneTargetWithAdvices
     GeneExplode
     GeneFile
     GeneExceptionKind
@@ -253,6 +259,10 @@ type
 
   Internal* = ref object
     case kind*: GeneInternalKind
+    of GeneApplication:
+      app*: Application
+    of GenePackage:
+      pkg*: Package
     of GeneFunction:
       fn*: Function
     of GeneMacro:
@@ -281,8 +291,6 @@ type
       advice*: Advice
     of GeneAspectInstance:
       aspect_instance*: AspectInstance
-    of GeneTargetWithAdvices:
-      twa*: TargetWithAdvices
     of GeneExplode:
       explode*: GeneValue
     of GeneFile:
@@ -329,18 +337,9 @@ type
     GeneVector
     GeneSet
     GeneGene
+    GeneStream
     GeneInternal
     GeneAny
-    GeneCommentLine
-
-  CommentPlacement* = enum
-    Before
-    After
-    Inside
-
-  Comment* = ref object
-    placement*: CommentPlacement
-    comment_lines*: seq[string]
 
   GeneValue* {.acyclic.} = ref object
     case kind*: GeneKind
@@ -378,15 +377,14 @@ type
       set*: OrderedSet[GeneValue]
     of GeneGene:
       gene*: Gene
+    of GeneStream:
+      stream*: seq[GeneValue]
     of GeneInternal:
       internal*: Internal
     of GeneAny:
       any*: pointer
-    of GeneCommentLine:
-      comment*: string
     # line*: int
     # column*: int
-    # comments*: seq[Comment]
 
   GeneDocument* = ref object
     `type`: GeneValue
@@ -458,9 +456,12 @@ type
     ExCallNative
     ExGetClass
     ExQuote
+    ExUnquote
+    ExParse
     ExEval
     ExCallerEval
     ExMatch
+    ExExit
     ExEnv
     ExPrint
     ExParseCmdArgs
@@ -616,6 +617,9 @@ type
       discard
     of ExImport:
       import_matcher*: ImportMatcherRoot
+      import_from*: Expr
+      import_pkg*: Expr
+      import_native*: bool
     of ExStopInheritance:
       discard
     of ExCall:
@@ -630,6 +634,10 @@ type
       get_class_val*: Expr
     of ExQuote:
       quote_val*: GeneValue
+    of ExUnquote:
+      unquote_val*: GeneValue
+    of ExParse:
+      parse*: Expr
     of ExEval:
       eval_self*: Expr
       eval_args*: seq[Expr]
@@ -638,6 +646,8 @@ type
     of ExMatch:
       match_pattern*: GeneValue
       match_val*: Expr
+    of ExExit:
+      exit*: Expr
     of ExEnv:
       env*: Expr
       env_default*: Expr
@@ -647,7 +657,7 @@ type
       print*: seq[Expr]
     of ExParseCmdArgs:
       cmd_args_schema*: ArgMatcherRoot
-      cmd_args*: GeneValue
+      cmd_args*: Expr
 
   VM* = ref object
     app*: Application
@@ -830,12 +840,16 @@ let
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
 
   Quote*     = GeneValue(kind: GeneSymbol, symbol: "quote")
+  Unquote*   = GeneValue(kind: GeneSymbol, symbol: "unquote")
   If*        = GeneValue(kind: GeneSymbol, symbol: "if")
   Then*      = GeneValue(kind: GeneSymbol, symbol: "then")
   Elif*      = GeneValue(kind: GeneSymbol, symbol: "elif")
   Else*      = GeneValue(kind: GeneSymbol, symbol: "else")
   Not*       = GeneValue(kind: GeneSymbol, symbol: "not")
   Equal*     = GeneValue(kind: GeneSymbol, symbol: "=")
+  Try*       = GeneValue(kind: GeneSymbol, symbol: "try")
+  Catch*     = GeneValue(kind: GeneSymbol, symbol: "catch")
+  Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
 
 var NativeProcs* = NativeProcsType()
 
@@ -931,6 +945,15 @@ proc new_module*(name: string): Module =
 
 proc new_module*(): Module =
   result = new_module("<unknown>")
+
+proc new_module*(ns: Namespace, name: string): Module =
+  result = Module(
+    name: name,
+    root_ns: new_namespace(ns),
+  )
+
+proc new_module*(ns: Namespace): Module =
+  result = new_module(ns, "<unknown>")
 
 #################### Namespace ###################
 
@@ -1242,8 +1265,8 @@ proc `==`*(this, that: GeneValue): bool =
       return table_equals(this.map, that.map)
     of GeneVector:
       return this.vec == that.vec
-    of GeneCommentLine:
-      return this.comment == that.comment
+    of GeneStream:
+      return this.stream == that.stream
     of GeneRegex:
       return this.regex == that.regex
     of GeneRange:
@@ -1294,8 +1317,8 @@ proc hash*(node: GeneValue): Hash =
       h = h !& hash(val)
   of GeneVector:
     h = h !& hash(node.vec)
-  of GeneCommentLine:
-    h = h !& hash(node.comment)
+  of GeneStream:
+    h = h !& hash(node.stream)
   of GeneRegex:
     h = h !& hash(node.regex)
   of GeneRange:
@@ -1363,6 +1386,30 @@ proc to_s*(self: GeneValue): string =
     of GeneString: self.str
     else: $self
 
+proc `%`*(self: GeneValue): JsonNode =
+  case self.kind:
+  of GeneNilKind:
+    return newJNull()
+  of GeneBool:
+    return %self.bool
+  of GeneInt:
+    return %self.int
+  of GeneString:
+    return %self.str
+  of GeneVector:
+    result = newJArray()
+    for item in self.vec:
+      result.add(%item)
+  of GeneMap:
+    result = newJObject()
+    for k, v in self.map:
+      result[k] = %v
+  else:
+    todo()
+
+proc to_json*(self: GeneValue): string =
+  return $(%self)
+
 #################### AOP #########################
 
 proc new_aspect*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Aspect =
@@ -1382,11 +1429,6 @@ proc new_advice*(kind: AdviceKind, logic: Function): Advice =
   return Advice(
     kind: kind,
     logic: logic,
-  )
-
-proc new_target_with_advices*(target: GeneValue): TargetWithAdvices =
-  return TargetWithAdvices(
-    target: target,
   )
 
 #################### Constructors ################
@@ -1460,6 +1502,12 @@ proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
 
 proc new_gene_vec*(items: varargs[GeneValue]): GeneValue = new_gene_vec(@items)
 
+proc new_gene_stream*(items: seq[GeneValue]): GeneValue =
+  return GeneValue(
+    kind: GeneStream,
+    stream: items,
+  )
+
 proc new_gene_map*(): GeneValue =
   return GeneValue(
     kind: GeneMap,
@@ -1508,6 +1556,18 @@ converter new_gene_internal*(m: EnumMember): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneEnumMember, enum_member: m),
+  )
+
+converter new_gene_internal*(app: Application): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneApplication, app: app),
+  )
+
+converter new_gene_internal*(pkg: Package): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GenePackage, pkg: pkg),
   )
 
 converter new_gene_internal*(fn: Function): GeneValue =
@@ -1594,7 +1654,10 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
-converter new_gene_internal*(ex: ref CatchableError): GeneValue =
+# Do not allow auto conversion between CatchableError and GeneValue
+# because there are sub-classes of CatchableError that need to be
+# handled differently.
+proc error_to_gene*(ex: ref CatchableError): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneExceptionKind, exception: ex),
@@ -1644,47 +1707,10 @@ proc merge*(self: var GeneValue, value: GeneValue) =
   else:
     todo()
 
-proc strip_comments*(node: GeneValue) =
-  case node.kind:
-  of GeneVector:
-    var has_comments = false
-    var vec: seq[GeneValue] = @[]
-    for item in node.vec:
-      if item.kind != GeneCommentLine:
-        has_comments = true
-        vec.add(item)
-    if has_comments:
-      node.vec = vec
-  of GeneGene:
-    var has_comments = false
-    var vec: seq[GeneValue] = @[]
-    for item in node.gene.data:
-      if item.kind != GeneCommentLine:
-        has_comments = true
-        vec.add(item)
-    if has_comments:
-      node.gene.data = vec
-  else:
-    discard
-
 #################### Document ####################
 
 proc new_doc*(data: seq[GeneValue]): GeneDocument =
   return GeneDocument(data: data)
-
-#################### Application #################
-
-proc new_app*(): Application =
-  GLOBAL_NS = new_namespace("global")
-  GLOBAL_NS.internal.ns["global"] = GLOBAL_NS
-  result = Application(
-    ns: GLOBAL_NS.internal.ns,
-  )
-  GLOBAL_NS.internal.ns["stdin"]  = stdin
-  GLOBAL_NS.internal.ns["stdout"] = stdout
-  GLOBAL_NS.internal.ns["stderr"] = stderr
-
-var APP* = new_app()
 
 #################### Converters ##################
 
@@ -1707,6 +1733,8 @@ converter to_bool*(v: GeneValue): bool =
     return false
   of GeneBool:
     return v.bool
+  of GeneString:
+    return v.str != ""
   else:
     return true
 
@@ -1726,6 +1754,16 @@ converter to_aspect*(node: GeneValue): Aspect =
     body.add node.gene.data[i]
 
   return new_aspect(name, matcher, body)
+
+proc wrap_with_try*(body: seq[GeneValue]): seq[GeneValue] =
+  var found_catch_or_finally = false
+  for item in body:
+    if item == Catch or item == Finally:
+      found_catch_or_finally = true
+  if found_catch_or_finally:
+    return @[new_gene_gene(Try, body)]
+  else:
+    return body
 
 converter to_function*(node: GeneValue): Function =
   case node.kind:
@@ -1749,6 +1787,7 @@ converter to_function*(node: GeneValue): Function =
     for i in 2..<node.gene.data.len:
       body.add node.gene.data[i]
 
+    body = wrap_with_try(body)
     return new_fn(name, matcher, body)
   else:
     not_allowed()
@@ -1768,6 +1807,7 @@ converter to_macro*(node: GeneValue): Macro =
   for i in 2..<node.gene.data.len:
     body.add node.gene.data[i]
 
+  body = wrap_with_try(body)
   return new_macro(name, matcher, body)
 
 converter to_block*(node: GeneValue): Block =
@@ -1778,6 +1818,7 @@ converter to_block*(node: GeneValue): Block =
   for i in 0..<node.gene.data.len:
     body.add node.gene.data[i]
 
+  body = wrap_with_try(body)
   return new_block(matcher, body)
 
 converter json_to_gene*(node: JsonNode): GeneValue =
@@ -1805,6 +1846,10 @@ proc get_class*(val: GeneValue): Class =
   case val.kind:
   of GeneInternal:
     case val.internal.kind:
+    of GeneApplication:
+      return GENE_NS.internal.ns["Application"].internal.class
+    of GenePackage:
+      return GENE_NS.internal.ns["Package"].internal.class
     of GeneInstance:
       return val.internal.instance.class
     of GeneClass:
@@ -2087,7 +2132,7 @@ proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatc
     case item.kind:
     of GeneSymbol:
       if item.symbol == "from":
-        self.from = data[i].str
+        self.from = data[i]
         i += 1
       else:
         group[].add(ImportMatcher(name: item.symbol))

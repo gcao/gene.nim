@@ -25,6 +25,50 @@ test_interpreter "(:test 1 2)", proc(r: GeneValue) =
   check r.gene.data[0] == 1
   check r.gene.data[1] == 2
 
+test_interpreter """
+  (var a 1)
+  :(test %a 2)
+""", proc(r: GeneValue) =
+  check r.gene.type == new_gene_symbol("test")
+  check r.gene.data[0] == 1
+  check r.gene.data[1] == 2
+
+test_interpreter """
+  :(test
+    %_(var a 1)
+    %a
+    2
+  )
+""", proc(r: GeneValue) =
+  check r.gene.type == new_gene_symbol("test")
+  check r.gene.data[0] == 1
+  check r.gene.data[1] == 2
+
+# test_interpreter """
+#   (var a [1 2])
+#   :(test
+#     %a...
+#     3
+#   )
+# """, proc(r: GeneValue) =
+#   check r.gene.type == new_gene_symbol("test")
+#   check r.gene.data[0] == 1
+#   check r.gene.data[1] == 2
+#   check r.gene.data[2] == 3
+
+# TODO: nested quote/unquote, need more thoughts before implementing
+# test_interpreter """
+#   (var a 1)
+#   ::(test %a 2)
+# """, proc(r: GeneValue) =
+#   check r == read(":(test %a 2)")
+
+# test_interpreter """
+#   (var a 1)
+#   ::(test %%a 2)
+# """, proc(r: GeneValue) =
+#   check r == read(":(test 1 2)")
+
 test_interpreter "(range 0 100)", proc(r: GeneValue) =
   check r.range_start == 0
   check r.range_end == 100
@@ -301,3 +345,12 @@ test_interpreter """
   ($def_member "a" 1)
   a
 """, 1
+
+test_interpreter """
+  (eval ($parse "1"))
+""", 1
+
+test_interpreter """
+  $app
+""", proc(r: GeneValue) =
+  check r.internal.app.ns.name == "global"

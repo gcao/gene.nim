@@ -1,1 +1,0 @@
-# Test App - An example application project

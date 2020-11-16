@@ -1,10 +1,14 @@
-{.push dynlib exportc.}
+import unittest
 
 import gene/types
 
-proc test*(args: seq[GeneValue]): GeneValue =
-  var first = args[0].int
-  var second = args[1].int
-  return new_gene_int(first + second)
+import ./helpers
 
-{.pop.}
+test_extension "tests/libextension", "test", proc(r: NativeProc) =
+  var args = @[new_gene_int(1), new_gene_int(2)]
+  check r(args) == 3
+
+test_interpreter """
+  (import_native test from "tests/libextension")
+  (test 1 2)
+""", 3

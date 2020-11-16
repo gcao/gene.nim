@@ -33,7 +33,7 @@ test_parser "n/A", new_gene_complex_symbol("n", @["A"])
 test_parser "n/m/A", new_gene_complex_symbol("n", @["m", "A"])
 test_parser "/A", new_gene_complex_symbol("", @["A"])
 test_parser "\\true", new_gene_symbol("true")
-test_parser "^a", new_gene_symbol("^a")
+# test_parser "^a", new_gene_symbol("^a")
 test_parser "symbol-👋", new_gene_symbol("symbol-👋")
 test_parser "+foo+", new_gene_symbol("+foo+")
 
@@ -90,13 +90,6 @@ test_parser "(1 ^!a 2 3)", proc(r: GeneValue) =
   check r.gene.props == {"a": GeneFalse}.toOrderedTable
   check r.gene.data == @[new_gene_int(2), new_gene_int(3)]
 
-test_parser """
-  (
-    ;; comment in a list
-  )
-""", proc(r: GeneValue) =
-  check r.kind == GeneGene
-
 test_parser "{^^x ^!y ^^z}", proc(r: GeneValue) =
   check r.kind == GeneMap
   check r.map == {"x": GeneTrue, "y": GeneFalse, "z": GeneTrue}.toOrderedTable
@@ -106,8 +99,24 @@ test_parser ":foo", proc(r: GeneValue) = # -> (quote foo)
   check r.gene.type == new_gene_symbol("quote")
   check r.gene.data == @[new_gene_symbol("foo")]
 
-test_parser "#_ [foo bar]", proc(r: GeneValue) =
-  check r == nil
+test_parser "%foo", proc(r: GeneValue) = # -> (unquote foo)
+  check r.kind == GeneGene
+  check r.gene.type == new_gene_symbol("unquote")
+  check r.gene.data == @[new_gene_symbol("foo")]
+
+test_parser "%_foo", proc(r: GeneValue) = # -> (unquote foo)
+  check r.kind == GeneGene
+  check r.gene.type == new_gene_symbol("unquote")
+  check r.gene.props["discard"] == GeneTrue
+  check r.gene.data == @[new_gene_symbol("foo")]
+
+# TODO: %_ is not allowed on gene type and property value
+# (%_foo)         should throw error
+# (a ^name %_foo) should throw error
+# {^name %_foo}   should throw error
+
+# test_parser "#_ [foo bar]", proc(r: GeneValue) =
+#   check r == nil
 
 test_parser "1/2", proc(r: GeneValue) =
   check r.kind == GeneRatio
@@ -118,7 +127,6 @@ test_parser "{^ratio -1/2}", proc(r: GeneValue) =
   check r.map["ratio"] == new_gene_ratio(-1, 2)
 
 test_parser_error "{^ratio 1/-2}"
-test_parser_error ";; foo bar"
 
 test_read_all """
   1 # comment
@@ -133,12 +141,12 @@ test_read_all "a,b", proc(r: seq[GeneValue]) =
 
 test_read_all "1 2", @[new_gene_int(1), new_gene_int(2)]
 
-# TODO
-# test "Parse document":
-#   var doc: GeneDocument
-#   doc = read_document("1 2 3")
+test_parser """
+  [
+    1 # test
+  ]
+""", @[new_gene_int(1)]
 
-# TODO:
 test_parser """
   #
   # comment
@@ -181,3 +189,18 @@ test_parser """
   #>>#
   #># 1
 """, 1
+
+test_parse_document """
+  ^name "Test document"
+  ^version "0.1.0"
+""", proc(r: GeneDocument) =
+  check r.props["name"] == "Test document"
+  check r.props["version"] == "0.1.0"
+  check r.data.len == 0
+
+test_parse_document """
+  ^name "Test document"
+  1 2
+""", proc(r: GeneDocument) =
+  check r.props["name"] == "Test document"
+  check r.data == @[new_gene_int(1), new_gene_int(2)]
