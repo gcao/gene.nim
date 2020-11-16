@@ -1,25 +1,15 @@
-import tables, os, sequtils, strutils, dynlib, posix
+import tables, os, sequtils, strutils, dynlib
 
 import ./types
 import ./parser
 import ./translators
 import ./native_procs
+import ./repl
 
 type
   FnOption = enum
     FnClass
     FnMethod
-
-# https://rosettacode.org/wiki/Handle_a_signal#Nim
-type KeyboardInterrupt = object of CatchableError
-proc handler() {.noconv.} =
-  var nmask, omask: Sigset
-  discard sigemptyset(nmask)
-  discard sigemptyset(omask)
-  discard sigaddset(nmask, SIGINT)
-  if sigprocmask(SIG_UNBLOCK, nmask, omask) == -1:
-    raiseOSError(osLastError())
-  raise new_exception(KeyboardInterrupt, "Keyboard Interrupt")
 
 init_native_procs()
 
@@ -1183,55 +1173,8 @@ EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
   else:
     todo()
 
-proc prompt(message: string): string =
-  return "\u001B[36m" & message & "\u001B[0m"
-
-# https://stackoverflow.com/questions/5762491/how-to-print-color-in-console-using-system-out-println
-# https://en.wikipedia.org/wiki/ANSI_escape_code
-proc error(message: string): string =
-  return "\u001B[31m" & message & "\u001B[0m"
-
 EvaluatorMgr[ExRepl] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
-  set_control_c_hook(handler)
-  var input = ""
-  while true:
-    stdout.write(prompt("Gene> "))
-    try:
-      input = input & stdin.read_line()
-      input = input.strip()
-      case input:
-      of "":
-        continue
-      of "help":
-        echo "TODO"
-        continue
-      else:
-        discard
-
-      var r = self.eval_only(frame, input)
-      stdout.write_line(r)
-
-      # Reset input
-      input = ""
-    except EOFError:
-      break
-    except ParseError as e:
-      # Incomplete expression
-      if e.msg.starts_with("EOF"):
-        continue
-      else:
-        input = ""
-    except KeyboardInterrupt:
-      echo()
-      input = ""
-    except Exception as e:
-      input = ""
-      var s = e.get_stack_trace()
-      s.strip_line_end()
-      echo s
-      echo error("$#: $#" % [$e.name, $e.msg])
-
-  unset_control_c_hook()
+  repl(self, frame, eval_only)
 
 when isMainModule:
   import os, times
