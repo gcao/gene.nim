@@ -1,0 +1,6 @@
+#!/usr/bin/env gene
+
+(fn f _
+  (throw)
+)
+(println (f))

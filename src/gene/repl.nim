@@ -32,6 +32,10 @@ proc prompt(message: string): string =
 proc error(message: string): string =
   return "\u001B[31m" & message & "\u001B[0m"
 
+proc show_result(v: GeneValue) =
+  if v.kind != GenePlaceholderKind:
+    stdout.write_line(v)
+
 proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
   echo "Welcome to interactive Gene!"
   echo "Note: press Ctrl-D to exit."
@@ -57,11 +61,12 @@ proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
           discard
 
         result = eval(self, frame, input)
-        stdout.write_line(result)
+        show_result(result)
 
         # Reset input
         input = ""
       except EOFError:
+        echo()
         break
       except ParseError as e:
         # Incomplete expression
@@ -72,6 +77,10 @@ proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
       except KeyboardInterrupt:
         echo()
         input = ""
+      except Return as r:
+        result = r.val
+        stdout.write_line(result)
+        break
       except CatchableError as e:
         result = GeneNil
         input = ""

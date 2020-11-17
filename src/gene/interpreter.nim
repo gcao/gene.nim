@@ -254,6 +254,14 @@ proc call_fn*(
       result = r.val
     else:
       raise
+  except CatchableError as e:
+    # TODO: use a flag on VM to control this behavior
+    echo "An exception was thrown: " & e.msg
+    echo "Opening debug console..."
+    echo "Note: the exception can be accessed as $ex"
+    var ex = error_to_gene(e)
+    self.def_member(frame, "$ex", ex, false)
+    result = repl(self, frame, eval_only, true)
 
   ScopeMgr.free(fn_scope)
 
