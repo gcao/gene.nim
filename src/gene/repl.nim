@@ -33,12 +33,12 @@ proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
   echo "Welcome to interactive Gene!"
   echo "Note: press Ctrl-D to exit."
 
-  set_control_c_hook(handler)
   var noise = Noise.init()
-  let prompt = Styler.init("\u001B[36m", "Gene> ")
+  let prompt = Styler.init(fgGreen, "Gene> ")
   noise.set_prompt(prompt)
-  var history_file = get_env("HOME") & "/temp/gene_history"
+  var history_file = "/tmp/gene_history"
   discard noise.history_load(history_file)
+  set_control_c_hook(handler)
   try:
     var input = ""
     while true:
