@@ -203,12 +203,16 @@ proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): Gene
 
 proc process_args*(self: VM, frame: Frame, matcher: RootMatcher, args: GeneValue) =
   var match_result = matcher.match(args)
-  if match_result.kind == MatchSuccess:
+  case match_result.kind:
+  of MatchSuccess:
     for field in match_result.fields:
       if field.value_expr != nil:
         frame.scope.def_member(field.name, self.eval(frame, field.value_expr))
       else:
         frame.scope.def_member(field.name, field.value)
+  of MatchMissingFields:
+    for field in match_result.missing:
+      not_allowed("Argument " & field & " is missing.")
   else:
     todo()
 

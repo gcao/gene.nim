@@ -16,3 +16,9 @@ examples/http.gene | json_pp
     (base_url "/issue/ZEUS-5427?fields=status,summary,assignee,customfield_10005,customfield_100020")
     {}
     headers))
+
+# (println
+#   ((genex/http/get_json
+#     (base_url "/issue/ZEUS-5427?fields=status,summary,assignee,customfield_10005,customfield_100020")
+#     {}
+#     headers) .size))

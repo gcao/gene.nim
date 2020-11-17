@@ -19,6 +19,10 @@
     (call_native "http_get" url params headers)
   )
 
+  (fn get_json [url params = {} headers = {}]
+    (gene/json/parse (get url params headers))
+  )
+
   (class Response
     (method new [code body]
       (@code = code)
@@ -26,7 +30,7 @@
     )
 
     (method json _
-      ((gene/Json/parse @body) .to_json)
+      ((gene/json/parse @body) .to_json)
     )
   )
 )
