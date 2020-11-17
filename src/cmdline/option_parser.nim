@@ -4,6 +4,7 @@ type
   Options* = ref object
     debugging*: bool
     repl*: bool
+    repl_on_error*: bool
     file*: string
     args*: seq[string]
     benchmark*: bool
@@ -42,6 +43,8 @@ proc parseOptions*(): Options =
         result.benchmark = true
       of "print_result", "p":
         result.print_result = true
+      of "repl-on-error":
+        result.repl_on_error = true
       of "":
         expect_args = true
       else:

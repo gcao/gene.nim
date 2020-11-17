@@ -665,6 +665,7 @@ type
   VM* = ref object
     app*: Application
     modules*: OrderedTable[string, Namespace]
+    repl_on_error*: bool
 
   Evaluator* = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.}
 

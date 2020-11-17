@@ -35,6 +35,7 @@ proc main() =
   setup_logger(options.debugging)
 
   var vm = init_vm()
+  vm.repl_on_error = options.repl_on_error
   if options.repl:
     var frame = vm.eval_prepare()
     discard repl(vm, frame, eval_only, false)
