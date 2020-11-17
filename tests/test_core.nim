@@ -17,5 +17,5 @@ test_core "(AssertionError .name)", "AssertionError"
 # test_core """
 #   $runtime
 # """, proc(r: GeneValue) =
-#   check r.internal.runtime.home == "/Users/gcao/proj/gene.nim"
+#   check r.internal.runtime.home == "/Users/gcao/proj/gene"
 #   check r.internal.runtime.version == "0.1.0"

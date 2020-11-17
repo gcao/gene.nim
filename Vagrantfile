@@ -1,7 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-APP_DIR = "/apps/gene.nim"
+APP_DIR = "/apps/gene"
 
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
 # configures the configuration version (we support older styles for
@@ -71,3 +71,4 @@ Vagrant.configure(2) do |config|
 
   config.vm.synced_folder "", APP_DIR, type: "nfs"
 end
+

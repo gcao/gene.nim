@@ -15,6 +15,6 @@ gene examples/cmd-options.gene -d -i first,second test.gene
   $cmd_args   # The global variable that holds the command line argument array
 )
 
-(println "debug = "   debug)
+(println "debug   = " debug)
 (println "include = " include)
-(println "file = "    file)
+(println "file    = " file)
