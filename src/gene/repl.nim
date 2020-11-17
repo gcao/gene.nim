@@ -1,9 +1,9 @@
-import strutils, os, posix
+import strutils, os, posix, noise
 
 import ./types
 import ./parser
 
-# TODO: readline support for REPL
+# TODO: readline support
 # https://stackoverflow.com/questions/61079605/how-to-write-a-text-prompt-in-nim-that-has-readline-style-line-editing
 # https://github.com/jangko/nim-noise
 #
@@ -21,11 +21,8 @@ proc handler() {.noconv.} =
   discard sigemptyset(omask)
   discard sigaddset(nmask, SIGINT)
   if sigprocmask(SIG_UNBLOCK, nmask, omask) == -1:
-    raiseOSError(osLastError())
+    raise_os_error(os_last_error())
   raise new_exception(KeyboardInterrupt, "Keyboard Interrupt")
-
-proc prompt(message: string): string =
-  return "\u001B[36m" & message & "\u001B[0m"
 
 # https://stackoverflow.com/questions/5762491/how-to-print-color-in-console-using-system-out-println
 # https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -37,12 +34,20 @@ proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
   echo "Note: press Ctrl-D to exit."
 
   set_control_c_hook(handler)
+  var noise = Noise.init()
+  let prompt = Styler.init("\u001B[36m", "Gene> ")
+  noise.set_prompt(prompt)
+  var history_file = get_env("HOME") & "/temp/gene_history"
+  discard noise.history_load(history_file)
   try:
     var input = ""
     while true:
-      stdout.write(prompt("Gene> "))
       try:
-        input = input & stdin.read_line()
+        let ok = noise.read_line()
+        if not ok:
+          break
+
+        input = input & noise.get_line()
         input = input.strip()
         case input:
         of "":
@@ -58,6 +63,8 @@ proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
 
         result = eval(self, frame, input)
         stdout.write_line(result)
+
+        noise.history_add(input)
 
         # Reset input
         input = ""
@@ -81,5 +88,7 @@ proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
         echo error("$#: $#" % [$e.name, $e.msg])
   finally:
     unset_control_c_hook()
+
+  discard noise.history_save(history_file)
   if not return_value:
     return GeneNil

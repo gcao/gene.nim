@@ -11,6 +11,7 @@ bin           = @["gene"]
 # Dependencies
 
 requires "nim >= 1.0.0"
+requires "noise"
 
 task buildext, "Build the Nim extension":
   exec "nim c --app:lib --outdir:tests tests/extension.nim"

@@ -10,6 +10,8 @@
 # * method_removed
 # * method_missing
 
+# * define_method
+
 # * class extended - can not be unextended
 # * mixin included - can not be removed
 
