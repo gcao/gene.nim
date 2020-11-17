@@ -287,6 +287,11 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
       result = self.eval(new_frame, e)
   except Return as r:
     result = r.val
+  except CatchableError as e:
+    if self.repl_on_error:
+      result = repl_on_error(self, frame, e)
+    else:
+      raise
 
   ScopeMgr.free(mac_scope)
 
@@ -313,8 +318,16 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   var blk2: seq[Expr] = @[]
   for item in blk.body:
     blk2.add(new_expr(blk.expr, item))
-  for e in blk2:
-    result = self.eval(new_frame, e)
+  try:
+    for e in blk2:
+      result = self.eval(new_frame, e)
+  except Return, Break:
+    raise
+  except CatchableError as e:
+    if self.repl_on_error:
+      result = repl_on_error(self, frame, e)
+    else:
+      raise
 
   ScopeMgr.free(blk_scope)
 

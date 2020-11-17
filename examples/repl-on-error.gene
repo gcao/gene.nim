@@ -3,6 +3,10 @@
 #< Run like
 examples/repl-on-error.gene
 gene --repl-on-error examples/repl-on-error.gene
+
+# If we run like
+gene examples/repl-on-error.gene
+# REPL will not kick in on error
 #>#
 
 (fn f _
