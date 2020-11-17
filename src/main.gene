@@ -1,6 +1,6 @@
 #!/usr/bin/env gene
 
-(fn main args
+(fn main args...
   ($parse_cmd_args
     [
       program
@@ -21,10 +21,6 @@
   (if file
     (eval ($parse (gene/File/read file)))
   else
-    (println "Welcome to interactive Gene!")
-    (println "Note: press Ctrl-D to exit.")
-    (if debug (println "Debug mode is enabled."))
+    (repl)
   )
 )
-
-(main $cmd_args)

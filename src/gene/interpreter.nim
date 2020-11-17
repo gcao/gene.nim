@@ -143,7 +143,15 @@ proc run_file*(self: VM, file: string): GeneValue =
   var module = new_module(APP.pkg.ns, file)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   var code = read_file(file)
-  return self.eval(frame, self.prepare(code))
+  discard self.eval(frame, self.prepare(code))
+  if frame.ns.has_key("main"):
+    var main = frame["main"]
+    if main.kind == GeneInternal and main.internal.kind == GeneFunction:
+      var args = GLOBAL_NS.internal.ns["$cmd_args"]
+      var options = Table[FnOption, GeneValue]()
+      self.call_fn(frame, GeneNil, main.internal.fn, args, options)
+    else:
+      raise new_exception(CatchableError, "main is not a function.")
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
   if self.modules.has_key(name):
