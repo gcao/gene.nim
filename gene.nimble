@@ -11,6 +11,7 @@ bin           = @["gene"]
 # Dependencies
 
 requires "nim >= 1.0.0"
+requires "astpatternmatching"
 requires "jsonschema >= 0.2.1"
 
 task buildext, "Build the Nim extension":
