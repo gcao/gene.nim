@@ -471,6 +471,7 @@ type
     ExEnv
     ExPrint
     ExParseCmdArgs
+    ExRepl
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -664,10 +665,13 @@ type
     of ExParseCmdArgs:
       cmd_args_schema*: ArgMatcherRoot
       cmd_args*: Expr
+    of ExRepl:
+      discard
 
   VM* = ref object
     app*: Application
     modules*: OrderedTable[string, Namespace]
+    repl_on_error*: bool
 
   Evaluator* = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.}
 

@@ -4,6 +4,7 @@ import ./types
 import ./parser
 import ./translators
 import ./native_procs
+import ./repl
 
 type
   FnOption = enum
@@ -142,7 +143,15 @@ proc run_file*(self: VM, file: string): GeneValue =
   var module = new_module(APP.pkg.ns, file)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   var code = read_file(file)
-  return self.eval(frame, self.prepare(code))
+  discard self.eval(frame, self.prepare(code))
+  if frame.ns.has_key("main"):
+    var main = frame["main"]
+    if main.kind == GeneInternal and main.internal.kind == GeneFunction:
+      var args = GLOBAL_NS.internal.ns["$cmd_args"]
+      var options = Table[FnOption, GeneValue]()
+      self.call_fn(frame, GeneNil, main.internal.fn, args, options)
+    else:
+      raise new_exception(CatchableError, "main is not a function.")
 
 proc import_module*(self: VM, name: string, code: string): Namespace =
   if self.modules.has_key(name):
@@ -202,14 +211,26 @@ proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): Gene
 
 proc process_args*(self: VM, frame: Frame, matcher: RootMatcher, args: GeneValue) =
   var match_result = matcher.match(args)
-  if match_result.kind == MatchSuccess:
+  case match_result.kind:
+  of MatchSuccess:
     for field in match_result.fields:
       if field.value_expr != nil:
         frame.scope.def_member(field.name, self.eval(frame, field.value_expr))
       else:
         frame.scope.def_member(field.name, field.value)
+  of MatchMissingFields:
+    for field in match_result.missing:
+      not_allowed("Argument " & field & " is missing.")
   else:
     todo()
+
+proc repl_on_error(self: VM, frame: Frame, e: ref CatchableError): GeneValue =
+  echo "An exception was thrown: " & e.msg
+  echo "Opening debug console..."
+  echo "Note: the exception can be accessed as $ex"
+  var ex = error_to_gene(e)
+  self.def_member(frame, "$ex", ex, false)
+  result = repl(self, frame, eval_only, true)
 
 proc call_fn*(
   self: VM,
@@ -249,6 +270,11 @@ proc call_fn*(
       result = r.val
     else:
       raise
+  except CatchableError as e:
+    if self.repl_on_error:
+      result = repl_on_error(self, frame, e)
+    else:
+      raise
 
   ScopeMgr.free(fn_scope)
 
@@ -269,6 +295,11 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
       result = self.eval(new_frame, e)
   except Return as r:
     result = r.val
+  except CatchableError as e:
+    if self.repl_on_error:
+      result = repl_on_error(self, frame, e)
+    else:
+      raise
 
   ScopeMgr.free(mac_scope)
 
@@ -295,8 +326,16 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   var blk2: seq[Expr] = @[]
   for item in blk.body:
     blk2.add(new_expr(blk.expr, item))
-  for e in blk2:
-    result = self.eval(new_frame, e)
+  try:
+    for e in blk2:
+      result = self.eval(new_frame, e)
+  except Return, Break:
+    raise
+  except CatchableError as e:
+    if self.repl_on_error:
+      result = repl_on_error(self, frame, e)
+    else:
+      raise
 
   ScopeMgr.free(blk_scope)
 
@@ -1171,6 +1210,9 @@ EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
       self.def_member(frame, name, v, false)
   else:
     todo()
+
+EvaluatorMgr[ExRepl] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  return repl(self, frame, eval_only, true)
 
 when isMainModule:
   import os, times

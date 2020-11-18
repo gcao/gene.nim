@@ -6,7 +6,7 @@ import gene/interpreter
 import ./helpers
 
 test_core """
-  (gene/Json/parse
+  (gene/json/parse
     "{\"a\": true}"
   )
 """, {"a": GeneTrue}.toOrderedTable

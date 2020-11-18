@@ -779,3 +779,6 @@ TranslatorMgr["$parse_cmd_args"] = proc(parent: Expr, node: GeneValue): Expr =
   m.parse(node.gene.data[0])
   result.cmd_args_schema = m
   result.cmd_args = new_expr(result, node.gene.data[1])
+
+TranslatorMgr["repl"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExRepl)

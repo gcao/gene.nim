@@ -301,7 +301,7 @@
   )
 )
 
-(class gene/Json
+(ns gene/json
   (fn parse json_string
     (call_native "json_parse" json_string)
   )

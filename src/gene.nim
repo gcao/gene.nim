@@ -4,41 +4,25 @@
 # import nimprof
 # setSamplingFrequency(1)
 
-# TODO: readline support for REPL
-# https://stackoverflow.com/questions/61079605/how-to-write-a-text-prompt-in-nim-that-has-readline-style-line-editing
-# https://github.com/jangko/nim-noise
-#
-# TODO:
-# Ctrl-C to cancel current line
-# Ctrl-C Ctrl-C to exit
-
-import times, strutils, logging, os
+import times, logging, os
 
 import gene/types
-import gene/parser
 import gene/interpreter
+import gene/repl
 import cmdline/option_parser
 
-proc setupLogger(debugging: bool) =
-  var consoleLogger = newConsoleLogger()
-  addHandler(consoleLogger)
-  consoleLogger.levelThreshold = Level.lvlInfo
+proc setup_logger(debugging: bool) =
+  var console_logger = new_console_logger()
+  add_handler(console_logger)
+  console_logger.level_threshold = Level.lvlInfo
   if debugging:
-    consoleLogger.levelThreshold = Level.lvlDebug
+    console_logger.level_threshold = Level.lvlDebug
 
 proc quit_with*(errorcode: int, newline = false) =
   if newline:
     echo ""
   echo "Good bye!"
   quit(errorcode)
-
-# https://stackoverflow.com/questions/5762491/how-to-print-color-in-console-using-system-out-println
-# https://en.wikipedia.org/wiki/ANSI_escape_code
-proc error(message: string): string =
-  return "\u001B[31m" & message & "\u001B[0m"
-
-proc prompt(message: string): string =
-  return "\u001B[36m" & message & "\u001B[0m"
 
 proc init_vm(): VM =
   result = new_vm()
@@ -47,62 +31,23 @@ proc init_vm(): VM =
   result.load_genex_module()
 
 proc main() =
-  var options = parseOptions()
-  setupLogger(options.debugging)
+  var options = parse_options()
+  setup_logger(options.debugging)
 
+  var vm = init_vm()
+  vm.repl_on_error = options.repl_on_error
   if options.repl:
-    echo "Welcome to interactive Gene!"
-    echo "Note: press Ctrl-D to exit."
-
-    if options.debugging:
-      echo "The logger level is set to DEBUG."
-
-    var vm = init_vm()
     var frame = vm.eval_prepare()
-    var input = ""
-    while true:
-      write(stdout, prompt("Gene> "))
-      try:
-        input = input & readLine(stdin)
-        input = input.strip
-        case input:
-        of "":
-          continue
-        of "help":
-          echo "TODO"
-        else:
-          discard
-
-        var r = vm.eval_only(frame, input)
-        writeLine(stdout, r)
-
-        # Reset input
-        input = ""
-      except EOFError:
-        quit_with(0, true)
-      except ParseError as e:
-        # Incomplete expression
-        if e.msg.startsWith("EOF"):
-          continue
-        else:
-          input = ""
-      except Exception as e:
-        input = ""
-        var s = e.getStackTrace()
-        s.stripLineEnd
-        echo s
-        echo error("$#: $#" % [$e.name, $e.msg])
-
+    discard repl(vm, frame, eval_only, false)
   else:
-    var vm = init_vm()
     var file = options.file
-    vm.init_package(parentDir(file))
-    let start = cpuTime()
+    vm.init_package(parent_dir(file))
+    let start = cpu_time()
     let result = vm.run_file(file)
     if options.print_result:
       echo result
     if options.benchmark:
-      echo "Time: " & $(cpuTime() - start)
+      echo "Time: " & $(cpu_time() - start)
 
 when isMainModule:
   main()
