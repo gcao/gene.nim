@@ -18,8 +18,12 @@
   (call_native "base64" s)
 )
 
-(macro gene/sleep time_in_ms
+(fn gene/sleep time_in_ms
   (call_native "sleep" time_in_ms)
+)
+
+(fn gene/sleep_async time_in_ms
+  (call_native "sleep_async" time_in_ms)
 )
 
 (class gene/Object

@@ -1,4 +1,4 @@
-import os, strutils, tables, dynlib, unicode, hashes, sets, json
+import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
@@ -202,6 +202,7 @@ type
   #     discard
 
   Function* = ref object
+    async*: bool
     ns*: Namespace
     parent_scope*: Scope
     parent_scope_max*: NameIndexScope
@@ -235,9 +236,6 @@ type
     name*: string
     value*: int
 
-  Future* = ref object
-    discard
-
   GeneInternalKind* = enum
     GeneApplication
     GenePackage
@@ -260,6 +258,7 @@ type
     GeneExceptionKind
     GeneFuture
     GeneNativeProc
+    GeneAsyncProc
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -302,9 +301,11 @@ type
     of GeneExceptionKind:
       exception*: ref CatchableError
     of GeneFuture:
-      future*: Future
+      future*: Future[GeneValue]
     of GeneNativeProc:
       native_proc*: NativeProc
+    of GeneAsyncProc:
+      async_proc*: AsyncProc
 
   ComplexSymbol* = ref object
     first*: string
@@ -398,6 +399,7 @@ type
     data*: seq[GeneValue]
 
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
+  AsyncProc* = proc(args: seq[GeneValue]): Future[GeneValue] {.async nimcall.}
 
   ExprKind* = enum
     ExCustom
@@ -789,8 +791,13 @@ type
   MatchState* = ref object
     # prop_processed*: seq[string]
     data_index*: int
+
   NativeProcsType* = ref object
     procs*: seq[NativeProc]
+    name_mappings*: OrderedTable[string, int]
+
+  AsyncProcsType* = ref object
+    procs*: seq[AsyncProc]
     name_mappings*: OrderedTable[string, int]
 
   FrameManager* = ref object
@@ -862,6 +869,7 @@ let
   Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
 
 var NativeProcs* = NativeProcsType()
+var AsyncProcs*  = AsyncProcsType()
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:
@@ -1664,6 +1672,12 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
+converter new_gene_internal*(f: Future[GeneValue]): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneFuture, future: f),
+  )
+
 # Do not allow auto conversion between CatchableError and GeneValue
 # because there are sub-classes of CatchableError that need to be
 # handled differently.
@@ -1798,7 +1812,8 @@ converter to_function*(node: GeneValue): Function =
       body.add node.gene.data[i]
 
     body = wrap_with_try(body)
-    return new_fn(name, matcher, body)
+    result = new_fn(name, matcher, body)
+    result.async = node.gene.props.get_or_default("async", false)
   else:
     not_allowed()
 
@@ -2121,6 +2136,21 @@ proc get_index*(self: var NativeProcsType, name: string): int =
   return self.name_mappings[name]
 
 proc get*(self: var NativeProcsType, index: int): NativeProc =
+  return self.procs[index]
+
+#################### AsyncProcs ##################
+
+# This is mainly created to make the code in native_procs.nim look slightly better
+# (no discard, or `()` is required)
+proc `[]=`*(self: var AsyncProcsType, name: string, p: AsyncProc) =
+  var index = self.procs.len
+  self.procs.add(p)
+  self.name_mappings[name] = index
+
+proc get_index*(self: var AsyncProcsType, name: string): int =
+  return self.name_mappings[name]
+
+proc get*(self: var AsyncProcsType, index: int): AsyncProc =
   return self.procs[index]
 
 #################### Import ######################

@@ -1,4 +1,5 @@
 import strutils, tables, osproc, json, httpclient, base64, os
+import asyncdispatch
 
 import ./types
 
@@ -198,3 +199,7 @@ proc init_native_procs*() =
 
   NativeProcs.add_only "sleep", proc(args: seq[GeneValue]): GeneValue =
     sleep(args[0].int)
+
+  # Async procs
+  AsyncProcs["sleep_async"] = proc(args: seq[GeneValue]): Future[GeneValue] {.async.} =
+    async_check sleep_async(args[0].int)
