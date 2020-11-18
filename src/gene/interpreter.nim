@@ -1,4 +1,5 @@
 import tables, os, sequtils, strutils, dynlib
+import asyncdispatch
 
 import ./types
 import ./parser
@@ -232,6 +233,54 @@ proc repl_on_error(self: VM, frame: Frame, e: ref CatchableError): GeneValue =
   self.def_member(frame, "$ex", ex, false)
   result = repl(self, frame, eval_only, true)
 
+proc call_async_fn*(
+  self: VM,
+  frame: Frame,
+  target: GeneValue,
+  fn: Function,
+  args: GeneValue,
+  options: Table[FnOption, GeneValue]
+): Future[GeneValue] {.async.} =
+  var ns: Namespace = fn.ns
+  var fn_scope = ScopeMgr.get()
+  if fn.expr.kind == ExFn:
+    fn_scope.set_parent(fn.parent_scope, fn.parent_scope_max)
+  var new_frame: Frame
+  if options.has_key(FnMethod):
+    new_frame = FrameMgr.get(FrMethod, ns, fn_scope)
+    fn_scope.def_member("$class", options[FnClass])
+    var meth = options[FnMethod]
+    fn_scope.def_member("$method", meth)
+  else:
+    new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
+  new_frame.parent = frame
+  new_frame.self = target
+
+  new_frame.args = args
+  self.process_args(new_frame, fn.matcher, new_frame.args)
+
+  if fn.body_blk.len == 0:  # Translate on demand
+    for item in fn.body:
+      fn.body_blk.add(new_expr(fn.expr, item))
+  try:
+    for e in fn.body_blk:
+      # TODO: wrap in Future
+      # result = self.eval(new_frame, e)
+      discard self.eval(new_frame, e)
+  except Return as r:
+    # return's frame is the same as new_frame(current function's frame)
+    if r.frame == new_frame:
+      result = r.val
+    else:
+      raise
+  except CatchableError as e:
+    if self.repl_on_error:
+      result = repl_on_error(self, frame, e)
+    else:
+      raise
+
+  ScopeMgr.free(fn_scope)
+
 proc call_fn*(
   self: VM,
   frame: Frame,
@@ -240,6 +289,8 @@ proc call_fn*(
   args: GeneValue,
   options: Table[FnOption, GeneValue]
 ): GeneValue =
+  if fn.async:
+    return self.call_async_fn(frame, target, fn, args, options)
   var ns: Namespace = fn.ns
   var fn_scope = ScopeMgr.get()
   if fn.expr.kind == ExFn:
@@ -757,6 +808,11 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
     if not handled:
       raise
 
+EvaluatorMgr[ExAwait] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var r = self.eval(frame, expr.await)
+  if r.kind == GeneInternal and r.internal.kind == GeneFuture:
+    return wait_for(r.internal.future)
+
 EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   expr.fn.internal.fn.ns = frame.ns
   expr.fn.internal.fn.parent_scope = frame.scope
@@ -980,6 +1036,13 @@ EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
   for item in expr.native_args:
     args.add(self.eval(frame, item))
   var p = NativeProcs.get(expr.native_index)
+  result = p(args)
+
+EvaluatorMgr[ExCallAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
+  var args: seq[GeneValue] = @[]
+  for item in expr.async_args:
+    args.add(self.eval(frame, item))
+  var p = AsyncProcs.get(expr.async_index)
   result = p(args)
 
 EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =

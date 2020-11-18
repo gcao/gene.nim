@@ -1,7 +1,9 @@
 #!/usr/bin/env gene
 
 (fn ^^async f a
-  (await (gene/sleep_async 2500))
+  (do
+    (await (gene/sleep_async 2500))
+  )
   (println a)     # Should appear between 2 & 3
 )
 (await (f "first"))

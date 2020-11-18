@@ -436,6 +436,7 @@ type
     ExExplode
     ExThrow
     ExTry
+    ExAwait
     ExFn
     ExArgs
     ExMacro
@@ -462,6 +463,7 @@ type
     ExStopInheritance
     ExCall
     ExCallNative
+    ExCallAsync
     ExGetClass
     ExQuote
     ExUnquote
@@ -565,6 +567,8 @@ type
       try_body*: seq[Expr]
       try_catches*: seq[(Expr, seq[Expr])]
       try_finally*: seq[Expr]
+    of ExAwait:
+      await*: Expr
     of ExFn:
       fn*: GeneValue
       fn_name*: GeneValue
@@ -639,6 +643,10 @@ type
       native_name*: string
       native_index*: int
       native_args*: seq[Expr]
+    of ExCallAsync:
+      async_name*: string
+      async_index*: int
+      async_args*: seq[Expr]
     of ExGetClass:
       get_class_val*: Expr
     of ExQuote:

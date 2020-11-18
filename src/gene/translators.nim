@@ -683,6 +683,9 @@ TranslatorMgr["not"           ] = new_not_expr
 TranslatorMgr["var"           ] = new_var_expr
 TranslatorMgr["throw"         ] = new_throw_expr
 TranslatorMgr["try"           ] = new_try_expr
+TranslatorMgr["await"         ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAwait)
+  result.await = new_expr(parent, node.gene.data[0])
 TranslatorMgr["fn"            ] = new_fn_expr
 TranslatorMgr["macro"         ] = new_macro_expr
 TranslatorMgr["return"        ] = new_return_expr
@@ -703,6 +706,14 @@ TranslatorMgr["$invoke_method"] = new_invoke_expr
 TranslatorMgr["mixin"         ] = new_mixin_expr
 TranslatorMgr["include"       ] = new_include_expr
 TranslatorMgr["call_native"   ] = new_call_native_expr
+TranslatorMgr["call_async"    ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExCallAsync)
+  var name = node.gene.data[0].str
+  var index = AsyncProcs.get_index(name)
+  result.async_name = name
+  result.async_index = index
+  for i in 1..<node.gene.data.len:
+    result.async_args.add(new_expr(result, node.gene.data[i]))
 TranslatorMgr["$parse"        ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExParse)
   result.parse = new_expr(parent, node.gene.data[0])

@@ -23,7 +23,7 @@
 )
 
 (fn gene/sleep_async time_in_ms
-  (call_native "sleep_async" time_in_ms)
+  (call_async "sleep_async" time_in_ms)
 )
 
 (class gene/Object
