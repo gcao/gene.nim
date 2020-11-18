@@ -240,7 +240,7 @@ proc call_async_fn*(
   fn: Function,
   args: GeneValue,
   options: Table[FnOption, GeneValue]
-): Future[GeneValue] {.async.} =
+): Future[void] {.async.} =
   var ns: Namespace = fn.ns
   var fn_scope = ScopeMgr.get()
   if fn.expr.kind == ExFn:
@@ -262,22 +262,29 @@ proc call_async_fn*(
   if fn.body_blk.len == 0:  # Translate on demand
     for item in fn.body:
       fn.body_blk.add(new_expr(fn.expr, item))
+
+  var r: GeneValue
   try:
     for e in fn.body_blk:
-      # TODO: wrap in Future
-      # result = self.eval(new_frame, e)
-      discard self.eval(new_frame, e)
-  except Return as r:
+      r = self.eval(new_frame, e)
+  except Return as ret:
     # return's frame is the same as new_frame(current function's frame)
-    if r.frame == new_frame:
-      result = r.val
+    if ret.frame == new_frame:
+      r = ret.val
     else:
       raise
   except CatchableError as e:
     if self.repl_on_error:
-      result = repl_on_error(self, frame, e)
+      r = repl_on_error(self, frame, e)
     else:
       raise
+
+  result = r.internal.future
+  # if r.kind == GeneInternal and r.internal.kind == GeneFuture:
+  #   result = r.internal.future
+  # else:
+  #   result.new
+  #   result.complete(r.addr)
 
   ScopeMgr.free(fn_scope)
 
@@ -290,7 +297,8 @@ proc call_fn*(
   options: Table[FnOption, GeneValue]
 ): GeneValue =
   if fn.async:
-    return self.call_async_fn(frame, target, fn, args, options)
+    var future = self.call_async_fn(frame, target, fn, args, options)
+    return future_to_gene(future)
   var ns: Namespace = fn.ns
   var fn_scope = ScopeMgr.get()
   if fn.expr.kind == ExFn:
@@ -811,7 +819,7 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inli
 EvaluatorMgr[ExAwait] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var r = self.eval(frame, expr.await)
   if r.kind == GeneInternal and r.internal.kind == GeneFuture:
-    return wait_for(r.internal.future)
+    wait_for(r.internal.future)
 
 EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   expr.fn.internal.fn.ns = frame.ns
@@ -1043,7 +1051,7 @@ EvaluatorMgr[ExCallAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue 
   for item in expr.async_args:
     args.add(self.eval(frame, item))
   var p = AsyncProcs.get(expr.async_index)
-  result = p(args)
+  result = future_to_gene(p(args))
 
 EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.} =
   var val = self.eval(frame, expr.get_class_val)

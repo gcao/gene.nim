@@ -23,8 +23,7 @@
 )
 
 (fn gene/sleep_async time_in_ms
-  # (call_async "sleep_async" time_in_ms)
-  (call_native "sleep_async" time_in_ms)
+  (call_async "sleep_async" time_in_ms)
 )
 
 (class gene/Object
@@ -275,6 +274,12 @@
 
   (method version _
     (call_native "package_version" self)
+  )
+)
+
+(class gene/Future
+  (method on_success blk
+    # ($future_on_success self blk)
   )
 )
 

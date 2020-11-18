@@ -301,7 +301,7 @@ type
     of GeneExceptionKind:
       exception*: ref CatchableError
     of GeneFuture:
-      future*: Future[GeneValue]
+      future*: Future[void]
     of GeneNativeProc:
       native_proc*: NativeProc
     of GeneAsyncProc:
@@ -399,7 +399,7 @@ type
     data*: seq[GeneValue]
 
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
-  AsyncProc* = proc(args: seq[GeneValue]): Future[GeneValue] {.async nimcall.}
+  AsyncProc* = proc(args: seq[GeneValue]): Future[void] {.async nimcall.}
 
   ExprKind* = enum
     ExCustom
@@ -814,6 +814,11 @@ type
   ScopeManager* = ref object
     cache*: seq[Scope]
 
+  FutureManager* = ref object
+    next_key*: int
+    futures*: OrderedTable[int, Future[void]]
+    future_values*: OrderedTable[int, GeneValue]
+
   # Types related to command line argument parsing
   ArgumentError* = object of CatchableError
 
@@ -894,6 +899,7 @@ var GeneExceptionClass*: GeneValue
 var EvaluatorMgr* = EvaluatorManager()
 var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
+var FutureMgr* = FutureManager(next_key: 0)
 
 #################### Interfaces ##################
 
@@ -961,11 +967,35 @@ converter proc_to_gene*(v: NativeProc): GeneValue =
     ),
   )
 
-converter future_void_to_gene*(v: Future[void]): Future[GeneValue] =
-  result = new_future[GeneValue]()
-  # TODO: below code does not work
-  # v.add_callback proc(){.gcsafe.} =
-  #   result.complete(GeneNil)
+#################### FutureManager ###############
+
+proc next*(self: var FutureManager): (int, Future[void]) =
+  var key = self.next_key
+  var future = new_future[void]()
+  self.next_key += 1
+  self.futures[key] = future
+  return (key, future)
+
+proc `[]`*(self: FutureManager, key: int): Future[void] =
+  return self.futures[key]
+
+proc report_success*(self: var FutureManager, key: int, val: GeneValue) =
+  self.future_values[key] = val
+  self.futures[key].complete()
+
+proc report_failure*(self: var FutureManager, key: int, err: ref Exception) =
+  self.futures[key].fail(err)
+
+proc remove*(self: FutureManager, key: int) =
+  self.futures.del(key)
+  if self.future_values.has_key(key):
+    self.future_values.del(key)
+
+# converter future_void_to_gene*(v: Future[void]): Future[GeneValue] =
+#   result = new_future[GeneValue]()
+#   var r = result
+#   v.add_callback proc(){.gcsafe.} =
+#     r.complete(GeneNil)
 
 #################### Module ######################
 
@@ -1686,7 +1716,7 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
-converter new_gene_internal*(f: Future[GeneValue]): GeneValue =
+proc future_to_gene*(f: Future[void]): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneFuture, future: f),
@@ -1893,6 +1923,8 @@ proc get_class*(val: GeneValue): Class =
       return val.internal.instance.class
     of GeneClass:
       return GENE_NS.internal.ns["Class"].internal.class
+    of GeneFuture:
+      return GENE_NS.internal.ns["Future"].internal.class
     of GeneFile:
       return GENE_NS.internal.ns["File"].internal.class
     of GeneExceptionKind:
