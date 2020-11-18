@@ -200,6 +200,10 @@ proc init_native_procs*() =
   NativeProcs.add_only "sleep", proc(args: seq[GeneValue]): GeneValue =
     sleep(args[0].int)
 
-  # Async procs
-  AsyncProcs["sleep_async"] = proc(args: seq[GeneValue]): Future[GeneValue] {.async.} =
-    async_check sleep_async(args[0].int)
+  NativeProcs.add_only "sleep_async", proc(args: seq[GeneValue]): GeneValue =
+    var r = sleep_async(args[0].int)
+    return new_gene_internal(r)
+
+  # # Async procs
+  # AsyncProcs["sleep_async"] = proc(args: seq[GeneValue]): Future[GeneValue] {.async.} =
+  #   async_check sleep_async(args[0].int)

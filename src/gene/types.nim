@@ -961,6 +961,12 @@ converter proc_to_gene*(v: NativeProc): GeneValue =
     ),
   )
 
+converter future_void_to_gene*(v: Future[void]): Future[GeneValue] =
+  result = new_future[GeneValue]()
+  # TODO: below code does not work
+  # v.add_callback proc(){.gcsafe.} =
+  #   result.complete(GeneNil)
+
 #################### Module ######################
 
 proc new_module*(name: string): Module =
