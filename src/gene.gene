@@ -5,7 +5,7 @@
 )
 (var global/assert gene/assert)
 
-(macro gene/debug [expr]
+(macro gene/debug expr
   (var s (expr .to_s))
   (println s " begin")
   (var result (caller_eval expr))
@@ -16,6 +16,10 @@
 
 (fn gene/base64 s
   (call_native "base64" s)
+)
+
+(macro gene/sleep time_in_ms
+  (call_native "sleep" time_in_ms)
 )
 
 (class gene/Object

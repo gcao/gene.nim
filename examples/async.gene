@@ -1,0 +1,14 @@
+#!/usr/bin/env gene
+
+(fn ^^async f a
+  (gene/sleep 2500)
+  (println a)     # Should appear between 2 & 3
+)
+(f "first")
+(println 0)
+(gene/sleep 1000)
+(println 1)
+(gene/sleep 1000)
+(println 2)
+(gene/sleep 1000)
+(println 3)

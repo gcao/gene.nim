@@ -1,4 +1,4 @@
-import strutils, tables, osproc, json, httpclient, base64
+import strutils, tables, osproc, json, httpclient, base64, os
 
 import ./types
 
@@ -195,3 +195,6 @@ proc init_native_procs*() =
 
   NativeProcs.add_only "base64", proc(args: seq[GeneValue]): GeneValue =
     return encode(args[0].str)
+
+  NativeProcs.add_only "sleep", proc(args: seq[GeneValue]): GeneValue =
+    sleep(args[0].int)
