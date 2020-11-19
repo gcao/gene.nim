@@ -279,7 +279,7 @@
 
 (class gene/Future
   (method on_success blk
-    # ($future_on_success self blk)
+    ($on_future_success self blk)
   )
 )
 

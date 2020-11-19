@@ -201,11 +201,10 @@ proc init_native_procs*() =
     sleep(args[0].int)
 
   # NativeProcs.add_only "sleep_async", proc(args: seq[GeneValue]): GeneValue =
-  #   var f: Future[GeneValue]
-  #   f.new
-  #   sleep_async(args[0].int).add_callback(proc() {.gcsafe.} = f.complete(GeneNil))
+  #   var f = sleep_async(args[0].int)
   #   return future_to_gene(f)
 
   # Async procs
-  AsyncProcs["sleep_async"] = proc(args: seq[GeneValue]): Future[void] {.async.} =
-    async_check sleep_async(args[0].int)
+  AsyncProcs["sleep_async"] = proc(args: seq[GeneValue]): Future[void] =
+    result = sleep_async(args[0].int)
+    result.add_callback(proc() = echo "sleep_async finished")

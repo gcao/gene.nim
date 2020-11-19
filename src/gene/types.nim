@@ -476,6 +476,7 @@ type
     ExPrint
     ExParseCmdArgs
     ExRepl
+    ExOnFutureSuccess
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -677,13 +678,16 @@ type
       cmd_args*: Expr
     of ExRepl:
       discard
+    of ExOnFutureSuccess:
+      ofs_self*: Expr
+      ofs_callback*: Expr
 
   VM* = ref object
     app*: Application
     modules*: OrderedTable[string, Namespace]
     repl_on_error*: bool
 
-  Evaluator* = proc(self: VM, frame: Frame, expr: Expr): GeneValue {.inline.}
+  Evaluator* = proc(self: VM, frame: Frame, expr: Expr): GeneValue
 
   EvaluatorManager* = ref object
     mappings*: Table[ExprKind, Evaluator]
