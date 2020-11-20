@@ -324,7 +324,7 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   of ExGene:
     args_blk = expr.gene_data
   else:
-    todo()
+    args_blk = @[]
 
   var args = new_gene_gene(GeneNil)
   for e in args_blk:
@@ -406,6 +406,25 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
     discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
 
   ScopeMgr.free(new_scope)
+
+proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, expr: Expr): GeneValue =
+  case target.kind:
+  of GeneInternal:
+    case target.internal.kind:
+    of GeneFunction:
+      var options = Table[FnOption, GeneValue]()
+      result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
+    # of GeneMacro:
+    #   result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
+    of GeneBlock:
+      result = self.call_block(frame, GeneNil, target.internal.blk, expr)
+    # of GeneNativeProc:
+    #   var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+    #   result = target.internal.native_proc(args.gene.data)
+    else:
+      todo()
+  else:
+    todo()
 
 proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
   case name.kind:
@@ -1244,8 +1263,10 @@ EvaluatorMgr[ExRepl] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExOnFutureSuccess] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   # Register callback to future
   var ofs_self = self.eval(frame, expr.ofs_self).internal.future
-  ofs_self.add_callback proc() =
-    echo "Callback TODO"
+  var ofs_callback = self.eval(frame, expr.ofs_callback)
+  ofs_self.add_callback proc() {.gcsafe.} =
+    discard self.call_target(frame, ofs_callback, GeneNil, expr)
+    # echo "Callback TODO"
 
 when isMainModule:
   import os, times
