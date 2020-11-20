@@ -106,6 +106,15 @@ proc new_vm*(app: Application): VM =
 proc new_vm*(): VM =
   result = new_vm(APP)
 
+proc wait_for_futures*(self: VM) =
+  try:
+    run_forever()
+  except ValueError as e:
+    if e.msg == "No handles or timers registered in dispatcher.":
+      discard
+    else:
+      raise
+
 proc prepare*(self: VM, code: string): Expr =
   var parsed = read_all(code)
   result = Expr(
@@ -151,7 +160,8 @@ proc run_file*(self: VM, file: string): GeneValue =
     if main.kind == GeneInternal and main.internal.kind == GeneFunction:
       var args = GLOBAL_NS.internal.ns["$cmd_args"]
       var options = Table[FnOption, GeneValue]()
-      self.call_fn(frame, GeneNil, main.internal.fn, args, options)
+      result = self.call_fn(frame, GeneNil, main.internal.fn, args, options)
+      self.wait_for_futures()
     else:
       raise new_exception(CatchableError, "main is not a function.")
 
@@ -992,12 +1002,12 @@ EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
   var p = NativeProcs.get(expr.native_index)
   result = p(args)
 
-EvaluatorMgr[ExCallAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var args: seq[GeneValue] = @[]
-  for item in expr.async_args:
-    args.add(self.eval(frame, item))
-  var p = AsyncProcs.get(expr.async_index)
-  result = future_to_gene(p(args))
+# EvaluatorMgr[ExCallAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   var args: seq[GeneValue] = @[]
+#   for item in expr.async_args:
+#     args.add(self.eval(frame, item))
+#   var p = AsyncProcs.get(expr.async_index)
+#   result = future_to_gene(p(args))
 
 EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var val = self.eval(frame, expr.get_class_val)

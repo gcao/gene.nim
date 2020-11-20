@@ -706,14 +706,14 @@ TranslatorMgr["$invoke_method"] = new_invoke_expr
 TranslatorMgr["mixin"         ] = new_mixin_expr
 TranslatorMgr["include"       ] = new_include_expr
 TranslatorMgr["call_native"   ] = new_call_native_expr
-TranslatorMgr["call_async"    ] = proc(parent: Expr, node: GeneValue): Expr =
-  result = new_expr(parent, ExCallAsync)
-  var name = node.gene.data[0].str
-  var index = AsyncProcs.get_index(name)
-  result.async_name = name
-  result.async_index = index
-  for i in 1..<node.gene.data.len:
-    result.async_args.add(new_expr(result, node.gene.data[i]))
+# TranslatorMgr["call_async"    ] = proc(parent: Expr, node: GeneValue): Expr =
+#   result = new_expr(parent, ExCallAsync)
+#   var name = node.gene.data[0].str
+#   var index = AsyncProcs.get_index(name)
+#   result.async_name = name
+#   result.async_index = index
+#   for i in 1..<node.gene.data.len:
+#     result.async_args.add(new_expr(result, node.gene.data[i]))
 TranslatorMgr["$parse"        ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExParse)
   result.parse = new_expr(parent, node.gene.data[0])

@@ -258,7 +258,7 @@ type
     GeneExceptionKind
     GeneFuture
     GeneNativeProc
-    GeneAsyncProc
+    # GeneAsyncProc
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -304,8 +304,8 @@ type
       future*: Future[void]
     of GeneNativeProc:
       native_proc*: NativeProc
-    of GeneAsyncProc:
-      async_proc*: AsyncProc
+    # of GeneAsyncProc:
+    #   async_proc*: AsyncProc
 
   ComplexSymbol* = ref object
     first*: string
@@ -399,7 +399,7 @@ type
     data*: seq[GeneValue]
 
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
-  AsyncProc* = proc(args: seq[GeneValue]): Future[void] {.async nimcall.}
+  # AsyncProc* = proc(args: seq[GeneValue]): Future[void] {.async nimcall.}
 
   ExprKind* = enum
     ExCustom
@@ -808,9 +808,9 @@ type
     procs*: seq[NativeProc]
     name_mappings*: OrderedTable[string, int]
 
-  AsyncProcsType* = ref object
-    procs*: seq[AsyncProc]
-    name_mappings*: OrderedTable[string, int]
+  # AsyncProcsType* = ref object
+  #   procs*: seq[AsyncProc]
+  #   name_mappings*: OrderedTable[string, int]
 
   FrameManager* = ref object
     cache*: seq[Frame]
@@ -886,7 +886,7 @@ let
   Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
 
 var NativeProcs* = NativeProcsType()
-var AsyncProcs*  = AsyncProcsType()
+# var AsyncProcs*  = AsyncProcsType()
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:
@@ -2187,20 +2187,20 @@ proc get_index*(self: var NativeProcsType, name: string): int =
 proc get*(self: var NativeProcsType, index: int): NativeProc =
   return self.procs[index]
 
-#################### AsyncProcs ##################
+# #################### AsyncProcs ##################
 
-# This is mainly created to make the code in native_procs.nim look slightly better
-# (no discard, or `()` is required)
-proc `[]=`*(self: var AsyncProcsType, name: string, p: AsyncProc) =
-  var index = self.procs.len
-  self.procs.add(p)
-  self.name_mappings[name] = index
+# # This is mainly created to make the code in native_procs.nim look slightly better
+# # (no discard, or `()` is required)
+# proc `[]=`*(self: var AsyncProcsType, name: string, p: AsyncProc) =
+#   var index = self.procs.len
+#   self.procs.add(p)
+#   self.name_mappings[name] = index
 
-proc get_index*(self: var AsyncProcsType, name: string): int =
-  return self.name_mappings[name]
+# proc get_index*(self: var AsyncProcsType, name: string): int =
+#   return self.name_mappings[name]
 
-proc get*(self: var AsyncProcsType, index: int): AsyncProc =
-  return self.procs[index]
+# proc get*(self: var AsyncProcsType, index: int): AsyncProc =
+#   return self.procs[index]
 
 #################### Import ######################
 
