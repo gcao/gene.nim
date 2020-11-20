@@ -304,6 +304,10 @@
     (call_native "file_read" name)
   )
 
+  (fn read_async name
+    (call_native "file_read_async" name)
+  )
+
   (fn write [name content]
     (call_native "file_write" name content)
   )

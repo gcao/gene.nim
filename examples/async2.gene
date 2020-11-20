@@ -1,0 +1,15 @@
+#!/usr/bin/env gene
+
+(fn f file
+  (var future
+    (gene/File/read_async file)
+  )
+  future
+)
+
+(var s)
+(var future (f "tests/fixtures/test.txt"))
+(future .on_future_success
+  (content -> (s = content)))
+(await future)
+(assert ((s .trim) == "line1\nline2"))

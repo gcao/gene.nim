@@ -1,5 +1,5 @@
 import strutils, tables, osproc, json, httpclient, base64, os
-import asyncdispatch
+import asyncdispatch, asyncfile
 
 import ./types
 
@@ -159,7 +159,7 @@ proc init_native_procs*() =
     result = file
 
   NativeProcs.add_only "file_close", proc(args: seq[GeneValue]): GeneValue =
-    args[0].internal.file.close
+    args[0].internal.file.close()
 
   NativeProcs.add_only "file_read", proc(args: seq[GeneValue]): GeneValue =
     var file = args[0]
@@ -169,7 +169,20 @@ proc init_native_procs*() =
     else:
       var internal = args[0].internal
       if internal.kind == GeneFile:
-        return internal.file.read_all
+        return internal.file.read_all()
+
+  NativeProcs.add_only "file_read_async", proc(args: seq[GeneValue]): GeneValue =
+    var file = args[0]
+    case file.kind:
+    of GeneString:
+      var f = open_async(file.str)
+      var future = f.read_all()
+      var (key, future2) = FutureMgr.next()
+      future.add_callback proc() {.gcsafe.} =
+        FutureMgr.report_success(key, future.read())
+      return future_to_gene(future2)
+    else:
+      todo()
 
   NativeProcs.add_only "file_write", proc(args: seq[GeneValue]): GeneValue =
     var file = args[0]
