@@ -980,6 +980,11 @@ proc next*(self: var FutureManager): (int, Future[void]) =
   self.futures[key] = future
   return (key, future)
 
+proc add*(self: var FutureManager, future: Future[void]): int =
+  result = self.next_key
+  self.futures[result] = future
+  self.next_key += 1
+
 proc `[]`*(self: FutureManager, key: int): Future[void] =
   return self.futures[key]
 
@@ -994,12 +999,6 @@ proc remove*(self: FutureManager, key: int) =
   self.futures.del(key)
   if self.future_values.has_key(key):
     self.future_values.del(key)
-
-# converter future_void_to_gene*(v: Future[void]): Future[GeneValue] =
-#   result = new_future[GeneValue]()
-#   var r = result
-#   v.add_callback proc(){.gcsafe.} =
-#     r.complete(GeneNil)
 
 #################### Module ######################
 

@@ -207,4 +207,3 @@ proc init_native_procs*() =
   # Async procs
   AsyncProcs["sleep_async"] = proc(args: seq[GeneValue]): Future[void] =
     result = sleep_async(args[0].int)
-    result.add_callback(proc() = echo "sleep_async finished")

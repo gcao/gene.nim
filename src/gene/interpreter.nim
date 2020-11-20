@@ -114,13 +114,13 @@ proc prepare*(self: VM, code: string): Expr =
   result.root = new_group_expr(result, parsed)
 
 proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue =
-  drain(0)
   if expr.evaluator != nil:
     result = expr.evaluator(self, frame, expr)
   else:
     var evaluator = EvaluatorMgr[expr.kind]
     result = evaluator(self, frame, expr)
 
+  drain(0)
   if result == nil:
     return GeneNil
   else:
@@ -234,61 +234,6 @@ proc repl_on_error(self: VM, frame: Frame, e: ref CatchableError): GeneValue =
   self.def_member(frame, "$ex", ex, false)
   result = repl(self, frame, eval_only, true)
 
-proc call_async_fn*(
-  self: VM,
-  frame: Frame,
-  target: GeneValue,
-  fn: Function,
-  args: GeneValue,
-  options: Table[FnOption, GeneValue]
-): Future[void] {.async.} =
-  var ns: Namespace = fn.ns
-  var fn_scope = ScopeMgr.get()
-  if fn.expr.kind == ExFn:
-    fn_scope.set_parent(fn.parent_scope, fn.parent_scope_max)
-  var new_frame: Frame
-  if options.has_key(FnMethod):
-    new_frame = FrameMgr.get(FrMethod, ns, fn_scope)
-    fn_scope.def_member("$class", options[FnClass])
-    var meth = options[FnMethod]
-    fn_scope.def_member("$method", meth)
-  else:
-    new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
-  new_frame.parent = frame
-  new_frame.self = target
-
-  new_frame.args = args
-  self.process_args(new_frame, fn.matcher, new_frame.args)
-
-  if fn.body_blk.len == 0:  # Translate on demand
-    for item in fn.body:
-      fn.body_blk.add(new_expr(fn.expr, item))
-
-  var r: GeneValue
-  try:
-    for e in fn.body_blk:
-      r = self.eval(new_frame, e)
-  except Return as ret:
-    # return's frame is the same as new_frame(current function's frame)
-    if ret.frame == new_frame:
-      r = ret.val
-    else:
-      raise
-  except CatchableError as e:
-    if self.repl_on_error:
-      r = repl_on_error(self, frame, e)
-    else:
-      raise
-
-  result = r.internal.future
-  # if r.kind == GeneInternal and r.internal.kind == GeneFuture:
-  #   result = r.internal.future
-  # else:
-  #   result.new
-  #   result.complete(r.addr)
-
-  ScopeMgr.free(fn_scope)
-
 proc call_fn*(
   self: VM,
   frame: Frame,
@@ -297,9 +242,6 @@ proc call_fn*(
   args: GeneValue,
   options: Table[FnOption, GeneValue]
 ): GeneValue =
-  if fn.async:
-    var future = self.call_async_fn(frame, target, fn, args, options)
-    return future_to_gene(future)
   var ns: Namespace = fn.ns
   var fn_scope = ScopeMgr.get()
   if fn.expr.kind == ExFn:
@@ -821,6 +763,9 @@ EvaluatorMgr[ExAwait] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var r = self.eval(frame, expr.await)
   if r.kind == GeneInternal and r.internal.kind == GeneFuture:
     wait_for(r.internal.future)
+    # TODO: result
+  else:
+    todo()
 
 EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   expr.fn.internal.fn.ns = frame.ns
@@ -1289,7 +1234,8 @@ EvaluatorMgr[ExRepl] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExOnFutureSuccess] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   # Register callback to future
   var ofs_self = self.eval(frame, expr.ofs_self).internal.future
-  ofs_self.add_callback(proc() = echo "Callback TODO")
+  ofs_self.add_callback proc() =
+    echo "Callback TODO"
 
 when isMainModule:
   import os, times
