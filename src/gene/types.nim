@@ -202,7 +202,7 @@ type
   #     discard
 
   Function* = ref object
-    async*: bool
+    # async*: bool
     ns*: Namespace
     parent_scope*: Scope
     parent_scope_max*: NameIndexScope
@@ -1860,7 +1860,7 @@ converter to_function*(node: GeneValue): Function =
 
     body = wrap_with_try(body)
     result = new_fn(name, matcher, body)
-    result.async = node.gene.props.get_or_default("async", false)
+    # result.async = node.gene.props.get_or_default("async", false)
   else:
     not_allowed()
 
