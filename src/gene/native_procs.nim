@@ -36,6 +36,9 @@ proc init_native_procs*() =
     var ex = args[0].internal.exception
     return ex.msg
 
+  # NativeProcs.add_only "future_new", proc(args: seq[GeneValue]): GeneValue =
+  #   return future_to_gene(new_future[GeneValue]())
+
   NativeProcs.add_only "package_name", proc(args: seq[GeneValue]): GeneValue =
     return args[0].internal.pkg.name
 

@@ -1251,6 +1251,13 @@ EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
 EvaluatorMgr[ExRepl] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   return repl(self, frame, eval_only, true)
 
+EvaluatorMgr[ExAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  # TODO: handle exception thrown by eval
+  var val = self.eval(frame, expr.async)
+  var future = new_future[GeneValue]()
+  future.complete(val)
+  return future_to_gene(future)
+
 EvaluatorMgr[ExOnFutureSuccess] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   # Register callback to future
   var ofs_self = self.eval(frame, expr.ofs_self).internal.future

@@ -18,7 +18,7 @@ import ./helpers
 # * await: convert to synchronous call
 #
 
-# test_interpreter """
-#   (async 1)
-# """, proc(r: GeneValue) =
-#   check r.internal.kind == GeneFuture
+test_interpreter """
+  (async 1)
+""", proc(r: GeneValue) =
+  check r.internal.kind == GeneFuture

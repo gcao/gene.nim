@@ -281,6 +281,10 @@
   (method on_success blk
     ($on_future_success self blk)
   )
+
+  # (fn new _
+  #   (call_native "future_new")
+  # )
 )
 
 (class gene/File

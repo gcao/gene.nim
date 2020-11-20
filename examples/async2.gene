@@ -1,10 +1,7 @@
 #!/usr/bin/env gene
 
 (fn read_async file
-  (var future
-    (gene/File/read_async file)
-  )
-  future
+  (gene/File/read_async file)
 )
 
 (var filename "tests/fixtures/test.txt")

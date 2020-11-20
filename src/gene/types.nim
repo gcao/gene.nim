@@ -470,6 +470,7 @@ type
     ExPrint
     ExParseCmdArgs
     ExRepl
+    ExAsync
     ExOnFutureSuccess
 
   Expr* = ref object of RootObj
@@ -668,6 +669,8 @@ type
       cmd_args*: Expr
     of ExRepl:
       discard
+    of ExAsync:
+      async*: Expr
     of ExOnFutureSuccess:
       ofs_self*: Expr
       ofs_callback*: Expr

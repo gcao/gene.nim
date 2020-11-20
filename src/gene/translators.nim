@@ -786,6 +786,10 @@ TranslatorMgr["$parse_cmd_args"] = proc(parent: Expr, node: GeneValue): Expr =
 TranslatorMgr["repl"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExRepl)
 
+TranslatorMgr["async"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAsync)
+  result.async = new_expr(result, node.gene.data[0])
+
 TranslatorMgr["$on_future_success"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExOnFutureSuccess)
   result.ofs_self = new_expr(result, node.gene.data[0])
