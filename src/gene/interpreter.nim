@@ -315,24 +315,10 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
 
   ScopeMgr.free(mac_scope)
 
-proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue =
+proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, args: GeneValue): GeneValue =
   var blk_scope = ScopeMgr.get()
   blk_scope.set_parent(blk.frame.scope, blk.parent_scope_max)
   var new_frame = blk.frame
-  var args_blk: seq[Expr]
-  case expr.kind:
-  of ExGene:
-    args_blk = expr.gene_data
-  else:
-    args_blk = @[]
-
-  var args = new_gene_gene(GeneNil)
-  for e in args_blk:
-    var v = self.eval(frame, e)
-    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
-      args.merge(v.internal.explode)
-    else:
-      args.gene.data.add(v)
   self.process_args(new_frame, blk.matcher, args)
 
   var blk2: seq[Expr] = @[]
@@ -350,6 +336,24 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
       raise
 
   ScopeMgr.free(blk_scope)
+
+proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue =
+  var args_blk: seq[Expr]
+  case expr.kind:
+  of ExGene:
+    args_blk = expr.gene_data
+  else:
+    args_blk = @[]
+
+  var args = new_gene_gene(GeneNil)
+  for e in args_blk:
+    var v = self.eval(frame, e)
+    if v.kind == GeneInternal and v.internal.kind == GeneExplode:
+      args.merge(v.internal.explode)
+    else:
+      args.gene.data.add(v)
+
+  result = self.call_block(frame, target, blk, args)
 
 proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue =
   var new_scope = ScopeMgr.get()
@@ -414,13 +418,8 @@ proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, ex
     of GeneFunction:
       var options = Table[FnOption, GeneValue]()
       result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
-    # of GeneMacro:
-    #   result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
     of GeneBlock:
-      result = self.call_block(frame, GeneNil, target.internal.blk, expr)
-    # of GeneNativeProc:
-    #   var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-    #   result = target.internal.native_proc(args.gene.data)
+      result = self.call_block(frame, GeneNil, target.internal.blk, args)
     else:
       todo()
   else:
@@ -791,8 +790,7 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExAwait] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var r = self.eval(frame, expr.await)
   if r.kind == GeneInternal and r.internal.kind == GeneFuture:
-    wait_for(r.internal.future)
-    # TODO: result
+    result = wait_for(r.internal.future)
   else:
     todo()
 
@@ -1020,13 +1018,6 @@ EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
     args.add(self.eval(frame, item))
   var p = NativeProcs.get(expr.native_index)
   result = p(args)
-
-# EvaluatorMgr[ExCallAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-#   var args: seq[GeneValue] = @[]
-#   for item in expr.async_args:
-#     args.add(self.eval(frame, item))
-#   var p = AsyncProcs.get(expr.async_index)
-#   result = future_to_gene(p(args))
 
 EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var val = self.eval(frame, expr.get_class_val)
@@ -1265,7 +1256,7 @@ EvaluatorMgr[ExOnFutureSuccess] = proc(self: VM, frame: Frame, expr: Expr): Gene
   var ofs_self = self.eval(frame, expr.ofs_self).internal.future
   var ofs_callback = self.eval(frame, expr.ofs_callback)
   ofs_self.add_callback proc() {.gcsafe.} =
-    discard self.call_target(frame, ofs_callback, GeneNil, expr)
+    discard self.call_target(frame, ofs_callback, @[ofs_self.read()], expr)
     # echo "Callback TODO"
 
 when isMainModule:

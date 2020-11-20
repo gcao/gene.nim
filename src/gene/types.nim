@@ -202,7 +202,6 @@ type
   #     discard
 
   Function* = ref object
-    # async*: bool
     ns*: Namespace
     parent_scope*: Scope
     parent_scope_max*: NameIndexScope
@@ -258,7 +257,6 @@ type
     GeneExceptionKind
     GeneFuture
     GeneNativeProc
-    # GeneAsyncProc
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -301,11 +299,9 @@ type
     of GeneExceptionKind:
       exception*: ref CatchableError
     of GeneFuture:
-      future*: Future[void]
+      future*: Future[GeneValue]
     of GeneNativeProc:
       native_proc*: NativeProc
-    # of GeneAsyncProc:
-    #   async_proc*: AsyncProc
 
   ComplexSymbol* = ref object
     first*: string
@@ -399,7 +395,6 @@ type
     data*: seq[GeneValue]
 
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
-  # AsyncProc* = proc(args: seq[GeneValue]): Future[void] {.async nimcall.}
 
   ExprKind* = enum
     ExCustom
@@ -463,7 +458,6 @@ type
     ExStopInheritance
     ExCall
     ExCallNative
-    ExCallAsync
     ExGetClass
     ExQuote
     ExUnquote
@@ -644,10 +638,6 @@ type
       native_name*: string
       native_index*: int
       native_args*: seq[Expr]
-    of ExCallAsync:
-      async_name*: string
-      async_index*: int
-      async_args*: seq[Expr]
     of ExGetClass:
       get_class_val*: Expr
     of ExQuote:
@@ -808,20 +798,11 @@ type
     procs*: seq[NativeProc]
     name_mappings*: OrderedTable[string, int]
 
-  # AsyncProcsType* = ref object
-  #   procs*: seq[AsyncProc]
-  #   name_mappings*: OrderedTable[string, int]
-
   FrameManager* = ref object
     cache*: seq[Frame]
 
   ScopeManager* = ref object
     cache*: seq[Scope]
-
-  FutureManager* = ref object
-    next_key*: int
-    futures*: OrderedTable[int, Future[void]]
-    future_values*: OrderedTable[int, GeneValue]
 
   # Types related to command line argument parsing
   ArgumentError* = object of CatchableError
@@ -886,7 +867,6 @@ let
   Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
 
 var NativeProcs* = NativeProcsType()
-# var AsyncProcs*  = AsyncProcsType()
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:
@@ -903,7 +883,6 @@ var GeneExceptionClass*: GeneValue
 var EvaluatorMgr* = EvaluatorManager()
 var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
-var FutureMgr* = FutureManager(next_key: 0)
 
 #################### Interfaces ##################
 
@@ -970,35 +949,6 @@ converter proc_to_gene*(v: NativeProc): GeneValue =
       native_proc: v,
     ),
   )
-
-#################### FutureManager ###############
-
-proc next*(self: var FutureManager): (int, Future[void]) =
-  var key = self.next_key
-  var future = new_future[void]()
-  self.next_key += 1
-  self.futures[key] = future
-  return (key, future)
-
-proc add*(self: var FutureManager, future: Future[void]): int =
-  result = self.next_key
-  self.futures[result] = future
-  self.next_key += 1
-
-proc `[]`*(self: FutureManager, key: int): Future[void] =
-  return self.futures[key]
-
-proc report_success*(self: var FutureManager, key: int, val: GeneValue) =
-  self.future_values[key] = val
-  self.futures[key].complete()
-
-proc report_failure*(self: var FutureManager, key: int, err: ref Exception) =
-  self.futures[key].fail(err)
-
-proc remove*(self: FutureManager, key: int) =
-  self.futures.del(key)
-  if self.future_values.has_key(key):
-    self.future_values.del(key)
 
 #################### Module ######################
 
@@ -1719,7 +1669,7 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
-proc future_to_gene*(f: Future[void]): GeneValue =
+proc future_to_gene*(f: Future[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneFuture, future: f),
@@ -1860,7 +1810,6 @@ converter to_function*(node: GeneValue): Function =
 
     body = wrap_with_try(body)
     result = new_fn(name, matcher, body)
-    # result.async = node.gene.props.get_or_default("async", false)
   else:
     not_allowed()
 
@@ -2186,21 +2135,6 @@ proc get_index*(self: var NativeProcsType, name: string): int =
 
 proc get*(self: var NativeProcsType, index: int): NativeProc =
   return self.procs[index]
-
-# #################### AsyncProcs ##################
-
-# # This is mainly created to make the code in native_procs.nim look slightly better
-# # (no discard, or `()` is required)
-# proc `[]=`*(self: var AsyncProcsType, name: string, p: AsyncProc) =
-#   var index = self.procs.len
-#   self.procs.add(p)
-#   self.name_mappings[name] = index
-
-# proc get_index*(self: var AsyncProcsType, name: string): int =
-#   return self.name_mappings[name]
-
-# proc get*(self: var AsyncProcsType, index: int): AsyncProc =
-#   return self.procs[index]
 
 #################### Import ######################
 

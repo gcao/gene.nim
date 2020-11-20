@@ -473,7 +473,7 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
 
   result.list = list
 
-proc add_line_col(self: var Parser, node: var GeneValue): void =
+proc add_line_col(self: var Parser, node: var GeneValue) =
   discard
   # node.line = self.line_number
   # node.column = self.getColNumber(self.bufpos)

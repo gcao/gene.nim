@@ -177,9 +177,9 @@ proc init_native_procs*() =
     of GeneString:
       var f = open_async(file.str)
       var future = f.read_all()
-      var (key, future2) = FutureMgr.next()
+      var future2 = new_future[GeneValue]()
       future.add_callback proc() {.gcsafe.} =
-        FutureMgr.report_success(key, future.read())
+        future2.complete(future.read())
       return future_to_gene(future2)
     else:
       todo()
@@ -215,8 +215,7 @@ proc init_native_procs*() =
 
   NativeProcs.add_only "sleep_async", proc(args: seq[GeneValue]): GeneValue =
     var f = sleep_async(args[0].int)
-    return future_to_gene(f)
-
-  # # Async procs
-  # AsyncProcs["sleep_async"] = proc(args: seq[GeneValue]): Future[void] =
-  #   result = sleep_async(args[0].int)
+    var future = new_future[GeneValue]()
+    f.add_callback proc() {.gcsafe.} =
+      future.complete(GeneNil)
+    return future_to_gene(future)

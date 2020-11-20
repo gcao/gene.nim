@@ -1,15 +1,19 @@
 #!/usr/bin/env gene
 
-(fn f file
+(fn read_async file
   (var future
     (gene/File/read_async file)
   )
   future
 )
 
-(var s)
-(var future (f "tests/fixtures/test.txt"))
-(future .on_future_success
-  (content -> (s = content)))
+(var filename "tests/fixtures/test.txt")
+(println "Reading " filename "...")
+(var future (read_async filename))
+(var content)
+(future .on_success
+  (s -> (content = s)))
 (await future)
-(assert ((s .trim) == "line1\nline2"))
+(println "Content read:\n" content)
+(assert ((content .trim) == "line1\nline2"))
+(println "Done.")
