@@ -795,6 +795,13 @@ TranslatorMgr["async"] = proc(parent: Expr, node: GeneValue): Expr =
   result.async = new_expr(result, node.gene.data[0])
 
 TranslatorMgr["$on_future_success"] = proc(parent: Expr, node: GeneValue): Expr =
-  result = new_expr(parent, ExOnFutureSuccess)
-  result.ofs_self = new_expr(result, node.gene.data[0])
-  result.ofs_callback = new_expr(result, node.gene.data[1])
+  result = new_expr(parent, ExAsyncCallback)
+  result.acb_success = true
+  result.acb_self = new_expr(result, node.gene.data[0])
+  result.acb_callback = new_expr(result, node.gene.data[1])
+
+TranslatorMgr["$on_future_failure"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAsyncCallback)
+  result.acb_success = false
+  result.acb_self = new_expr(result, node.gene.data[0])
+  result.acb_callback = new_expr(result, node.gene.data[1])

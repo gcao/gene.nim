@@ -471,7 +471,7 @@ type
     ExParseCmdArgs
     ExRepl
     ExAsync
-    ExOnFutureSuccess
+    ExAsyncCallback
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -671,9 +671,10 @@ type
       discard
     of ExAsync:
       async*: Expr
-    of ExOnFutureSuccess:
-      ofs_self*: Expr
-      ofs_callback*: Expr
+    of ExAsyncCallback:
+      acb_success*: bool
+      acb_self*: Expr
+      acb_callback*: Expr
 
   VM* = ref object
     app*: Application

@@ -1264,12 +1264,17 @@ EvaluatorMgr[ExAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     future.fail(e)
     result = future_to_gene(future)
 
-EvaluatorMgr[ExOnFutureSuccess] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+EvaluatorMgr[ExAsyncCallback] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   # Register callback to future
-  var ofs_self = self.eval(frame, expr.ofs_self).internal.future
-  var ofs_callback = self.eval(frame, expr.ofs_callback)
-  ofs_self.add_callback proc() {.gcsafe.} =
-    discard self.call_target(frame, ofs_callback, @[ofs_self.read()], expr)
+  var acb_self = self.eval(frame, expr.acb_self).internal.future
+  var acb_callback = self.eval(frame, expr.acb_callback)
+  acb_self.add_callback proc() {.gcsafe.} =
+    if expr.acb_success and not acb_self.failed:
+      discard self.call_target(frame, acb_callback, @[acb_self.read()], expr)
+    elif not expr.acb_success and acb_self.failed:
+      # TODO: handle exceptions that are not CatchableError
+      var ex = error_to_gene(cast[ref CatchableError](acb_self.read_error()))
+      discard self.call_target(frame, acb_callback, @[ex], expr)
 
 when isMainModule:
   import os, times

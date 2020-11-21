@@ -28,13 +28,13 @@ test_core """
   1
 """, 1
 
-# test_core """
-#   (var future (async (throw)))
-#   (var a 0)
-#   (future .on_success (-> (a = 1)))
-#   (future .on_failure (-> (a = 2)))
-#   a
-# """, 2
+test_core """
+  (var future (async (throw "test")))
+  (var a 0)
+  (future .on_success (-> (a = 1)))
+  (future .on_failure (ex -> (a = (ex .message))))
+  a
+""", "test"
 
 test_core """
   (var future
