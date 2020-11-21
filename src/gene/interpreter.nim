@@ -244,7 +244,7 @@ proc repl_on_error(self: VM, frame: Frame, e: ref CatchableError): GeneValue =
   self.def_member(frame, "$ex", ex, false)
   result = repl(self, frame, eval_only, true)
 
-proc call_fn*(
+proc call_fn_internal*(
   self: VM,
   frame: Frame,
   target: GeneValue,
@@ -289,6 +289,29 @@ proc call_fn*(
       raise
 
   ScopeMgr.free(fn_scope)
+
+proc call_fn*(
+  self: VM,
+  frame: Frame,
+  target: GeneValue,
+  fn: Function,
+  args: GeneValue,
+  options: Table[FnOption, GeneValue]
+): GeneValue =
+  if fn.async:
+    try:
+      var val = self.call_fn_internal(frame, target, fn, args, options)
+      if val.kind == GeneInternal and val.internal.kind == GeneFuture:
+        return val
+      var future = new_future[GeneValue]()
+      future.complete(val)
+      result = future_to_gene(future)
+    except CatchableError as e:
+      var future = new_future[GeneValue]()
+      future.fail(e)
+      result = future_to_gene(future)
+  else:
+    return self.call_fn_internal(frame, target, fn, args, options)
 
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue =
   var mac_scope = ScopeMgr.get()
