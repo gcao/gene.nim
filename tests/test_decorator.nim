@@ -1,5 +1,3 @@
-import unittest
-
 import gene/types
 
 import ./helpers
@@ -13,12 +11,35 @@ import ./helpers
 # * Support +dec x...               -> (explode (call ^^decorator dec [x]))
 #
 
-# test_interpreter """
-#   (fn f target
-#     (target + 1)
-#   )
-#   (fn g _
-#     1
-#   )
-#   [+f g]
-# """, [new_gene_int(2)]
+test_interpreter """
+  (fn f target
+    ("" target "y")
+  )
+  [+f "x"]
+""", @[new_gene_string("xy")]
+
+test_interpreter """
+  (fn f target
+    ("" target "y")
+  )
+  [+f +f "x"]
+""", @[new_gene_string("xyy")]
+
+test_interpreter """
+  (fn f target
+    ("" target "y")
+  )
+  (fn g a
+    a
+  )
+  (g +f "x")
+""", "xy"
+
+test_interpreter """
+  (fn f a
+    (fnx target
+      ("" a target)
+    )
+  )
+  [(+f "x") "y"]
+""", @[new_gene_string("xy")]

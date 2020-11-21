@@ -868,6 +868,7 @@ let
   Try*       = GeneValue(kind: GeneSymbol, symbol: "try")
   Catch*     = GeneValue(kind: GeneSymbol, symbol: "catch")
   Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
+  Call*      = GeneValue(kind: GeneSymbol, symbol: "call")
 
 var NativeProcs* = NativeProcsType()
 
@@ -893,9 +894,9 @@ converter new_gene_internal*(e: Enum): GeneValue
 converter new_gene_internal*(m: EnumMember): GeneValue
 
 proc new_gene_int*(val: BiggestInt): GeneValue
-proc new_gene_string*(s: string): GeneValue
+proc new_gene_string*(s: string): GeneValue {.gcsafe.}
 proc new_gene_string_move*(s: string): GeneValue
-proc new_gene_vec*(items: seq[GeneValue]): GeneValue
+proc new_gene_vec*(items: seq[GeneValue]): GeneValue {.gcsafe.}
 proc new_namespace*(): Namespace
 proc new_namespace*(parent: Namespace): Namespace
 proc new_match_matcher*(): RootMatcher
@@ -936,8 +937,8 @@ converter int_to_gene*(v: int): GeneValue = new_gene_int(v)
 converter int_to_gene*(v: int64): GeneValue = new_gene_int(v)
 converter biggest_to_int*(v: BiggestInt): int = cast[int](v)
 
-converter seq_to_gene*(v: seq[GeneValue]): GeneValue = new_gene_vec(v)
-converter str_to_gene*(v: string): GeneValue = new_gene_string(v)
+converter seq_to_gene*(v: seq[GeneValue]): GeneValue {.gcsafe.} = new_gene_vec(v)
+converter str_to_gene*(v: string): GeneValue {.gcsafe.} = new_gene_string(v)
 
 converter int_to_scope_index*(v: int): NameIndexScope = cast[NameIndexScope](v)
 converter scope_index_to_int*(v: NameIndexScope): int = cast[int](v)
@@ -1451,7 +1452,7 @@ proc new_advice*(kind: AdviceKind, logic: Function): Advice =
 
 #################### Constructors ################
 
-proc new_gene_string*(s: string): GeneValue =
+proc new_gene_string*(s: string): GeneValue {.gcsafe.} =
   return GeneValue(kind: GeneString, str: s)
 
 proc new_gene_string_move*(s: string): GeneValue =
@@ -1512,7 +1513,7 @@ proc new_gene_range*(rstart: GeneValue, rend: GeneValue): GeneValue =
     range_incl_end: false,
   )
 
-proc new_gene_vec*(items: seq[GeneValue]): GeneValue =
+proc new_gene_vec*(items: seq[GeneValue]): GeneValue {.gcsafe.} =
   return GeneValue(
     kind: GeneVector,
     vec: items,

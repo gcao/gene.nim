@@ -411,7 +411,7 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
 
   ScopeMgr.free(new_scope)
 
-proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, expr: Expr): GeneValue =
+proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, expr: Expr): GeneValue {.gcsafe.} =
   case target.kind:
   of GeneInternal:
     case target.internal.kind:
@@ -1264,7 +1264,6 @@ EvaluatorMgr[ExOnFutureSuccess] = proc(self: VM, frame: Frame, expr: Expr): Gene
   var ofs_callback = self.eval(frame, expr.ofs_callback)
   ofs_self.add_callback proc() {.gcsafe.} =
     discard self.call_target(frame, ofs_callback, @[ofs_self.read()], expr)
-    # echo "Callback TODO"
 
 when isMainModule:
   import os, times

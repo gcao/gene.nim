@@ -2,6 +2,7 @@ import tables, strutils
 
 import ./types
 import ./normalizers
+import ./decorator
 
 type
   Translator* = proc(parent: Expr, val: GeneValue): Expr
@@ -626,13 +627,14 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
   of GeneComplexSymbol:
     return new_complex_symbol_expr(parent, node)
   of GeneVector:
+    node.process_decorators()
     return new_array_expr(parent, node)
   of GeneStream:
     return new_group_expr(parent, node.stream)
   of GeneMap:
     return new_map_expr(parent, node)
   of GeneGene:
-    node.normalize
+    node.normalize()
     if node.gene.type.kind == GeneSymbol:
       if node.gene.type.symbol in ["+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||"]:
         return new_binary_expr(parent, node.gene.type.symbol, node)
@@ -645,6 +647,8 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
         result = t(parent, node)
         if result != nil:
           return result
+    # Process decorators like +f, (+g 1)
+    node.process_decorators()
     result = new_gene_expr(parent, node)
     result.gene_type = new_expr(result, node.gene.type)
     for k, v in node.gene.props:
