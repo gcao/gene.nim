@@ -282,6 +282,15 @@
     ($on_future_success self blk)
   )
 
+  # (method on_failure blk
+  #   ($on_future_failure self blk)
+  # )
+
+  (method finished _
+    (call_native "future_finished" self)
+  )
+
+  # Use (async) to create Future
   # (fn new _
   #   (call_native "future_new")
   # )

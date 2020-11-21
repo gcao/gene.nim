@@ -1252,11 +1252,17 @@ EvaluatorMgr[ExRepl] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   return repl(self, frame, eval_only, true)
 
 EvaluatorMgr[ExAsync] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  # TODO: handle exception thrown by eval
-  var val = self.eval(frame, expr.async)
-  var future = new_future[GeneValue]()
-  future.complete(val)
-  return future_to_gene(future)
+  try:
+    var val = self.eval(frame, expr.async)
+    if val.kind == GeneInternal and val.internal.kind == GeneFuture:
+      return val
+    var future = new_future[GeneValue]()
+    future.complete(val)
+    result = future_to_gene(future)
+  except CatchableError as e:
+    var future = new_future[GeneValue]()
+    future.fail(e)
+    result = future_to_gene(future)
 
 EvaluatorMgr[ExOnFutureSuccess] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   # Register callback to future
