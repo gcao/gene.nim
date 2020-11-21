@@ -788,11 +788,20 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       raise
 
 EvaluatorMgr[ExAwait] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var r = self.eval(frame, expr.await)
-  if r.kind == GeneInternal and r.internal.kind == GeneFuture:
-    result = wait_for(r.internal.future)
+  if expr.await.len == 1:
+    var r = self.eval(frame, expr.await[0])
+    if r.kind == GeneInternal and r.internal.kind == GeneFuture:
+      result = wait_for(r.internal.future)
+    else:
+      todo()
   else:
-    todo()
+    result = new_gene_vec()
+    for item in expr.await:
+      var r = self.eval(frame, item)
+      if r.kind == GeneInternal and r.internal.kind == GeneFuture:
+        result.vec.add(wait_for(r.internal.future))
+      else:
+        todo()
 
 EvaluatorMgr[ExFn] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   expr.fn.internal.fn.ns = frame.ns

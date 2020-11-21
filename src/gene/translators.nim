@@ -687,9 +687,6 @@ TranslatorMgr["not"           ] = new_not_expr
 TranslatorMgr["var"           ] = new_var_expr
 TranslatorMgr["throw"         ] = new_throw_expr
 TranslatorMgr["try"           ] = new_try_expr
-TranslatorMgr["await"         ] = proc(parent: Expr, node: GeneValue): Expr =
-  result = new_expr(parent, ExAwait)
-  result.await = new_expr(parent, node.gene.data[0])
 TranslatorMgr["fn"            ] = new_fn_expr
 TranslatorMgr["macro"         ] = new_macro_expr
 TranslatorMgr["return"        ] = new_return_expr
@@ -793,6 +790,12 @@ TranslatorMgr["repl"] = proc(parent: Expr, node: GeneValue): Expr =
 TranslatorMgr["async"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExAsync)
   result.async = new_expr(result, node.gene.data[0])
+
+TranslatorMgr["await"         ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAwait)
+  result.await = @[]
+  for item in node.gene.data:
+    result.await.add(new_expr(result, item))
 
 TranslatorMgr["$on_future_success"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExAsyncCallback)

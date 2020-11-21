@@ -563,8 +563,6 @@ type
       try_body*: seq[Expr]
       try_catches*: seq[(Expr, seq[Expr])]
       try_finally*: seq[Expr]
-    of ExAwait:
-      await*: Expr
     of ExFn:
       fn*: GeneValue
       fn_name*: GeneValue
@@ -671,6 +669,8 @@ type
       discard
     of ExAsync:
       async*: Expr
+    of ExAwait:
+      await*: seq[Expr]
     of ExAsyncCallback:
       acb_success*: bool
       acb_self*: Expr

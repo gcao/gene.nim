@@ -82,3 +82,13 @@ test_core """
   (await future)
   a
 """, 1
+
+test_interpreter """
+  (var a "")
+  (var f1 (gene/sleep_async 50))
+  (f1 .on_success (-> (a = (a "1"))))
+  (var f2 (gene/sleep_async 200))
+  (f2 .on_success (-> (a = (a "2"))))
+  (await f1 f2)
+  a
+""", "12"
