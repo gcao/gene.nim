@@ -543,6 +543,8 @@ proc new_print_expr*(parent: Expr, val: GeneValue): Expr =
     parent: parent,
     print_and_return: val.gene.type.symbol == "println",
   )
+  if val.gene.props.get_or_default("stderr", false):
+    result.print_to = new_expr(result, new_gene_symbol("stderr"))
   for item in val.gene.data:
     result.print.add(new_expr(result, item))
 

@@ -27,7 +27,10 @@ Normalizers.add proc(self: GeneValue): bool =
         self.gene.data.insert(new_gene_string_move(name), 0)
       else:
         self.gene.type = new_gene_symbol("@")
-        self.gene.data = @[new_gene_string_move(`type`.symbol.substr(2))]
+        if `type`.symbol.len == 2:
+          self.gene.data.del(0)
+        else:
+          self.gene.data[0] = new_gene_string_move(`type`.symbol.substr(2))
       return true
 
 Normalizers.add proc(self: GeneValue): bool =
@@ -129,7 +132,10 @@ Normalizers.add proc(self: GeneValue): bool =
       todo()
     else:
       self.gene.type = new_gene_symbol("@")
-      self.gene.data[0] = new_gene_string_move(first.symbol.substr(2))
+      if first.symbol.len == 2:
+        self.gene.data.del(0)
+      else:
+        self.gene.data[0] = new_gene_string_move(first.symbol.substr(2))
       self.gene.props["self"] = `type`
     return true
 

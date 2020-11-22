@@ -5,3 +5,7 @@
 (print " ", "test", " ", "print again")
 (print "\n")
 (print "\n")
+
+(print ^^stderr "print to stderr")
+(println ^^stderr)
+(println ^^stderr "print to stderr")

@@ -1023,8 +1023,16 @@ EvaluatorMgr[ExSuper] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 
 EvaluatorMgr[ExGetProp] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var target = self.eval(frame, expr.get_prop_self)
-  var name = expr.get_prop_name
-  result = target.internal.instance.value.gene.props[name]
+  var name = expr.get_prop_name.symbol_or_str
+  case target.kind:
+  of GeneGene:
+    result = target.gene.props[name]
+  of GeneMap:
+    result = target.map[name]
+  of GeneInternal:
+    result = target.internal.instance.value.gene.props[name]
+  else:
+    todo()
 
 EvaluatorMgr[ExSetProp] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var target = frame.self
@@ -1133,15 +1141,18 @@ EvaluatorMgr[ExEnv] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     result = self.eval(frame, expr.env_default).to_s
 
 EvaluatorMgr[ExPrint] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  var print_to = stdout
+  if expr.print_to != nil:
+    print_to = self.eval(frame, expr.print_to).internal.file
   for e in expr.print:
     var v = self.eval(frame, e)
     case v.kind:
     of GeneString:
-      stdout.write v.str
+      print_to.write v.str
     else:
-      stdout.write $v
+      print_to.write $v
   if expr.print_and_return:
-    stdout.write "\n"
+    print_to.write "\n"
 
 EvaluatorMgr[ExRoot] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   return self.eval(frame, expr.root)
