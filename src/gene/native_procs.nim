@@ -213,6 +213,19 @@ proc init_native_procs*() =
     client.headers = headers
     return client.get_content(url)
 
+  NativeProcs.add_only "http_get_async", proc(args: seq[GeneValue]): GeneValue =
+    var url = args[0].str
+    var headers = newHttpHeaders()
+    for k, v in args[2].map:
+      headers.add(k, v.str)
+    var client = newAsyncHttpClient()
+    client.headers = headers
+    var f = client.get_content(url)
+    var future = new_future[GeneValue]()
+    f.add_callback proc() {.gcsafe.} =
+      future.complete(f.read())
+    return future_to_gene(future)
+
   NativeProcs.add_only "base64", proc(args: seq[GeneValue]): GeneValue =
     return encode(args[0].str)
 
