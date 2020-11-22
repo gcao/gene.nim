@@ -1021,9 +1021,10 @@ EvaluatorMgr[ExSuper] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var class = meth.class
   result = self.call_method(frame, instance, class.parent, meth.name, expr.super_args)
 
-EvaluatorMgr[ExGetProp] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var target = self.eval(frame, expr.get_prop_self)
-  var name = expr.get_prop_name.symbol_or_str
+EvaluatorMgr[ExGetPath] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  var target = self.eval(frame, expr.get_path_self)
+  var path = self.eval(frame, expr.get_path[0])
+  var name = path.symbol_or_str
   case target.kind:
   of GeneGene:
     result = target.gene.props[name]

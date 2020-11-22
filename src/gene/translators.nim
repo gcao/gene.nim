@@ -148,11 +148,12 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
 
 proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
-    kind: ExGetProp,
+    kind: ExGetPath,
     parent: parent,
-    get_prop_name: val.gene.data[0].str,
   )
-  result.get_prop_self = new_expr(result, val.gene.props["self"])
+  result.get_path_self = new_expr(result, val.gene.props["self"])
+  for item in val.gene.data:
+    result.get_path.add(new_expr(result, item))
 
 proc new_set_prop_expr*(parent: Expr, node: GeneValue): Expr =
   var name = node.gene.data[0].str

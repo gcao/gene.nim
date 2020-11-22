@@ -362,3 +362,7 @@ test_interpreter """
 test_interpreter """
   ((_ ^a "A") .@ "a")
 """, "A"
+
+# test_interpreter """
+#   ([1 2] .@ 0)
+# """, 1

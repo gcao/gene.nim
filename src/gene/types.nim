@@ -448,7 +448,7 @@ type
     ExMethod
     ExInvokeMethod
     ExSuper
-    ExGetProp
+    ExGetPath
     ExSetProp
     ExNamespace
     ExDefMember
@@ -605,9 +605,9 @@ type
       invoke_args*: seq[Expr]
     of ExSuper:
       super_args*: seq[Expr]
-    of ExGetProp:
-      get_prop_self*: Expr
-      get_prop_name*: string
+    of ExGetPath:
+      get_path_self*: Expr
+      get_path*: seq[Expr]
     of ExSetProp:
       set_prop_name*: string
       set_prop_val*: Expr
