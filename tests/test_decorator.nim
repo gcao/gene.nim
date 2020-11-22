@@ -43,3 +43,10 @@ test_interpreter """
   )
   [(+f "x") "y"]
 """, @[new_gene_string("xy")]
+
+test_interpreter """
+  (fn f target
+    ("" target "y")
+  )
+  +f "x"
+""", new_gene_string("xy")

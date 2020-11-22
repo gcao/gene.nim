@@ -25,7 +25,7 @@ proc decorate(target, with: GeneValue): GeneValue =
     not_allowed()
   result.gene.data.add(new_gene_vec(@[target]))
 
-proc process_decorators(input: seq[GeneValue]): seq[GeneValue] =
+proc process_decorators*(input: seq[GeneValue]): seq[GeneValue] =
   var has_decorator = false
   for item in input:
     if item.is_decorator():
@@ -41,9 +41,9 @@ proc process_decorators(input: seq[GeneValue]): seq[GeneValue] =
       if item.is_decorator():
         target = decorate(target, item)
       else:
-        result.add(target)
+        result.insert(target, 0)
         target = item
-    result.add(target)
+    result.insert(target, 0)
   else:
     return input
 

@@ -3,6 +3,7 @@ import asyncdispatch
 
 import ./types
 import ./parser
+import ./decorator
 import ./translators
 import ./native_procs
 import ./repl
@@ -116,7 +117,7 @@ proc wait_for_futures*(self: VM) =
       raise
 
 proc prepare*(self: VM, code: string): Expr =
-  var parsed = read_all(code)
+  var parsed = process_decorators(read_all(code))
   result = Expr(
     kind: ExRoot,
   )
