@@ -324,6 +324,31 @@ type
     # Example: (a = 1) => (= a 1)
     normalized*: bool
 
+  GenePathMode* = enum
+    GpFirst
+    GpAll
+
+  GenePath* {.acyclic.} = ref object
+    mode*: GenePathMode
+    paths*: seq[GenePathItem]     # Each path represents a branch
+
+  GenePathItem* = ref object
+    matchers*: seq[GenePathMatcher]
+    children*: seq[GenePathItem]  # Each child represents a branch
+
+  GenePathMatcherKind* = enum
+    GpmIndex
+    GpmIndexList
+    GpmIndexRange
+    GpmName
+    GpmNameList
+    GpmNamePattern
+
+  GenePathMatcher* = ref object
+    root*: GenePath
+    case kind*: GenePathMatcherKind
+    else: discard
+
   GeneKind* = enum
     GeneNilKind
     GenePlaceholderKind

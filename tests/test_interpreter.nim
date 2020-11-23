@@ -354,15 +354,3 @@ test_interpreter """
   $app
 """, proc(r: GeneValue) =
   check r.internal.app.ns.name == "global"
-
-test_interpreter """
-  ({^a "A"} .@ "a")
-""", "A"
-
-test_interpreter """
-  ((_ ^a "A") .@ "a")
-""", "A"
-
-# test_interpreter """
-#   ([1 2] .@ 0)
-# """, 1
