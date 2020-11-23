@@ -257,6 +257,7 @@ type
     GeneFile
     GeneExceptionKind
     GeneFuture
+    GenePathKind
     GeneNativeProc
 
   Internal* = ref object
@@ -301,6 +302,8 @@ type
       exception*: ref CatchableError
     of GeneFuture:
       future*: Future[GeneValue]
+    of GenePathKind:
+      path*: GenePath
     of GeneNativeProc:
       native_proc*: NativeProc
 
@@ -323,6 +326,8 @@ type
     # A gene can be normalized to match expected format
     # Example: (a = 1) => (= a 1)
     normalized*: bool
+
+  GenePathNoResult* = object of GeneException
 
   GenePathMode* = enum
     GpFirst
@@ -347,6 +352,10 @@ type
   GenePathMatcher* = ref object
     root*: GenePath
     case kind*: GenePathMatcherKind
+    of GpmIndex:
+      index*: int
+    of GpmName:
+      name*: string
     else: discard
 
   GeneKind* = enum
@@ -498,6 +507,7 @@ type
     ExRepl
     ExAsync
     ExAsyncCallback
+    ExPath
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -701,6 +711,8 @@ type
       acb_success*: bool
       acb_self*: Expr
       acb_callback*: Expr
+    of ExPath:
+      path*: seq[GeneValue]
 
   VM* = ref object
     app*: Application
@@ -1700,6 +1712,12 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
+converter new_gene_internal*(p: GenePath): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GenePathKind, path: p),
+  )
+
 proc future_to_gene*(f: Future[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneInternal,
@@ -2274,6 +2292,21 @@ proc load_dynamic*(path:string, names: seq[string]): OrderedTable[string, Native
 # This is not needed
 # proc call_dynamic*(p: native_proc, args: seq[GeneValue]): GeneValue =
 #   return p(args)
+
+#################### GenePath ####################
+
+proc new_path*(mode: GenePathMode): GenePath =
+  result = GenePath(
+    mode: mode,
+  )
+
+proc gene_to_path_item*(v: GeneValue): GenePathItem =
+  result = GenePathItem()
+  case v.kind:
+  of GeneString:
+    result.matchers.add(GenePathMatcher(kind: GpmName, name: v.str))
+  else:
+    todo()
 
 #################### Command Line Arg Parsing ####
 

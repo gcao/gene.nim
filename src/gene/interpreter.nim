@@ -4,6 +4,7 @@ import asyncdispatch
 import ./types
 import ./parser
 import ./decorator
+import ./gene_path
 import ./translators
 import ./native_procs
 import ./repl
@@ -1197,6 +1198,15 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     of GeneNativeProc:
       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
       result = target.internal.native_proc(args.gene.data)
+    of GenePathKind:
+      var val = self.eval(frame, expr.gene_data[0])
+      var path = target.internal.path
+      var found = path.search(val)
+      case path.mode:
+      of GpFirst:
+        result = found[0]
+      of GpAll:
+        result = found
     else:
       todo()
   of GeneString:
@@ -1320,6 +1330,17 @@ EvaluatorMgr[ExAsyncCallback] = proc(self: VM, frame: Frame, expr: Expr): GeneVa
       # TODO: handle exceptions that are not CatchableError
       var ex = error_to_gene(cast[ref CatchableError](acb_self.read_error()))
       discard self.call_target(frame, acb_callback, @[ex], expr)
+
+EvaluatorMgr[ExPath] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  var path = new_path(GpFirst)
+  var path_item = gene_to_path_item(expr.path[0])
+  path.paths.add(path_item)
+  for i in 1..<expr.path.len:
+    var item = expr.path[i]
+    var new_path_item = gene_to_path_item(item)
+    path_item.children.add(new_path_item)
+    path_item = new_path_item
+  result = path
 
 when isMainModule:
   import os, times

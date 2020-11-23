@@ -794,7 +794,7 @@ TranslatorMgr["async"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExAsync)
   result.async = new_expr(result, node.gene.data[0])
 
-TranslatorMgr["await"         ] = proc(parent: Expr, node: GeneValue): Expr =
+TranslatorMgr["await"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExAwait)
   result.await = @[]
   for item in node.gene.data:
@@ -811,3 +811,7 @@ TranslatorMgr["$on_future_failure"] = proc(parent: Expr, node: GeneValue): Expr 
   result.acb_success = false
   result.acb_self = new_expr(result, node.gene.data[0])
   result.acb_callback = new_expr(result, node.gene.data[1])
+
+TranslatorMgr["$path"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExPath)
+  result.path = node.gene.data
