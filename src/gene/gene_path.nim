@@ -4,6 +4,12 @@ import ./types
 
 proc search(self: GenePathMatcher, target: GeneValue): GeneValue =
   case self.kind:
+  of GpmIndex:
+    case target.kind:
+    of GeneVector:
+      return target.vec[self.index]
+    else:
+      todo()
   of GpmName:
     case target.kind:
     of GeneMap:
@@ -20,7 +26,13 @@ proc search(self: GenePathItem, target: GeneValue): GeneValue =
       r.add(m.search(target))
     except GenePathNoResult:
       discard
-  result = new_gene_vec(r)
+  if self.children.len > 0:
+    result = new_gene_vec()
+    for child in self.children:
+      for item in r:
+        result.vec.add(child.search(item).vec)
+  else:
+    result = new_gene_vec(r)
 
 proc search*(self: GenePath, target: GeneValue): GeneValue =
   case self.mode:

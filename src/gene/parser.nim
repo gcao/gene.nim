@@ -123,6 +123,7 @@ proc parse_escaped_utf16(buf: cstring, pos: var int): int =
 
 proc parse_string(self: var Parser): TokenKind =
   result = TkString
+  self.str = ""
   var pos = self.bufpos
   var buf = self.buf
   while true:

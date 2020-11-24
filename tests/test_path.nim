@@ -62,3 +62,11 @@ test_interpreter """
 test_interpreter """
   (($path "test") {^test 1})
 """, 1
+
+test_interpreter """
+  (($path 0 "test") [{^test 1}])
+""", 1
+
+test_interpreter """
+  (($path 0) [1 2])
+""", 1

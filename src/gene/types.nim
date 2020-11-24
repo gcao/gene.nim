@@ -2303,6 +2303,8 @@ proc new_path*(mode: GenePathMode): GenePath =
 proc gene_to_path_item*(v: GeneValue): GenePathItem =
   result = GenePathItem()
   case v.kind:
+  of GeneInt:
+    result.matchers.add(GenePathMatcher(kind: GpmIndex, index: v.int))
   of GeneString:
     result.matchers.add(GenePathMatcher(kind: GpmName, name: v.str))
   else:
