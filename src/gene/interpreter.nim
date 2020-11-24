@@ -23,7 +23,7 @@ let GENE_RUNTIME* = Runtime(
   version: read_file(GENE_HOME & "/VERSION").strip(),
 )
 
-#################### Interfaces ##################
+#################### Definitions #################
 
 proc import_module*(self: VM, name: string, code: string): Namespace
 proc load_core_module*(self: VM)

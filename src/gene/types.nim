@@ -361,6 +361,18 @@ type
       name*: string
     else: discard
 
+  SelectResultMode* = enum
+    SrFirst
+    SrAll
+    # SrMap     # all matched key/value pairs in a map object
+
+  SelectorResult* = ref object
+    case mode*: SelectResultMode 
+    of SrFirst:
+      first*: GeneValue
+    of SrAll:
+      all*: seq[GeneValue]
+
   GeneKind* = enum
     GeneNilKind
     GenePlaceholderKind
@@ -930,7 +942,7 @@ var EvaluatorMgr* = EvaluatorManager()
 var FrameMgr* = FrameManager()
 var ScopeMgr* = ScopeManager()
 
-#################### Interfaces ##################
+#################### Definitions #################
 
 converter new_gene_internal*(e: Enum): GeneValue
 converter new_gene_internal*(m: EnumMember): GeneValue
@@ -2319,6 +2331,29 @@ proc gene_to_selector_item*(v: GeneValue): SelectorItem =
     result.matchers.add(SelectorMatcher(kind: SmName, name: v.str))
   else:
     todo()
+
+# Definition
+proc is_singular*(self: Selector): bool
+
+proc is_singular*(self: SelectorItem): bool =
+  case self.kind:
+  of SiDefault:
+    if self.matchers.len > 1:
+      return false
+    if self.matchers[0].kind notin [SmIndex, SmName]:
+      return false
+    case self.children.len:
+    of 0:
+      return true
+    of 1:
+      return self.children[0].is_singular()
+    else:
+      return false
+  of SiSelector:
+    result = self.selector.is_singular()
+
+proc is_singular*(self: Selector): bool =
+  result = self.children.len == 1 and self.children[0].is_singular()
 
 #################### Command Line Arg Parsing ####
 

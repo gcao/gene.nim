@@ -31,11 +31,20 @@ import ./helpers
 #   * Descendants: :descendants - how does match work for this? self.gene.data and their descendants?
 #   * Predicate (fnx it ...)
 #   * Composite: [0 1 (range 3 5)]
-# * Extend
 # 
 # SelectorResult
 # * Single value
 # * Array or map or gene
+#
+# Define styles for gene value matched by a selector (like CSS).
+# This should live outside the gene value.
+# Inline styles can be defined for a gene. However it is not related to selectors.
+#
+# Transform a gene value based on selectors and actions (like XSLT)
+# Should support non-gene output, e.g. raw strings.
+# Actions:
+#   * Copy value matched by selector to output
+#   * Call callback with value, add result to output
 # 
 # ($sel 0 "test")           # target[0]["test"]
 # ($sel ($sel 0) "test")    # target[0]["test"]

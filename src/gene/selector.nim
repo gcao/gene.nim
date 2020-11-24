@@ -2,7 +2,7 @@ import tables
 
 import ./types
 
-#################### Interfaces ##################
+#################### Definitions #################
 
 proc search*(self: Selector, target: GeneValue): GeneValue
 
@@ -44,9 +44,24 @@ proc search(self: SelectorItem, target: GeneValue): GeneValue =
   of SiSelector:
     result = self.selector.search(target)
 
+proc search(self: Selector, target: GeneValue, r: SelectorResult) =
+  case r.mode:
+  of SrFirst:
+    for child in self.children:
+      try:
+        r.first = child.search(target)
+        return
+      except SelectorNoResult:
+        discard
+  else:
+    todo()
+
 proc search*(self: Selector, target: GeneValue): GeneValue =
-  for child in self.children:
-    try:
-      return child.search(target)
-    except SelectorNoResult:
-      discard
+  if self.is_singular():
+    var r = SelectorResult(mode: SrFirst)
+    self.search(target, r)
+    result = r.first
+  else:
+    var r = SelectorResult(mode: SrAll)
+    self.search(target, r)
+    result = new_gene_vec(r.all)
