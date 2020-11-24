@@ -257,7 +257,7 @@ type
     GeneFile
     GeneExceptionKind
     GeneFuture
-    GenePathKind
+    GeneSelector
     GeneNativeProc
 
   Internal* = ref object
@@ -302,8 +302,8 @@ type
       exception*: ref CatchableError
     of GeneFuture:
       future*: Future[GeneValue]
-    of GenePathKind:
-      path*: GenePath
+    of GeneSelector:
+      selector*: Selector
     of GeneNativeProc:
       native_proc*: NativeProc
 
@@ -327,34 +327,34 @@ type
     # Example: (a = 1) => (= a 1)
     normalized*: bool
 
-  GenePathNoResult* = object of GeneException
+  SelectorNoResult* = object of GeneException
 
-  GenePathMode* = enum
-    GpFirst
-    GpAll
+  SelectorMode* = enum
+    SelFirst
+    SelAll
 
-  GenePath* {.acyclic.} = ref object
-    mode*: GenePathMode
-    paths*: seq[GenePathItem]     # Each path represents a branch
+  Selector* {.acyclic.} = ref object
+    mode*: SelectorMode
+    children*: seq[SelectorItem]  # Each child represents a branch
 
-  GenePathItem* = ref object
-    matchers*: seq[GenePathMatcher]
-    children*: seq[GenePathItem]  # Each child represents a branch
+  SelectorItem* = ref object
+    matchers*: seq[SelectorMatcher]
+    children*: seq[SelectorItem]  # Each child represents a branch
 
-  GenePathMatcherKind* = enum
-    GpmIndex
-    GpmIndexList
-    GpmIndexRange
-    GpmName
-    GpmNameList
-    GpmNamePattern
+  SelectorMatcherKind* = enum
+    SmIndex
+    SmIndexList
+    SmIndexRange
+    SmName
+    SmNameList
+    SmNamePattern
 
-  GenePathMatcher* = ref object
-    root*: GenePath
-    case kind*: GenePathMatcherKind
-    of GpmIndex:
+  SelectorMatcher* = ref object
+    root*: Selector
+    case kind*: SelectorMatcherKind
+    of SmIndex:
       index*: int
-    of GpmName:
+    of SmName:
       name*: string
     else: discard
 
@@ -507,7 +507,7 @@ type
     ExRepl
     ExAsync
     ExAsyncCallback
-    ExPath
+    ExSelector
 
   Expr* = ref object of RootObj
     parent*: Expr
@@ -711,8 +711,8 @@ type
       acb_success*: bool
       acb_self*: Expr
       acb_callback*: Expr
-    of ExPath:
-      path*: seq[GeneValue]
+    of ExSelector:
+      selector*: seq[GeneValue]
 
   VM* = ref object
     app*: Application
@@ -1712,10 +1712,10 @@ converter new_gene_internal*(ns: Namespace): GeneValue =
     internal: Internal(kind: GeneNamespace, ns: ns),
   )
 
-converter new_gene_internal*(p: GenePath): GeneValue =
+converter new_gene_internal*(sel: Selector): GeneValue =
   return GeneValue(
     kind: GeneInternal,
-    internal: Internal(kind: GenePathKind, path: p),
+    internal: Internal(kind: GeneSelector, selector: sel),
   )
 
 proc future_to_gene*(f: Future[GeneValue]): GeneValue =
@@ -2293,20 +2293,20 @@ proc load_dynamic*(path:string, names: seq[string]): OrderedTable[string, Native
 # proc call_dynamic*(p: native_proc, args: seq[GeneValue]): GeneValue =
 #   return p(args)
 
-#################### GenePath ####################
+#################### Selector ####################
 
-proc new_path*(mode: GenePathMode): GenePath =
-  result = GenePath(
+proc new_selector*(mode: SelectorMode): Selector =
+  result = Selector(
     mode: mode,
   )
 
-proc gene_to_path_item*(v: GeneValue): GenePathItem =
-  result = GenePathItem()
+proc gene_to_selector_item*(v: GeneValue): SelectorItem =
+  result = SelectorItem()
   case v.kind:
   of GeneInt:
-    result.matchers.add(GenePathMatcher(kind: GpmIndex, index: v.int))
+    result.matchers.add(SelectorMatcher(kind: SmIndex, index: v.int))
   of GeneString:
-    result.matchers.add(GenePathMatcher(kind: GpmName, name: v.str))
+    result.matchers.add(SelectorMatcher(kind: SmName, name: v.str))
   else:
     todo()
 

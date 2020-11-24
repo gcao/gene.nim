@@ -4,7 +4,7 @@ import asyncdispatch
 import ./types
 import ./parser
 import ./decorator
-import ./gene_path
+import ./selector
 import ./translators
 import ./native_procs
 import ./repl
@@ -1198,14 +1198,14 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     of GeneNativeProc:
       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
       result = target.internal.native_proc(args.gene.data)
-    of GenePathKind:
+    of GeneSelector:
       var val = self.eval(frame, expr.gene_data[0])
-      var path = target.internal.path
-      var found = path.search(val)
-      case path.mode:
-      of GpFirst:
+      var selector = target.internal.selector
+      var found = selector.search(val)
+      case selector.mode:
+      of SelFirst:
         result = found[0]
-      of GpAll:
+      of SelAll:
         result = found
     else:
       todo()
@@ -1331,16 +1331,16 @@ EvaluatorMgr[ExAsyncCallback] = proc(self: VM, frame: Frame, expr: Expr): GeneVa
       var ex = error_to_gene(cast[ref CatchableError](acb_self.read_error()))
       discard self.call_target(frame, acb_callback, @[ex], expr)
 
-EvaluatorMgr[ExPath] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var path = new_path(GpFirst)
-  var path_item = gene_to_path_item(expr.path[0])
-  path.paths.add(path_item)
-  for i in 1..<expr.path.len:
-    var item = expr.path[i]
-    var new_path_item = gene_to_path_item(item)
-    path_item.children.add(new_path_item)
-    path_item = new_path_item
-  result = path
+EvaluatorMgr[ExSelector] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  var selector = new_selector(SelFirst)
+  var selector_item = gene_to_selector_item(expr.selector[0])
+  selector.children.add(selector_item)
+  for i in 1..<expr.selector.len:
+    var item = expr.selector[i]
+    var new_selector_item = gene_to_selector_item(item)
+    selector_item.children.add(new_selector_item)
+    selector_item = new_selector_item
+  result = selector
 
 when isMainModule:
   import os, times

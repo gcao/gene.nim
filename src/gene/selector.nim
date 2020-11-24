@@ -2,15 +2,15 @@ import tables
 
 import ./types
 
-proc search(self: GenePathMatcher, target: GeneValue): GeneValue =
+proc search(self: SelectorMatcher, target: GeneValue): GeneValue =
   case self.kind:
-  of GpmIndex:
+  of SmIndex:
     case target.kind:
     of GeneVector:
       return target.vec[self.index]
     else:
       todo()
-  of GpmName:
+  of SmName:
     case target.kind:
     of GeneMap:
       return target.map[self.name]
@@ -19,12 +19,12 @@ proc search(self: GenePathMatcher, target: GeneValue): GeneValue =
   else:
     todo()
 
-proc search(self: GenePathItem, target: GeneValue): GeneValue =
+proc search(self: SelectorItem, target: GeneValue): GeneValue =
   var r: seq[GeneValue] = @[]
   for m in self.matchers:
     try:
       r.add(m.search(target))
-    except GenePathNoResult:
+    except SelectorNoResult:
       discard
   if self.children.len > 0:
     result = new_gene_vec()
@@ -34,13 +34,13 @@ proc search(self: GenePathItem, target: GeneValue): GeneValue =
   else:
     result = new_gene_vec(r)
 
-proc search*(self: GenePath, target: GeneValue): GeneValue =
+proc search*(self: Selector, target: GeneValue): GeneValue =
   case self.mode:
-  of GpFirst:
-    for item in self.paths:
+  of SelFirst:
+    for child in self.children:
       try:
-        return item.search(target)
-      except GenePathNoResult:
+        return child.search(target)
+      except SelectorNoResult:
         discard
-  of GpAll:
+  of SelAll:
     todo()

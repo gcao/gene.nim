@@ -37,15 +37,15 @@ import ./helpers
 # * Single value
 # * Array or map or gene
 # 
-# ($path 0 "test")  # target[0]["test"]
-# ($path (range 0 3) ($type))  # target[0..3].type
-# ($paths [0 "test"] [1 "another"])  # target[0]["test"] + target[1]["another"]
+# ($sel 0 "test")  # target[0]["test"]
+# ($sel (range 0 3) ($type))  # target[0..3].type
+# ($sels [0 "test"] [1 "another"])  # target[0]["test"] + target[1]["another"]
 #
-# (@ 0 "test") = (@ ^target self ($path 0 "test"))
-# (@ 0 "test" = "value") = (@= ^target self ($path 0 "test") "value")
-# (-@ 0 "test") = (@ ^target self ^^delete ($path 0 "test"))
-# @test = (@ ^target self ($path "test"))
-# @first/second = (@ ^target self ($path "first" "second"))
+# (@ 0 "test") = (@ ^target self ($sel 0 "test"))
+# (@ 0 "test" = "value") = (@= ^target self ($sel 0 "test") "value")
+# (-@ 0 "test") = (@ ^target self ^^delete ($sel 0 "test"))
+# @test = (@ ^target self ($sel "test"))
+# @first/second = (@ ^target self ($sel "first" "second"))
 #
 # * Traversal
 # * Assign
@@ -64,13 +64,13 @@ test_interpreter """
 # """, 1
 
 test_interpreter """
-  (($path "test") {^test 1})
+  (($sel "test") {^test 1})
 """, 1
 
 test_interpreter """
-  (($path 0) [1 2])
+  (($sel 0) [1 2])
 """, 1
 
 test_interpreter """
-  (($path 0 "test") [{^test 1}])
+  (($sel 0 "test") [{^test 1}])
 """, 1
