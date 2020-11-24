@@ -2330,6 +2330,16 @@ proc gene_to_selector_item*(v: GeneValue): SelectorItem =
   of GeneString:
     result = SelectorItem()
     result.matchers.add(SelectorMatcher(kind: SmName, name: v.str))
+  of GeneVector:
+    result = SelectorItem()
+    for item in v.vec:
+      case item.kind:
+      of GeneInt:
+        result.matchers.add(SelectorMatcher(kind: SmIndex, index: item.int))
+      of GeneString:
+        result.matchers.add(SelectorMatcher(kind: SmName, name: item.str))
+      else:
+        todo()
   else:
     todo()
 

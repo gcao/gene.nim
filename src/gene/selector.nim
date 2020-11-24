@@ -57,7 +57,10 @@ proc search(self: SelectorItem, target: GeneValue, r: SelectorResult) =
             r.first = v
             break
       of SrAll:
-        todo()
+        for m in self.matchers:
+          var v = m.search_first(target)
+          if v != NO_RESULT:
+            r.all.add(v)
     else:
       var items: seq[GeneValue] = @[]
       for m in self.matchers:
@@ -79,7 +82,8 @@ proc search(self: Selector, target: GeneValue, r: SelectorResult) =
       if r.done:
         return
   else:
-    todo()
+    for child in self.children:
+      child.search(target, r)
 
 proc search*(self: Selector, target: GeneValue): GeneValue =
   if self.is_singular():

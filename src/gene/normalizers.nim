@@ -30,7 +30,7 @@ Normalizers.add proc(self: GeneValue): bool =
         if `type`.symbol.len == 2:
           self.gene.data.del(0)
         else:
-          self.gene.data[0] = new_gene_string_move(`type`.symbol.substr(2))
+          self.gene.data.insert(new_gene_string_move(`type`.symbol.substr(2)), 0)
       return true
 
 Normalizers.add proc(self: GeneValue): bool =
