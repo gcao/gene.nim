@@ -35,12 +35,8 @@ proc search(self: SelectorItem, target: GeneValue): GeneValue =
     result = new_gene_vec(r)
 
 proc search*(self: Selector, target: GeneValue): GeneValue =
-  case self.mode:
-  of SelFirst:
-    for child in self.children:
-      try:
-        return child.search(target)
-      except SelectorNoResult:
-        discard
-  of SelAll:
-    todo()
+  for child in self.children:
+    try:
+      return child.search(target)
+    except SelectorNoResult:
+      discard

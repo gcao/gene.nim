@@ -334,7 +334,6 @@ type
     SelAll
 
   Selector* {.acyclic.} = ref object
-    mode*: SelectorMode
     children*: seq[SelectorItem]  # Each child represents a branch
 
   SelectorItem* = ref object
@@ -2295,10 +2294,8 @@ proc load_dynamic*(path:string, names: seq[string]): OrderedTable[string, Native
 
 #################### Selector ####################
 
-proc new_selector*(mode: SelectorMode): Selector =
-  result = Selector(
-    mode: mode,
-  )
+proc new_selector*(): Selector =
+  result = Selector()
 
 proc gene_to_selector_item*(v: GeneValue): SelectorItem =
   result = SelectorItem()

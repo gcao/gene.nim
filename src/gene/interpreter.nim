@@ -1202,11 +1202,7 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       var val = self.eval(frame, expr.gene_data[0])
       var selector = target.internal.selector
       var found = selector.search(val)
-      case selector.mode:
-      of SelFirst:
-        result = found[0]
-      of SelAll:
-        result = found
+      result = found[0]
     else:
       todo()
   of GeneString:
@@ -1332,7 +1328,7 @@ EvaluatorMgr[ExAsyncCallback] = proc(self: VM, frame: Frame, expr: Expr): GeneVa
       discard self.call_target(frame, acb_callback, @[ex], expr)
 
 EvaluatorMgr[ExSelector] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var selector = new_selector(SelFirst)
+  var selector = new_selector()
   var selector_item = gene_to_selector_item(expr.selector[0])
   selector.children.add(selector_item)
   for i in 1..<expr.selector.len:
