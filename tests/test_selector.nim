@@ -5,7 +5,7 @@ import gene/interpreter
 
 import ./helpers
 
-# GenePath
+# Selector
 # * Borrow ideas from XPath/XSLT/CSS
 #   * XPath: locate any node or group of nodes in a xml document
 #   * XSLT: transform a xml document to another
@@ -33,19 +33,24 @@ import ./helpers
 #   * Composite: [0 1 (range 3 5)]
 # * Extend
 # 
-# GenePathResult
+# SelectorResult
 # * Single value
 # * Array or map or gene
 # 
-# ($sel 0 "test")  # target[0]["test"]
-# ($sel (range 0 3) ($type))  # target[0..3].type
-# ($sels [0 "test"] [1 "another"])  # target[0]["test"] + target[1]["another"]
+# ($sel 0 "test")           # target[0]["test"]
+# ($sel ($sel 0) "test")    # target[0]["test"]
+# ($sel [0 1] "test")       # target[0, 1]["test"]
+# ($sel (range 0 3) ($type))# target[0..3].type
+# ($sel* [0 "test"] [1 "another"])  # target[0]["test"] + target[1]["another"]
 #
-# (@ 0 "test") = (@ ^target self ($sel 0 "test"))
-# (@ 0 "test" = "value") = (@= ^target self ($sel 0 "test") "value")
-# (-@ 0 "test") = (@ ^target self ^^delete ($sel 0 "test"))
-# @test = (@ ^target self ($sel "test"))
-# @first/second = (@ ^target self ($sel "first" "second"))
+# (@ 0 "test")              # (@ ^target self ($sel 0 "test"))
+# (@ :type)                 # (@ ^target self ($sel :type))
+# (obj @ 0 "test")          # (@ ^target obj  ($sel 0 "test"))
+# (@* 0 1)                  # (@ ^target self ($sel* 0 1))
+# (@ 0 "test" = "value")    # (@ ^target self ^op assign ($sel 0 "test") "value")
+# (-@ 0 "test")             # (@ ^target self ^op delete ($sel 0 "test"))
+# @test                     # (@ ^target self ($sel "test"))
+# @first/second             # (@ ^target self ($sel "first" "second"))
 #
 # * Traversal
 # * Assign
@@ -74,3 +79,7 @@ test_interpreter """
 test_interpreter """
   (($sel 0 "test") [{^test 1}])
 """, 1
+
+# test_interpreter """
+#   (($sel* 0 1) [1 2])
+# """, @[new_gene_int(1), new_gene_int(2)]
