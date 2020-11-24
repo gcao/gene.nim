@@ -6,6 +6,11 @@ import gene/types
 
 import ./helpers
 
+# #B... Bin
+# #O... Oct
+# #H... Hex
+# #S... Base64
+
 test_parser "nil", GeneNil
 test_parser "true", true
 test_parser "false", false

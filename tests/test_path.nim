@@ -6,7 +6,11 @@ import gene/interpreter
 import ./helpers
 
 # GenePath
-# * Borrow ideas from XPath
+# * Borrow ideas from XPath/XSLT/CSS
+#   * XPath: locate any node or group of nodes in a xml document
+#   * XSLT: transform a xml document to another
+#   * CSS: apply styles on any element or group of elements in a html document
+#   * CSS Selectors: similar to XPath
 # * Mode:
 #   * Match first
 #   * Match all
@@ -19,14 +23,14 @@ import ./helpers
 #   * Property name
 #   * Property name list
 #   * Property name pattern: /^test/
-#   * Gene type: ($type)
-#   * Gene properties ($props)
-#   * Gene property names ($names)
-#   * Gene property values ($values)
-#   * Gene data ($data)
-#   * Descendants: how does match work for this?
-#   * Predicate (_ (it -> (...)))
-#   * Composite
+#   * Gene type: :type
+#   * Gene properties: :props
+#   * Gene property names: :names
+#   * Gene property values: :values
+#   * Gene data: :data
+#   * Descendants: :descendants - how does match work for this? self.gene.data and their descendants?
+#   * Predicate (fnx it ...)
+#   * Composite: [0 1 (range 3 5)]
 # * Extend
 # 
 # GenePathResult
@@ -64,9 +68,9 @@ test_interpreter """
 """, 1
 
 test_interpreter """
-  (($path 0 "test") [{^test 1}])
+  (($path 0) [1 2])
 """, 1
 
 test_interpreter """
-  (($path 0) [1 2])
+  (($path 0 "test") [{^test 1}])
 """, 1
