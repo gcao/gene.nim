@@ -1201,8 +1201,7 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     of GeneSelector:
       var val = self.eval(frame, expr.gene_data[0])
       var selector = target.internal.selector
-      var found = selector.search(val)
-      result = found[0]
+      result = selector.search(val)
     else:
       todo()
   of GeneString:

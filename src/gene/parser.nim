@@ -192,7 +192,7 @@ proc parse_string(self: var Parser): TokenKind =
 proc read_string(self: var Parser): GeneValue =
   discard self.parse_string()
   if self.error != ErrNone:
-    raise newException(ParseError, "read_string failure: " & $self.error)
+    raise new_exception(ParseError, "read_string failure: " & $self.error)
   result = new_gene_string_move(self.str)
   self.str = ""
 

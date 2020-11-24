@@ -367,6 +367,7 @@ type
     # SrMap     # all matched key/value pairs in a map object
 
   SelectorResult* = ref object
+    done*: bool
     case mode*: SelectResultMode 
     of SrFirst:
       first*: GeneValue
@@ -960,13 +961,13 @@ proc parse*(self: var RootMatcher, v: GeneValue)
 ##################################################
 
 proc todo*() =
-  raise newException(Exception, "TODO")
+  raise new_exception(Exception, "TODO")
 
 proc todo*(message: string) =
-  raise newException(Exception, "TODO: " & message)
+  raise new_exception(Exception, "TODO: " & message)
 
 proc not_allowed*(message: string) =
-  raise newException(Exception, message)
+  raise new_exception(Exception, message)
 
 proc not_allowed*() =
   not_allowed("Error: should not arrive here.")
@@ -2355,6 +2356,9 @@ proc is_singular*(self: SelectorItem): bool =
 proc is_singular*(self: Selector): bool =
   result = self.children.len == 1 and self.children[0].is_singular()
 
+proc is_last*(self: SelectorItem): bool =
+  result = self.children.len == 0
+
 #################### Command Line Arg Parsing ####
 
 proc new_cmd_args_matcher*(): ArgMatcherRoot =
@@ -2534,14 +2538,14 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
   for _, v in self.options:
     if not result.options.has_key(v.name):
       if v.required:
-        raise newException(ArgumentError, "Missing mandatory option: " & v.name)
+        raise new_exception(ArgumentError, "Missing mandatory option: " & v.name)
       else:
         result.options[v.name] = v.default_value
 
   for v in self.args:
     if not result.args.has_key(v.name):
       if v.required:
-        raise newException(ArgumentError, "Missing mandatory argument: " & v.name)
+        raise new_exception(ArgumentError, "Missing mandatory argument: " & v.name)
       else:
         result.args[v.name] = v.default_value
 
