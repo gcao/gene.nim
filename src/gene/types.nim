@@ -329,16 +329,20 @@ type
 
   SelectorNoResult* = object of GeneException
 
-  SelectorMode* = enum
-    SelFirst
-    SelAll
-
   Selector* {.acyclic.} = ref object
     children*: seq[SelectorItem]  # Each child represents a branch
 
-  SelectorItem* = ref object
-    matchers*: seq[SelectorMatcher]
-    children*: seq[SelectorItem]  # Each child represents a branch
+  SelectorItemKind* = enum
+    SiDefault
+    SiSelector
+
+  SelectorItem* {.acyclic.} = ref object
+    case kind*: SelectorItemKind
+    of SiDefault:
+      matchers*: seq[SelectorMatcher]
+      children*: seq[SelectorItem]  # Each child represents a branch
+    of SiSelector:
+      selector*: Selector
 
   SelectorMatcherKind* = enum
     SmIndex
@@ -711,7 +715,7 @@ type
       acb_self*: Expr
       acb_callback*: Expr
     of ExSelector:
-      selector*: seq[GeneValue]
+      selector*: seq[Expr]
 
   VM* = ref object
     app*: Application
@@ -2298,11 +2302,20 @@ proc new_selector*(): Selector =
   result = Selector()
 
 proc gene_to_selector_item*(v: GeneValue): SelectorItem =
-  result = SelectorItem()
   case v.kind:
+  of GeneInternal:
+    if v.internal.kind == GeneSelector:
+      result = SelectorItem(
+        kind: SiSelector,
+        selector: v.internal.selector,
+      )
+    else:
+      todo()
   of GeneInt:
+    result = SelectorItem()
     result.matchers.add(SelectorMatcher(kind: SmIndex, index: v.int))
   of GeneString:
+    result = SelectorItem()
     result.matchers.add(SelectorMatcher(kind: SmName, name: v.str))
   else:
     todo()

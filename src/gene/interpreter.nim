@@ -1329,10 +1329,11 @@ EvaluatorMgr[ExAsyncCallback] = proc(self: VM, frame: Frame, expr: Expr): GeneVa
 
 EvaluatorMgr[ExSelector] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var selector = new_selector()
-  var selector_item = gene_to_selector_item(expr.selector[0])
+  var first = self.eval(frame, expr.selector[0])
+  var selector_item = gene_to_selector_item(first)
   selector.children.add(selector_item)
   for i in 1..<expr.selector.len:
-    var item = expr.selector[i]
+    var item = self.eval(frame, expr.selector[i])
     var new_selector_item = gene_to_selector_item(item)
     selector_item.children.add(new_selector_item)
     selector_item = new_selector_item

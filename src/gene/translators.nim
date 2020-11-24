@@ -814,4 +814,5 @@ TranslatorMgr["$on_future_failure"] = proc(parent: Expr, node: GeneValue): Expr 
 
 TranslatorMgr["$sel"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExSelector)
-  result.selector = node.gene.data
+  for item in node.gene.data:
+    result.selector.add(new_expr(result, item))

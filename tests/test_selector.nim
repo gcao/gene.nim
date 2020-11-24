@@ -80,9 +80,9 @@ test_interpreter """
   (($sel 0 "test") [{^test 1}])
 """, 1
 
-# test_interpreter """
-#   (($sel ($sel 0)) [1 2])
-# """, 1
+test_interpreter """
+  (($sel ($sel 0)) [1 2])
+""", 1
 
 # test_interpreter """
 #   (($sel* 0 1) [1 2])
