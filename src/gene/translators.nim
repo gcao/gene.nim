@@ -626,7 +626,12 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
         return new_explode_expr(parent, new_gene_symbol(node.symbol[0..^4]))
     elif node.symbol.startsWith("~"):
       result = new_expr(parent, ExSelector)
-      result.selector.add(new_expr(result, node.symbol[1..^1]))
+      var name = node.symbol[1..^1]
+      try:
+        var index = parse_int(name)
+        result.selector.add(new_expr(result, index))
+      except ValueError:
+        result.selector.add(new_expr(result, name))
       return result
     else:
       return new_symbol_expr(parent, node.symbol)

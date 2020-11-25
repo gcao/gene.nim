@@ -97,3 +97,35 @@ proc search*(self: Selector, target: GeneValue): GeneValue =
     var r = SelectorResult(mode: SrAll)
     self.search(target, r)
     result = new_gene_vec(r.all)
+
+proc update(self: SelectorItem, target: GeneValue, value: GeneValue): bool =
+  for m in self.matchers:
+    case m.kind:
+    of SmIndex:
+      case target.kind:
+      of GeneVector:
+        if self.is_last:
+          target.vec[m.index] = value
+          result = true
+        else:
+          for child in self.children:
+            result = result or child.update(target.vec[m.index], value)
+      else:
+        todo()
+    of SmName:
+      case target.kind:
+      of GeneMap:
+        if self.is_last:
+          target.map[m.name] = value
+          result = true
+        else:
+          for child in self.children:
+            result = result or child.update(target.map[m.name], value)
+      else:
+        todo()
+    else:
+      todo()
+
+proc update*(self: Selector, target: GeneValue, value: GeneValue): bool =
+  for child in self.children:
+    result = result or child.update(target, value)

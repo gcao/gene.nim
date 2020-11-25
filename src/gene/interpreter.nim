@@ -646,7 +646,12 @@ EvaluatorMgr[ExSet] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var target = self.eval(frame, expr.set_target)
   var index = self.eval(frame, expr.set_index)
   var value = self.eval(frame, expr.set_value)
-  target.gene.data[index.int] = value
+  if index.kind == GeneInternal and index.internal.kind == GeneSelector:
+    var success = index.internal.selector.update(target, value)
+    if not success:
+      todo("Update by selector failed.")
+  else:
+    target.gene.data[index.int] = value
 
 EvaluatorMgr[ExDefMember] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var name = self.eval(frame, expr.def_member_name).symbol_or_str

@@ -88,11 +88,17 @@ test_interpreter """
   (~test {^test 1})
 """, 1
 
-# test_interpreter """
-#   (var a {})
-#   ($set a ~test 1)
-#   (~test a)
-# """, 1
+test_interpreter """
+  (var a {})
+  ($set a ~test 1)
+  (~test a)
+""", 1
+
+test_interpreter """
+  (var a [0])
+  ($set a ~0 1)
+  a
+""", @[new_gene_int(1)]
 
 test_interpreter """
   ((~ 0) [1 2])
