@@ -22,6 +22,8 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
     case target.kind:
     of GeneMap:
       return target.map[self.name]
+    of GeneGene:
+      return target.gene.props[self.name]
     of GeneInternal:
       case target.internal.kind:
       of GeneInstance:

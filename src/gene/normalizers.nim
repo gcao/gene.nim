@@ -127,6 +127,15 @@ Normalizers.add proc(self: GeneValue): bool =
     return false
   var `type` = self.gene.type
   var first = self.gene.data[0]
+  if first.kind == GeneSymbol and first.symbol.startsWith(".~"):
+    var new_type = new_gene_symbol("~")
+    var new_gene = new_gene_gene(new_type)
+    new_gene.gene.normalized = true
+    for i in 1..<self.gene.data.len:
+      new_gene.gene.data.add(self.gene.data[i])
+    self.gene.data = @[self.gene.type]
+    self.gene.type = new_gene
+    return true
   if first.kind == GeneSymbol and first.symbol.startsWith(".@"):
     if first.symbol.endsWith("="):
       todo()
