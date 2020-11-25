@@ -619,14 +619,17 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
       return new_expr(parent, ExReturnRef)
     of "_":
       return new_literal_expr(parent, GenePlaceholder)
-    else:
-      if node.symbol.endsWith("..."):
-        if node.symbol.len == 3: # symbol == "..."
-          return new_explode_expr(parent, new_gene_symbol("$args"))
-        else:
-          return new_explode_expr(parent, new_gene_symbol(node.symbol[0..^4]))
+    elif node.symbol.endsWith("..."):
+      if node.symbol.len == 3: # symbol == "..."
+        return new_explode_expr(parent, new_gene_symbol("$args"))
       else:
-        return new_symbol_expr(parent, node.symbol)
+        return new_explode_expr(parent, new_gene_symbol(node.symbol[0..^4]))
+    elif node.symbol.startsWith("~"):
+      result = new_expr(parent, ExSelector)
+      result.selector.add(new_expr(result, node.symbol[1..^1]))
+      return result
+    else:
+      return new_symbol_expr(parent, node.symbol)
   of GeneComplexSymbol:
     return new_complex_symbol_expr(parent, node)
   of GeneVector:

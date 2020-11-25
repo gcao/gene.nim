@@ -62,11 +62,11 @@
     )
 
     (method add_test test
-      (@tests .add test)
+      ((@tests) .add test)
     )
 
     (method run _
-      (for test in @tests
+      (for test in (@tests)
         (test .run)
       )
     )

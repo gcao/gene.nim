@@ -708,9 +708,8 @@ EvaluatorMgr[ExVar] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   result = GeneNil
 
 EvaluatorMgr[ExAssignment] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var val = self.eval(frame, expr.var_val)
-  self.set_member(frame, expr.var_name, val)
-  result = GeneNil
+  result = self.eval(frame, expr.var_val)
+  self.set_member(frame, expr.var_name, result)
 
 EvaluatorMgr[ExIf] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var v = self.eval(frame, expr.if_cond)
