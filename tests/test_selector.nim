@@ -1,7 +1,6 @@
 import unittest, tables
 
 import gene/types
-import gene/interpreter
 
 import ./helpers
 
@@ -68,8 +67,8 @@ import ./helpers
 # (.@test)                  # ((@ "test") self)
 # (.@first/second)          # ((@ "first" "second") self)
 #
-# * Traversal
-# * Assign
+# * Search
+# * Update
 # * Remove
 
 test_interpreter """
