@@ -104,6 +104,12 @@ Normalizers.add proc(self: GeneValue): bool =
       self.gene.data[0] = type
       self.gene.data[1] = new_gene_gene(new_gene_symbol("+"), `type`, second)
       return true
+    elif first.symbol == "=" and `type`.kind == GeneSymbol and `type`.symbol.startsWith("~"):
+      # (@prop = val)
+      self.gene.type = new_gene_symbol("$set")
+      self.gene.data[0] = `type`
+      self.gene.data.insert(new_gene_symbol("self"), 0)
+      return true
     elif first.symbol == "=" and `type`.kind == GeneSymbol and `type`.symbol.startsWith("@"):
       # (@prop = val)
       self.gene.type = new_gene_symbol("@=")

@@ -112,6 +112,16 @@ test_interpreter """
 """, 1
 
 test_interpreter """
+  (class A
+    (method new []
+      (~description = "Class A")
+    )
+  )
+  (new A)
+""", proc(r: GeneValue) =
+  check r.internal.instance.value.gene.props["description"] == "Class A"
+
+test_interpreter """
   ((~ 0) [1 2])
 """, 1
 
