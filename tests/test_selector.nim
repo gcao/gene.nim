@@ -46,20 +46,23 @@ import ./helpers
 #   * Copy value matched by selector to output
 #   * Call callback with value, add result to output
 # 
-# ($sel 0 "test")           # target[0]["test"]
-# ($sel ($sel 0) "test")    # target[0]["test"]
-# ($sel [0 1] "test")       # target[0, 1]["test"]
-# ($sel (range 0 3) ($type))# target[0..3].type
-# ($sel* [0 "test"] [1 "another"])  # target[0]["test"] + target[1]["another"]
+# (@ "test")             # target["test"]
+# @test                  # target["test"]
+# (@ 0 "test")           # target[0]["test"]
+# @0/test                # target[0]["test"]
+# (@ (@ 0) "test")       # target[0]["test"]
+# (@ [0 1] "test")       # target[0, 1]["test"]
+# (@ (range 0 3) :type)  # target[0..3].type
+# (@* [0 "test"] [1 "another"])  # target[0]["test"] + target[1]["another"]
 #
-# (@ 0 "test")              # (@ ^target self ($sel 0 "test"))
-# (@ :type)                 # (@ ^target self ($sel :type))
-# (obj @ 0 "test")          # (@ ^target obj  ($sel 0 "test"))
-# (@* 0 1)                  # (@ ^target self ($sel* 0 1))
-# (@ 0 "test" = "value")    # (@ ^target self ^op assign ($sel 0 "test") "value")
-# (-@ 0 "test")             # (@ ^target self ^op delete ($sel 0 "test"))
-# @test                     # (@ ^target self ($sel "test"))
-# @first/second             # (@ ^target self ($sel "first" "second"))
+# (.@ 0 "test")             # ((@ 0 "test") self)
+# (.@0/test)                # ((@ 0 "test") self)
+# (.@ :type)                # ((@ :type) self)
+# (obj .@ 0 "test")         # ((@ 0 "test") obj)
+# (.@* 0 1)                 # ((@* 0 1) self)
+# (.@ 0 "test" = "value")   # (assign self (@ 0 "test") "value")
+# (.@test)                  # ((@ "test") self)
+# (.@first/second)          # ((@ "first" "second") self)
 #
 # * Traversal
 # * Assign
@@ -78,25 +81,25 @@ test_interpreter """
 # """, 1
 
 test_interpreter """
-  (($sel "test") {^test 1})
+  ((~ "test") {^test 1})
 """, 1
 
 test_interpreter """
-  (($sel 0) [1 2])
+  ((~ 0) [1 2])
 """, 1
 
 test_interpreter """
-  (($sel 0 "test") [{^test 1}])
+  ((~ 0 "test") [{^test 1}])
 """, 1
 
 test_interpreter """
-  (($sel ($sel 0)) [1 2])
+  ((~ (~ 0)) [1 2])
 """, 1
 
 test_interpreter """
-  (($sel [0 1]) [1 2])
+  ((~ [0 1]) [1 2])
 """, @[new_gene_int(1), new_gene_int(2)]
 
 # test_interpreter """
-#   (($sel* 0 1) [1 2])
+#   ((~* 0 1) [1 2])
 # """, @[new_gene_int(1), new_gene_int(2)]

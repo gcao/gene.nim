@@ -56,7 +56,7 @@ type
     list: seq[GeneValue]
     map: OrderedTable[string, GeneValue]
 
-const non_constituents = ['`', '~']
+const non_constituents = ['`']
 
 var macros: MacroArray
 var dispatch_macros: MacroArray

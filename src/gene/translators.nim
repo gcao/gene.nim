@@ -812,7 +812,7 @@ TranslatorMgr["$on_future_failure"] = proc(parent: Expr, node: GeneValue): Expr 
   result.acb_self = new_expr(result, node.gene.data[0])
   result.acb_callback = new_expr(result, node.gene.data[1])
 
-TranslatorMgr["$sel"] = proc(parent: Expr, node: GeneValue): Expr =
+TranslatorMgr["~"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExSelector)
   for item in node.gene.data:
     result.selector.add(new_expr(result, item))
