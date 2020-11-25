@@ -148,6 +148,14 @@ test_interpreter """
   ((@ [0 1]) [1 2])
 """, @[new_gene_int(1), new_gene_int(2)]
 
+test_interpreter """
+  ((@ ["a" "b"]) {^a 1 ^b 2 ^c 3})
+""", @[new_gene_int(1), new_gene_int(2)]
+# """, proc(r: GeneValue) =
+#   check r.map.len == 2
+#   check r.map["a"] == 1
+#   check r.map["b"] == 2
+
 # test_interpreter """
 #   ((@* 0 1) [1 2])
 # """, @[new_gene_int(1), new_gene_int(2)]

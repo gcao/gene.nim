@@ -101,6 +101,10 @@ proc search*(self: Selector, target: GeneValue): GeneValue =
       result = r.first
     else:
       raise new_exception(SelectorNoResult, "No result is found for the selector.")
+  # elif self.is_map():
+  #   var r = SelectorResult(mode: SrMap)
+  #   self.search(target, r)
+  #   result = new_gene_map(r.map)
   else:
     var r = SelectorResult(mode: SrAll)
     self.search(target, r)
