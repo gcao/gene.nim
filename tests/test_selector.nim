@@ -23,12 +23,12 @@ import ./helpers
 #   * Property name
 #   * Property name list
 #   * Property name pattern: /^test/
-#   * Gene type: :type
-#   * Gene properties: :props
-#   * Gene property names: :names
-#   * Gene property values: :values
-#   * Gene data: :data
-#   * Descendants: :descendants - how does match work for this? self.gene.data and their descendants?
+#   * Gene type: :$type
+#   * Gene properties: :$props
+#   * Gene property names: :$names
+#   * Gene property values: :$values
+#   * Gene data: :$data
+#   * Descendants: :$descendants - how does match work for this? self.gene.data and their descendants?
 #   * Predicate (fnx it ...)
 #   * Composite: [0 1 (range 3 5)]
 # 
@@ -39,6 +39,10 @@ import ./helpers
 # Define styles for gene value matched by a selector (like CSS).
 # This should live outside the gene value.
 # Inline styles can be defined for a gene. However it is not related to selectors.
+# Shortcuts like those in css selectors
+#   * id: &x matches (_ ^id "x")
+#   * type: :y matches (y)
+#   * tag (like css classes): ?t1?t2 matches (_ ^tags ["t1" "t2"])
 #
 # Transform a gene value based on selectors and actions (like XSLT)
 # Should support non-gene output, e.g. raw strings.
@@ -99,6 +103,13 @@ test_interpreter """
   ($set a ~0 1)
   a
 """, @[new_gene_int(1)]
+
+test_interpreter """
+  (class A)
+  (var a (new A))
+  ($set a ~test 1)
+  (~test a)
+""", 1
 
 test_interpreter """
   ((~ 0) [1 2])

@@ -22,6 +22,12 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
     case target.kind:
     of GeneMap:
       return target.map[self.name]
+    of GeneInternal:
+      case target.internal.kind:
+      of GeneInstance:
+        return target.internal.instance.value.gene.props[self.name]
+      else:
+        todo()
     else:
       todo()
   else:
@@ -121,6 +127,18 @@ proc update(self: SelectorItem, target: GeneValue, value: GeneValue): bool =
         else:
           for child in self.children:
             result = result or child.update(target.map[m.name], value)
+      of GeneInternal:
+        case target.internal.kind:
+        of GeneInstance:
+          var g = target.internal.instance.value.gene
+          if self.is_last:
+            g.props[m.name] = value
+            result = true
+          else:
+            for child in self.children:
+              result = result or child.update(g.props[m.name], value)
+        else:
+          todo()
       else:
         todo()
     else:
