@@ -73,48 +73,52 @@ import ./helpers
 # * Remove
 
 test_interpreter """
-  ({^a "A"} .~ "a")
+  ({^a "A"} .@ "a")
 """, "A"
 
 test_interpreter """
-  ((_ ^a "A") .~ "a")
+  ({^a "A"} .@a)
 """, "A"
 
 test_interpreter """
-  ([1 2] .~ 0)
+  ((_ ^a "A") .@ "a")
+""", "A"
+
+test_interpreter """
+  ([1 2] .@ 0)
 """, 1
 
 test_interpreter """
-  ((~ "test") {^test 1})
+  ((@ "test") {^test 1})
 """, 1
 
 test_interpreter """
-  (~test {^test 1})
+  (@test {^test 1})
 """, 1
 
 test_interpreter """
   (var a {})
-  ($set a ~test 1)
-  (~test a)
+  ($set a @test 1)
+  (@test a)
 """, 1
 
 test_interpreter """
   (var a [0])
-  ($set a ~0 1)
+  ($set a @0 1)
   a
 """, @[new_gene_int(1)]
 
 test_interpreter """
   (class A)
   (var a (new A))
-  ($set a ~test 1)
-  (~test a)
+  ($set a @test 1)
+  (@test a)
 """, 1
 
 test_interpreter """
   (class A
     (method new []
-      (~description = "Class A")
+      (@description = "Class A")
     )
   )
   (new A)
@@ -122,21 +126,21 @@ test_interpreter """
   check r.internal.instance.value.gene.props["description"] == "Class A"
 
 test_interpreter """
-  ((~ 0) [1 2])
+  ((@ 0) [1 2])
 """, 1
 
 test_interpreter """
-  ((~ 0 "test") [{^test 1}])
+  ((@ 0 "test") [{^test 1}])
 """, 1
 
 test_interpreter """
-  ((~ (~ 0)) [1 2])
+  ((@ (@ 0)) [1 2])
 """, 1
 
 test_interpreter """
-  ((~ [0 1]) [1 2])
+  ((@ [0 1]) [1 2])
 """, @[new_gene_int(1), new_gene_int(2)]
 
 # test_interpreter """
-#   ((~* 0 1) [1 2])
+#   ((@* 0 1) [1 2])
 # """, @[new_gene_int(1), new_gene_int(2)]
