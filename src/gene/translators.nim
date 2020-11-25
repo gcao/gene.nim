@@ -606,18 +606,18 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
       else:
         return new_explode_expr(parent, new_gene_symbol(node.symbol[0..^4]))
     elif node.symbol.startsWith("@"):
-      result = new_expr(parent, ExSelector)
-      var name = node.symbol[1..^1]
-      try:
-        var index = parse_int(name)
-        result.selector.add(new_expr(result, index))
-      except ValueError:
-        result.selector.add(new_expr(result, name))
+      result = new_expr(parent, ExLiteral)
+      result.literal = to_selector(node.symbol)
       return result
     else:
       return new_symbol_expr(parent, node.symbol)
   of GeneComplexSymbol:
-    return new_complex_symbol_expr(parent, node)
+    if node.csymbol.first.startsWith("@"):
+      result = new_expr(parent, ExLiteral)
+      result.literal = to_selector(node.csymbol)
+      return result
+    else:
+      return new_complex_symbol_expr(parent, node)
   of GeneVector:
     node.process_decorators()
     return new_array_expr(parent, node)

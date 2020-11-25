@@ -1833,6 +1833,29 @@ converter to_aspect*(node: GeneValue): Aspect =
 
   return new_aspect(name, matcher, body)
 
+converter to_selector_item*(name: string): SelectorItem =
+  result = SelectorItem()
+  try:
+    var index = parse_int(name)
+    result.matchers.add(SelectorMatcher(kind: SmIndex, index: index))
+  except ValueError:
+    result.matchers.add(SelectorMatcher(kind: SmName, name: name))
+
+converter to_selector*(s: string): Selector =
+  assert(s[0] == '@')
+  result = Selector()
+  result.children.add(to_selector_item(s[1..^1]))
+
+converter to_selector*(s: ComplexSymbol): Selector =
+  assert(s.first[0] == '@')
+  result = Selector()
+  var item = to_selector_item(s.first[1..^1])
+  result.children.add(item)
+  for part in s.rest:
+    var child = to_selector_item(part)
+    item.children.add(child)
+    item = child
+
 proc wrap_with_try*(body: seq[GeneValue]): seq[GeneValue] =
   var found_catch_or_finally = false
   for item in body:
