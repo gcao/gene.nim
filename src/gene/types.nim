@@ -368,7 +368,7 @@ type
 
   SelectorResult* = ref object
     done*: bool
-    case mode*: SelectResultMode 
+    case mode*: SelectResultMode
     of SrFirst:
       first*: GeneValue
     of SrAll:
@@ -498,8 +498,6 @@ type
     ExMethod
     ExInvokeMethod
     ExSuper
-    ExGetPath
-    ExSetProp
     ExNamespace
     ExDefMember
     ExDefNsMember
@@ -656,12 +654,6 @@ type
       invoke_args*: seq[Expr]
     of ExSuper:
       super_args*: seq[Expr]
-    of ExGetPath:
-      get_path_self*: Expr
-      get_path*: seq[Expr]
-    of ExSetProp:
-      set_prop_name*: string
-      set_prop_val*: Expr
     of ExNamespace:
       ns*: GeneValue
       ns_name*: GeneValue # The simple name or complex name that is associated

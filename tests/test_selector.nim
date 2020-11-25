@@ -31,7 +31,7 @@ import ./helpers
 #   * Descendants: :$descendants - how does match work for this? self.gene.data and their descendants?
 #   * Predicate (fnx it ...)
 #   * Composite: [0 1 (range 3 5)]
-# 
+#
 # SelectorResult
 # * Single value
 # * Array or map or gene
@@ -49,7 +49,7 @@ import ./helpers
 # Actions:
 #   * Copy value matched by selector to output
 #   * Call callback with value, add result to output
-# 
+#
 # (@ "test")             # target["test"]
 # @test                  # target["test"]
 # (@ 0 "test")           # target[0]["test"]

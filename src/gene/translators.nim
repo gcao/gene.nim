@@ -146,25 +146,6 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
   result.if_then = new_group_expr(result, val.gene.props["then"].vec)
   result.if_else = new_group_expr(result, val.gene.props["else"].vec)
 
-# proc new_get_prop_expr*(parent: Expr, val: GeneValue): Expr =
-#   result = Expr(
-#     kind: ExGetPath,
-#     parent: parent,
-#   )
-#   result.get_path_self = new_expr(result, val.gene.props["self"])
-#   for item in val.gene.data:
-#     result.get_path.add(new_expr(result, item))
-
-# proc new_set_prop_expr*(parent: Expr, node: GeneValue): Expr =
-#   var name = node.gene.data[0].str
-#   var val = node.gene.data[1]
-#   result = Expr(
-#     kind: ExSetProp,
-#     parent: parent,
-#     set_prop_name: name,
-#   )
-#   result.set_prop_val = new_expr(result, val)
-
 proc new_do_expr*(parent: Expr, node: GeneValue): Expr =
   result = Expr(
     kind: ExDo,
@@ -737,8 +718,6 @@ TranslatorMgr["exit"          ] = proc(parent: Expr, node: GeneValue): Expr =
 TranslatorMgr["print"         ] = new_print_expr
 TranslatorMgr["println"       ] = new_print_expr
 TranslatorMgr["="             ] = new_assignment_expr
-# TranslatorMgr["@"             ] = new_get_prop_expr
-# TranslatorMgr["@="            ] = new_set_prop_expr
 
 TranslatorMgr["call"          ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExCall)
