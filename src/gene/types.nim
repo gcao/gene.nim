@@ -364,7 +364,6 @@ type
   SelectResultMode* = enum
     SrFirst
     SrAll
-    # SrMap     # all matched key/value pairs in a map object
 
   SelectorResult* = ref object
     done*: bool
@@ -373,8 +372,6 @@ type
       first*: GeneValue
     of SrAll:
       all*: seq[GeneValue]
-    # of SrMap:
-    #   map*: OrderedTable[string, GeneValue]
 
   GeneKind* = enum
     GeneNilKind
@@ -2383,31 +2380,6 @@ proc is_singular*(self: SelectorItem): bool =
 
 proc is_singular*(self: Selector): bool =
   result = self.children.len == 1 and self.children[0].is_singular()
-
-proc is_map*(self: Selector): bool
-
-proc is_map*(self: SelectorItem): bool =
-  case self.kind:
-  of SiDefault:
-    case self.children.len:
-    of 0:
-      for m in self.matchers:
-        if m.kind notin [SmName, SmNameList, SmNamePattern]:
-          return false
-    else:
-      for child in self.children:
-        if not child.is_map():
-          return false
-  of SiSelector:
-    return self.selector.is_map()
-
-  return true
-
-proc is_map*(self: Selector): bool =
-  for child in self.children:
-    if not child.is_map():
-      return false
-  return true
 
 proc is_last*(self: SelectorItem): bool =
   result = self.children.len == 0
