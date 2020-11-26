@@ -143,3 +143,32 @@
   (macro teardown code...
   )
 )
+
+(ns genex/html
+  (class Tag
+    (method new [name attrs children]
+      (@name     = name)
+      (@attrs    = attrs)
+      (@children = children)
+    )
+
+    (method to_s _
+      ("<" (@name) ">"
+        "</" (@name) ">"
+      )
+    )
+  )
+
+  # TODO: leaf tags
+
+  (ns tags
+    # HTML, BODY, DIV etc are part of this namespace
+    (var tags :[HTML HEAD TITLE BODY DIV HEADER])
+    (for tag in tags
+      (eval
+        :(fn %tag children...
+          (new Tag %tag)
+        ))
+    )
+  )
+)

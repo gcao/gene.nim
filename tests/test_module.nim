@@ -100,6 +100,11 @@ test_core """
   (assert ((Class .name) == "Class"))
 """
 
+test_core """
+  (import gene/*)
+  (assert ((Class .name) == "Class"))
+"""
+
 # test_core """
 #   ($stop_inheritance)
 #   (try

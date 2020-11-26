@@ -548,11 +548,15 @@ proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: Ma
 
 proc import_from_ns*(self: VM, frame: Frame, source: GeneValue, group: seq[ImportMatcher]) =
   for m in group:
-    var value = source.internal.ns[m.name]
-    if m.children_only:
-      self.import_from_ns(frame, value.internal.ns, m.children)
+    if m.name == "*":
+      for k, v in source.internal.ns.members:
+        self.def_member(frame, k, v, true)
     else:
-      self.def_member(frame, m.name, value, true)
+      var value = source.internal.ns[m.name]
+      if m.children_only:
+        self.import_from_ns(frame, value.internal.ns, m.children)
+      else:
+        self.def_member(frame, m.name, value, true)
 
 proc explode_and_add*(parent: GeneValue, value: GeneValue) =
   if value.kind == GeneInternal and value.internal.kind == GeneExplode:
