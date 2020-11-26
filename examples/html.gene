@@ -3,7 +3,7 @@
 (import genex/html/tags/*)
 
 (println
-  (HTML
+  ((HTML
     (HEAD
       (TITLE "Test HTML")
     )
@@ -14,5 +14,5 @@
         "First section"
       )
     )
-  )
+  ).to_s)
 )

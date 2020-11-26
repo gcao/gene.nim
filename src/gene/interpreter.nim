@@ -906,6 +906,7 @@ EvaluatorMgr[ExUnknown] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     todo($expr.unknown)
 
 EvaluatorMgr[ExNamespace] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  expr.ns.internal.ns.parent = frame.ns
   self.def_member(frame, expr.ns_name, expr.ns, true)
   var old_self = frame.self
   var old_ns = frame.ns

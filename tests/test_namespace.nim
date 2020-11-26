@@ -61,3 +61,14 @@ test_interpreter """
 #   )
 #   n/A  # only when a name is accessed using a/X or a/b/X, member_missing is triggered
 # """, "not found"
+
+test_interpreter """
+  (ns n
+    (class A)
+    (ns m
+      (class B < A)
+    )
+  )
+  n/m/B
+""", proc(r: GeneValue) =
+  check r.internal.class.name == "B"

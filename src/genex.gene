@@ -109,7 +109,7 @@
     (for e in code
       (try
         (caller_eval e)
-      catch global/AssertionError   # TODO: AssertionError should work but doesn't for some reason
+      catch AssertionError
         (success = false)
         (messages .add ($ex .message))
       catch TestFailure
@@ -146,15 +146,15 @@
 
 (ns genex/html
   (class Tag
-    (method new [name attrs children]
+    (method new [name attrs = {} children = []]
       (@name     = name)
       (@attrs    = attrs)
       (@children = children)
     )
 
     (method to_s _
-      ("<" (@name) ">"
-        "</" (@name) ">"
+      ("<" (.@name) ">"
+        "</" (.@name) ">"
       )
     )
   )
