@@ -156,6 +156,6 @@ test_interpreter """
 #   check r.map["a"] == 1
 #   check r.map["b"] == 2
 
-# test_interpreter """
-#   ((@* 0 1) [1 2])
-# """, @[new_gene_int(1), new_gene_int(2)]
+test_interpreter """
+  ((@* 0 1) [1 2])
+""", @[new_gene_int(1), new_gene_int(2)]

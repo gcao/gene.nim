@@ -803,3 +803,9 @@ TranslatorMgr["@"] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExSelector)
   for item in node.gene.data:
     result.selector.add(new_expr(result, item))
+
+TranslatorMgr["@*"] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExSelector)
+  result.parallel_mode = true
+  for item in node.gene.data:
+    result.selector.add(new_expr(result, item))

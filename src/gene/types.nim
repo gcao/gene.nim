@@ -723,6 +723,7 @@ type
       acb_callback*: Expr
     of ExSelector:
       selector*: seq[Expr]
+      parallel_mode*: bool
 
   VM* = ref object
     app*: Application
