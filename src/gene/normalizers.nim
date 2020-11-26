@@ -19,19 +19,30 @@ var Normalizers: seq[Normalizer]
 
 Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
-  if `type`.kind == GeneSymbol:
-    if `type`.symbol.startsWith(".@"):
-      var new_type = new_gene_symbol("@")
-      var new_gene = new_gene_gene(new_type)
-      new_gene.gene.normalized = true
-      if `type`.symbol.len > 2:
-        new_gene.gene.data.insert(new_gene_string_move(`type`.symbol.substr(2)), 0)
-      else:
-        for item in self.gene.data:
-          new_gene.gene.data.add(item)
-      self.gene.type = new_gene
-      self.gene.data = @[new_gene_symbol("self")]
-      return true
+  if `type`.kind == GeneSymbol and `type`.symbol.startsWith(".@"):
+    var new_type = new_gene_symbol("@")
+    var new_gene = new_gene_gene(new_type)
+    new_gene.gene.normalized = true
+    if `type`.symbol.len > 2:
+      var name = `type`.symbol.substr(2).to_selector_matcher()
+      new_gene.gene.data.insert(name, 0)
+    else:
+      for item in self.gene.data:
+        new_gene.gene.data.add(item)
+    self.gene.type = new_gene
+    self.gene.data = @[new_gene_symbol("self")]
+    return true
+  elif `type`.kind == GeneComplexSymbol and `type`.csymbol.first.startsWith(".@"):
+    var new_type = new_gene_symbol("@")
+    var new_gene = new_gene_gene(new_type)
+    new_gene.gene.normalized = true
+    var name = `type`.csymbol.first.substr(2).to_selector_matcher()
+    new_gene.gene.data.insert(name, 0)
+    for part in `type`.csymbol.rest:
+      new_gene.gene.data.add(part.to_selector_matcher())
+    self.gene.type = new_gene
+    self.gene.data = @[new_gene_symbol("self")]
+    return true
 
 Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
@@ -137,6 +148,17 @@ Normalizers.add proc(self: GeneValue): bool =
         new_gene.gene.data.add(self.gene.data[i])
     else:
       new_gene.gene.data.add(first.symbol.substr(2))
+    self.gene.data = @[`type`]
+    self.gene.type = new_gene
+    return true
+  elif first.kind == GeneComplexSymbol and first.csymbol.first.startsWith(".@"):
+    var new_type = new_gene_symbol("@")
+    var new_gene = new_gene_gene(new_type)
+    new_gene.gene.normalized = true
+    var name = first.csymbol.first.substr(2).to_selector_matcher()
+    new_gene.gene.data.add(name)
+    for part in first.csymbol.rest:
+      new_gene.gene.data.add(part.to_selector_matcher())
     self.gene.data = @[`type`]
     self.gene.type = new_gene
     return true

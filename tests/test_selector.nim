@@ -104,6 +104,26 @@ test_interpreter """
 """, 1
 
 test_interpreter """
+  ([{^test 1}] .@ 0 "test")
+""", 1
+
+test_interpreter """
+  ([{^test 1}] .@0/test)
+""", 1
+
+test_interpreter """
+  (do ^self [{^test 1}]
+    (.@ 0 "test")
+  )
+""", 1
+
+test_interpreter """
+  (do ^self [{^test 1}]
+    (.@0/test)
+  )
+""", 1
+
+test_interpreter """
   (var a {})
   ($set a @test 1)
   (@test a)

@@ -1833,6 +1833,12 @@ converter to_aspect*(node: GeneValue): Aspect =
 
   return new_aspect(name, matcher, body)
 
+converter to_selector_matcher*(name: string): GeneValue =
+  try:
+    return parse_int(name)
+  except ValueError:
+    return name
+
 converter to_selector_item*(name: string): SelectorItem =
   result = SelectorItem()
   try:
