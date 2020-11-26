@@ -1,18 +1,12 @@
-#!/usr/bin/env gene
-
-(import genex/html/tags/*)
-
-(println
-  ((HTML
-    (HEAD
-      (TITLE "Test HTML")
+(HTML
+  (HEAD
+    (TITLE "Test HTML")
+  )
+  (BODY
+    (HEADER ^style {^font-size 22}
+      "This is the header section")
+    (DIV ^style {^font-size 10}
+      "First section"
     )
-    (BODY
-      (HEADER ^style {^font-size 22}
-        "This is the header section")
-      (DIV ^style {^font-size 10}
-        "First section"
-      )
-    )
-  ).to_s)
+  )
 )

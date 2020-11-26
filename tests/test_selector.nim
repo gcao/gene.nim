@@ -88,6 +88,10 @@ test_interpreter """
 """, 1
 
 test_interpreter """
+  ([1 2] .@0)
+""", 1
+
+test_interpreter """
   ((@ "test") {^test 1})
 """, 1
 

@@ -147,7 +147,7 @@ Normalizers.add proc(self: GeneValue): bool =
       for i in 1..<self.gene.data.len:
         new_gene.gene.data.add(self.gene.data[i])
     else:
-      new_gene.gene.data.add(first.symbol.substr(2))
+      new_gene.gene.data.add(first.symbol.substr(2).to_selector_matcher())
     self.gene.data = @[`type`]
     self.gene.type = new_gene
     return true
