@@ -180,6 +180,9 @@
     (call_native "array_del" self i)
   )
 
+  # (method join [with = ""]
+  # )
+
   (method each block
     (for item in self
       (block item)

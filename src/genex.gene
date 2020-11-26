@@ -154,8 +154,8 @@
 
     (method to_s _
       ("<" (.@name) ">"
-        "</" (.@name) ">"
-      )
+        # (((.@children) .map (child -> (child .to_s))).join)
+       "</" (.@name) ">")
     )
   )
 
@@ -165,9 +165,10 @@
     # HTML, BODY, DIV etc are part of this namespace
     (var tags :[HTML HEAD TITLE BODY DIV HEADER])
     (for tag in tags
+      (tag = (tag .to_s))
       (eval
         :(fn %tag children...
-          (new Tag %tag)
+          (new Tag %tag {} children)
         ))
     )
   )
