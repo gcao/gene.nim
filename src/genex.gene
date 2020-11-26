@@ -154,7 +154,7 @@
 
     (method to_s _
       ("<" (.@name) ">"
-        # (((.@children) .map (child -> (child .to_s))).join)
+        (((.@children) .map (child -> (child .to_s))).join)
        "</" (.@name) ">")
     )
   )

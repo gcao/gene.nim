@@ -95,6 +95,10 @@
     (call_native "str_size" self)
   )
 
+  (method append args...
+    (call_native "str_append" self args...)
+  )
+
   (method substr [start end = nil]
     (if start
       (if end
@@ -180,8 +184,13 @@
     (call_native "array_del" self i)
   )
 
-  # (method join [with = ""]
-  # )
+  (method join [with = ""]
+    (var s "")
+    (for [i item] in self
+      (s .append item (if (i < (.size)) with))
+    )
+    s
+  )
 
   (method each block
     (for item in self

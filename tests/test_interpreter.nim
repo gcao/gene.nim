@@ -225,13 +225,21 @@ test_interpreter """
   sum
 """, 6
 
-# test_interpreter """
-#   (var sum)
-#   (for [k v] in {^a 1 ^b 2}
-#     (sum += v)
-#   )
-#   sum
-# """, 3
+test_interpreter """
+  (var sum 0)
+  (for [k v] in {^a 1 ^b 2}
+    (sum += v)
+  )
+  sum
+""", 3
+
+test_interpreter """
+  (var sum 0)
+  (for [k _] in [1 2 3]
+    (sum += k)
+  )
+  sum
+""", 3
 
 test_interpreter "self", GeneNil
 
