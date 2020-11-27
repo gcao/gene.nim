@@ -19,19 +19,24 @@ var Normalizers: seq[Normalizer]
 
 Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
-  if `type`.kind == GeneSymbol and `type`.symbol.startsWith(".@"):
-    var new_type = new_gene_symbol("@")
-    var new_gene = new_gene_gene(new_type)
-    new_gene.gene.normalized = true
-    if `type`.symbol.len > 2:
-      var name = `type`.symbol.substr(2).to_selector_matcher()
-      new_gene.gene.data.insert(name, 0)
-    else:
-      for item in self.gene.data:
-        new_gene.gene.data.add(item)
-    self.gene.type = new_gene
-    self.gene.data = @[new_gene_symbol("self")]
-    return true
+  if `type`.kind == GeneSymbol:
+    if `type`.symbol.startsWith(".@"):
+      var new_type = new_gene_symbol("@")
+      var new_gene = new_gene_gene(new_type)
+      new_gene.gene.normalized = true
+      if `type`.symbol.len > 2:
+        var name = `type`.symbol.substr(2).to_selector_matcher()
+        new_gene.gene.data.insert(name, 0)
+      else:
+        for item in self.gene.data:
+          new_gene.gene.data.add(item)
+      self.gene.type = new_gene
+      self.gene.data = @[new_gene_symbol("self")]
+      return true
+    elif `type`.symbol[0] == '.' and `type`.symbol != "...":  # (.method x y z)
+      self.gene.props["self"] = new_gene_symbol("self")
+      self.gene.props["method"] = new_gene_string_move(`type`.symbol.substr(1))
+      self.gene.type = new_gene_symbol("$invoke_method")
   elif `type`.kind == GeneComplexSymbol and `type`.csymbol.first.startsWith(".@"):
     var new_type = new_gene_symbol("@")
     var new_gene = new_gene_gene(new_type)

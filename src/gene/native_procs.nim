@@ -51,7 +51,7 @@ proc init_native_procs*() =
   NativeProcs.add_only "str_append", proc(args: seq[GeneValue]): GeneValue =
     var self = args[0]
     var s = self.str
-    for i in 1..args.len:
+    for i in 1..<args.len:
       s = s & args[i].to_s
     self.str = s
     return self

@@ -63,6 +63,19 @@ test_interpreter """
 
 test_interpreter """
   (class A
+    (method test a
+      a
+    )
+
+    (method test2 a
+      (.test a)
+    )
+  )
+  ((new A) .test2 1)
+""", 1
+
+test_interpreter """
+  (class A
     (method test [a b]
       (a + b)
     )
