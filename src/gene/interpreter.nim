@@ -1045,11 +1045,11 @@ EvaluatorMgr[ExCall] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   result = self.call_fn(frame, call_self, target.internal.fn, args, options)
 
 EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var args: seq[GeneValue] = @[]
+  var args = new_gene_vec()
   for item in expr.native_args:
-    args.add(self.eval(frame, item))
+    args.explode_and_add(self.eval(frame, item))
   var p = NativeProcs.get(expr.native_index)
-  result = p(args)
+  result = p(args.vec)
 
 EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var val = self.eval(frame, expr.get_class_val)

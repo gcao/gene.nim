@@ -153,9 +153,9 @@
     )
 
     (method to_s _
-      ("<" (.@name) ">"
-        (((.@children) .map (child -> (child .to_s))).join)
-       "</" (.@name) ">")
+      ("<" (.@name) ">\n"
+        ((.@children).join "\n")
+       "\n</" (.@name) ">")
     )
   )
 

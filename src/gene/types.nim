@@ -1441,6 +1441,8 @@ proc `$`*(node: GeneValue): string =
       result = "(ns $# ...)" % [node.internal.ns.name]
     of GeneClass:
       result = "(class $# ...)" % [node.internal.class.name]
+    of GeneInstance:
+      result = "($# ...)" % [node.internal.instance.class.name]
     else:
       result = "GeneInternal"
   else:

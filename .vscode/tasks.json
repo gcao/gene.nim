@@ -8,7 +8,8 @@
       "args": [
         "c",
         "--debugger:native",
-        "${file}"
+        "--out:bin/gene",
+        "src/gene.nim"
       ],
     },
     {
