@@ -316,7 +316,7 @@ proc skip_ws(self: var Parser) =
       buf = self.buf
     of '#':
       case buf[self.bufpos + 1]:
-      of ' ', '!', '\r', '\n':
+      of ' ', '!', '#', '\r', '\n':
         self.skip_comment()
       of '<':
         self.skip_block_comment()

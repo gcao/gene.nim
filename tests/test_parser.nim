@@ -146,6 +146,13 @@ test_read_all """
   check r[0] == 1
   check r[1] == 2
 
+test_read_all """
+  1 ##comment
+  2
+""", proc(r: seq[GeneValue]) =
+  check r[0] == 1
+  check r[1] == 2
+
 test_read_all "a,b", proc(r: seq[GeneValue]) =
   check r[0] == new_gene_symbol("a")
   check r[1] == new_gene_symbol("b")
