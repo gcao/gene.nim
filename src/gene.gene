@@ -187,7 +187,7 @@
   (method join [with = ""]
     (var s "")
     (for [i item] in self
-      (s .append (item .to_s) (if (i < (.size)) with))
+      (s = (s .append (item .to_s) (if (i < (.size)) with)))
     )
     s
   )

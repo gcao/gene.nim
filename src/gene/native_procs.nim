@@ -49,12 +49,10 @@ proc init_native_procs*() =
     return args[0].str.len
 
   NativeProcs.add_only "str_append", proc(args: seq[GeneValue]): GeneValue =
-    var self = args[0]
-    var s = self.str
+    var s = args[0].str
     for i in 1..<args.len:
       s = s & args[i].to_s
-    self.str = s
-    return self
+    return s
 
   NativeProcs.add_only "str_substr", proc(args: seq[GeneValue]): GeneValue =
     case args.len:

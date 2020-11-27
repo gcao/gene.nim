@@ -154,7 +154,7 @@
 
     (method to_s _
       ("<" (.@name) ">\n"
-        ((.@children).join "\n")
+        (((.@children).join "\n").trim)
        "\n</" (.@name) ">")
     )
   )
