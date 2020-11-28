@@ -153,7 +153,9 @@
     )
 
     (method to_s _
-      ("<" (.@name) ">\n"
+      ("<" (.@name)
+        (((.@attrs).map ([k v] -> (" " k "=" (v .to_s)))).join)
+       ">\n"
         (((.@children).join "\n").trim)
        "\n</" (.@name) ">")
     )

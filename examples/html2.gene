@@ -1,0 +1,24 @@
+#!/usr/bin/env gene
+
+(import genex/html/tags/*)
+
+(var doc (HTML
+  (HEAD
+    (TITLE "Test HTML")
+  ) # HEAD
+  (BODY
+    (HEADER ^style {^font-size 22}
+      "This is the header section"
+    )
+    (DIV ^style {^font-size 10}
+      "First section"
+    )
+  ) # BODY
+))
+
+(var css (@*
+  (@ :BODY >> (style ^line-height 1.5))
+))
+
+# Apply css to doc: (css doc)
+(println ((eval (css doc)).to_s))
