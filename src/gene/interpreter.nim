@@ -1151,6 +1151,9 @@ EvaluatorMgr[ExRoot] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExLiteral] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   return expr.literal
 
+EvaluatorMgr[ExString] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  return new_gene_string(expr.str)
+
 EvaluatorMgr[ExComplexSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   return self.get_member(frame, expr.csymbol)
 

@@ -452,6 +452,7 @@ type
     ExNotAllowed
     ExRoot
     ExLiteral
+    ExString
     ExSymbol
     ExComplexSymbol
     ExMap
@@ -536,6 +537,8 @@ type
       root*: Expr
     of ExLiteral:
       literal*: GeneValue
+    of ExString:
+      str*: string
     of ExSymbol:
       symbol*: string
     of ExComplexSymbol:

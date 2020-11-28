@@ -586,8 +586,11 @@ proc new_expr*(parent: Expr, kind: ExprKind): Expr =
 
 proc new_expr*(parent: Expr, node: GeneValue): Expr =
   case node.kind:
-  of GeneNilKind, GeneBool, GeneInt, GeneString:
+  of GeneNilKind, GeneBool, GeneInt:
     return new_literal_expr(parent, node)
+  of GeneString:
+    result = new_expr(parent, ExString)
+    result.str = node.str
   of GeneSymbol:
     case node.symbol:
     of "global":
