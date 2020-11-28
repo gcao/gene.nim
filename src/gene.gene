@@ -195,11 +195,11 @@
   )
 
   (method join [with = ""]
-    (var s "")
-    (for [i item] in self
-      (s .append (item .to_s) (if (i < (.size)) with))
+    (gene/with s ""
+      (for [i item] in self
+        (s .append (item .to_s) (if (i < (.size)) with))
+      )
     )
-    s
   )
 
   (method each block
