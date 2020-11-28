@@ -5,6 +5,11 @@
 )
 (var global/assert gene/assert)
 
+(macro gene/with [name value body...]
+  (todo)
+)
+(var global/with gene/with)
+
 (macro gene/debug expr
   (var s (expr .to_s))
   (println s " begin")

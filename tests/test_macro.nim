@@ -64,3 +64,14 @@ test_core """
   (m "B")
   ((new B) .test)
 """, "A.test"
+
+# # TODO: this should be possible with macro/caller_eval etc
+# test_interpreter """
+#   (macro with [name value body...]
+#     (var expr :(do (var %name %value)) %body... %name)
+#     (caller_eval expr)
+#   )
+#   (with a 1
+#     (a += 1)
+#   )
+# """, 2

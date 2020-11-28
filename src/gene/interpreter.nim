@@ -1074,6 +1074,9 @@ EvaluatorMgr[ExCallerEval] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
   var caller_frame = frame.parent
   for e in expr.caller_eval_args:
     result = self.eval(caller_frame, new_expr(expr, self.eval(frame, e)))
+    if result.kind == GeneInternal and result.internal.kind == GeneExplode:
+      for item in result.internal.explode.vec:
+        result = self.eval(caller_frame, new_expr(expr, item))
 
 EvaluatorMgr[ExMatch] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   result = self.match(frame, expr.match_pattern, self.eval(frame, expr.match_val), MatchDefault)
