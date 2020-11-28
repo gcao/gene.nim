@@ -763,7 +763,8 @@ TranslatorMgr["->"            ] = proc(parent: Expr, node: GeneValue): Expr =
 
 TranslatorMgr["todo"          ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExTodo)
-  result.todo = new_expr(result, node.gene.data[0])
+  if node.gene.data.len > 0:
+    result.todo = new_expr(result, node.gene.data[0])
 
 TranslatorMgr["not_allowed"   ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExNotAllowed)

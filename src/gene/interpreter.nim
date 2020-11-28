@@ -620,6 +620,9 @@ EvaluatorMgr[ExDo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
         todo()
     for e in expr.do_body:
       result = self.eval(frame, e)
+      if result.kind == GeneInternal and result.internal.kind == GeneExplode:
+        for item in result.internal.explode.vec:
+          result = self.eval(frame, new_expr(e, item))
   finally:
     frame.self = old_self
 

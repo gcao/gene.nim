@@ -6,7 +6,12 @@
 (var global/assert gene/assert)
 
 (macro gene/with [name value body...]
-  (todo)
+  (var expr
+    :(do
+      (var %name %value)
+      %body...
+      %name ))
+  (caller_eval expr)
 )
 (var global/with gene/with)
 
