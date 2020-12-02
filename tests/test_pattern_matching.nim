@@ -1,4 +1,4 @@
-import unittest
+import unittest, tables
 
 import gene/types
 
@@ -250,3 +250,10 @@ test_arg_matching "[^a = 1 b]", "(_ 2)", proc(r: MatchResult) =
 test_arg_matching "[^a]", "()", proc(r: MatchResult) =
   check r.kind == MatchMissingFields
   check r.missing[0] == "a"
+
+test_arg_matching "[^props...]", "(_ ^a 1 ^b 2)", proc(r: MatchResult) =
+  check r.kind == MatchSuccess
+  check r.fields.len == 1
+  check r.fields[0].name == "props"
+  check r.fields[0].value.map["a"] == 1
+  check r.fields[0].value.map["b"] == 2

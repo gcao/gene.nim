@@ -2052,6 +2052,16 @@ proc new_matched_field(name: string, value: GeneValue): MatchedField =
 proc required(self: Matcher): bool =
   return self.default_value == nil and not self.splat
 
+proc props(self: seq[Matcher]): HashSet[string] =
+  for m in self:
+    if m.kind == MatchProp and not m.splat:
+      result.incl(m.name)
+
+proc prop_splat(self: seq[Matcher]): string =
+  for m in self:
+    if m.kind == MatchProp and m.splat:
+      return m.name
+
 #################### Parsing #####################
 
 proc calc_min_left*(self: var Matcher) =
@@ -2080,7 +2090,11 @@ proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
   of GeneSymbol:
     if v.symbol[0] == '^':
       var m = new_matcher(self, MatchProp)
-      m.name = v.symbol[1..^1]
+      if v.symbol.ends_with("..."):
+        m.name = v.symbol[1..^4]
+        m.splat = true
+      else:
+        m.name = v.symbol[1..^1]
       group.add(m)
     else:
       var m = new_matcher(self, MatchData)
@@ -2139,6 +2153,27 @@ proc `len`(self: GeneValue): int =
   else:
     not_allowed()
 
+proc match_prop_splat*(self: seq[Matcher], input: GeneValue, r: MatchResult) =
+  var splat_name = self.prop_splat
+  if splat_name == "":
+    return
+
+  var map: OrderedTable[string, GeneValue]
+  case input.kind:
+  of GeneMap:
+    map = input.map
+  of GeneGene:
+    map = input.gene.props
+  else:
+    return
+
+  var props = self.props
+  var splat = OrderedTable[string, GeneValue]()
+  for k, v in map:
+    if k notin props:
+      splat[k] = v
+  r.fields.add(new_matched_field(splat_name, new_gene_map(splat)))
+
 proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   case self.kind:
   of MatchData:
@@ -2169,16 +2204,13 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
     var child_state = MatchState()
     for child in self.children:
       child.match(value, child_state, r)
+    match_prop_splat(self.children, value, r)
   of MatchProp:
     var name = self.name
     var value: GeneValue
     var value_expr: Expr
     if self.splat:
-      todo()
-      # value = new_gene_vec()
-      # for i in state.data_index..<input.len - self.min_left:
-      #   value.vec.add(input[i])
-      #   state.data_index += 1
+      return
     elif input.gene.props.has_key(name):
       value = input.gene.props[name]
     else:
@@ -2202,6 +2234,7 @@ proc match*(self: RootMatcher, input: GeneValue): MatchResult =
   var state = MatchState()
   for child in children:
     child.match(input, state, result)
+  match_prop_splat(children, input, result)
 
 #################### NativeProcs #################
 

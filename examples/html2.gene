@@ -5,7 +5,7 @@
 (var doc (HTML
   (HEAD
     (TITLE "Test HTML")
-  ) # HEAD
+  )
   (BODY
     (HEADER ^style {^font-size 22}
       "This is the header section"
@@ -13,7 +13,7 @@
     (DIV ^style {^font-size 10}
       "First section"
     )
-  ) # BODY
+  )
 ))
 
 (var css (@*
