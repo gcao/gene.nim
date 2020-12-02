@@ -343,6 +343,7 @@ type
       children*: seq[SelectorItem]  # Each child represents a branch
     of SiSelector:
       selector*: Selector
+    match_callbacks*: seq[GeneValue]
 
   SelectorMatcherKind* = enum
     SmIndex

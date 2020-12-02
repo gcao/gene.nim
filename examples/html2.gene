@@ -16,6 +16,12 @@
   )
 ))
 
+(fn style [^styles]
+  (fnx matched
+    (println "TODO: add styles to matched element: " (matched .to_s))
+  )
+)
+
 (var css (@*
   (@ :BODY >> (style ^line-height 1.5))
 ))

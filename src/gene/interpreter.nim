@@ -1334,11 +1334,19 @@ EvaluatorMgr[ExSelector] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     var first = self.eval(frame, expr.selector[0])
     var selector_item = gene_to_selector_item(first)
     selector.children.add(selector_item)
+    var callbacks_expected = false
     for i in 1..<expr.selector.len:
-      var item = self.eval(frame, expr.selector[i])
-      var new_selector_item = gene_to_selector_item(item)
-      selector_item.children.add(new_selector_item)
-      selector_item = new_selector_item
+      var item = expr.selector[i]
+      if callbacks_expected:
+        selector_item.match_callbacks.add(self.eval(frame, item))
+      elif item.kind == ExSymbol and item.symbol == "$on_match":
+        callbacks_expected = true
+        continue
+      else:
+        var value = self.eval(frame, item)
+        var new_selector_item = gene_to_selector_item(value)
+        selector_item.children.add(new_selector_item)
+        selector_item = new_selector_item
   result = selector
 
 when isMainModule:

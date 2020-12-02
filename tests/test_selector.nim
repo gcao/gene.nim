@@ -179,3 +179,11 @@ test_interpreter """
 test_interpreter """
   ((@* 0 1) [1 2])
 """, @[new_gene_int(1), new_gene_int(2)]
+
+# test_interpreter """
+#   (var sum 0)
+#   # Short forms: $on_match = $$, $on_match_none = $!, $transform = $@
+#   (var sel (@ 0 $on_match (fnx x (sum += x))))
+#   (sel [1 2])
+#   sum
+# """, 1
