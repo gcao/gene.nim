@@ -28,8 +28,13 @@ import ./helpers
 #   * Gene property values: :$values
 #   * Gene data: :$data
 #   * Descendants: :$descendants - how does match work for this? self.gene.data and their descendants?
-#   * Predicate (fnx it ...)
+#   * Self or descendants: $self_or_descendants
+#   * Predicate (fnx [^input ^path value] ...)
 #   * Composite: [0 1 (range 3 5)]
+# * Callbacks
+#   * $$ = $on_match: (fnx [^input ^matcher val] ...)
+#   * $! = $on_match_none: (fnx [^input ^matcher] ...)
+#   * $@ = $transform - transform result: (fnx [^input ^matcher val] ...)
 #
 # SelectorResult
 # * Single value
@@ -66,6 +71,9 @@ import ./helpers
 # (.@ 0 "test" = "value")   # (assign self (@ 0 "test") "value")
 # (.@test)                  # ((@ "test") self)
 # (.@first/second)          # ((@ "first" "second") self)
+#
+# (@ .. "test")             # target.self_or_descendants["test"]
+# (@../test)                # target.self_or_descendants["test"]
 #
 # * Search
 # * Update
