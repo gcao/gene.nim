@@ -1,4 +1,4 @@
-import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch, times
+import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch, times, strformat
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
@@ -1461,8 +1461,12 @@ proc `$`*(node: GeneValue): string =
       result = "/" & node.csymbol.rest.join("/")
     else:
       result = node.csymbol.first & "/" & node.csymbol.rest.join("/")
+  of GeneDate:
+    result = node.date.format("yyyy-MM-dd")
   of GeneDateTime:
-    todo()
+    result = node.date.format("yyyy-MM-dd'T'HH:mm:sszzz")
+  of GeneTimeKind:
+    result = &"{node.time.hour:02}:{node.time.minute:02}:{node.time.second:02}"
   of GeneVector:
     result = "["
     result &= node.vec.join(" ")

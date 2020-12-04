@@ -186,6 +186,9 @@
 )
 
 (class gene/Time
+  (method hour _
+    (call_native "time_hour" self)
+  )
 )
 
 (class gene/Timezone
