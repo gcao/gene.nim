@@ -1,4 +1,4 @@
-import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch
+import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch, times
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
@@ -373,6 +373,13 @@ type
     of SrAll:
       all*: seq[GeneValue]
 
+  # Non-date specific time object
+  GeneTime* = ref object
+    hour*: int
+    minute*: int
+    second*: int
+    timezone*: Timezone
+
   GeneKind* = enum
     GeneNilKind
     GenePlaceholderKind
@@ -386,6 +393,12 @@ type
     GeneComplexSymbol
     GeneRegex
     GeneRange
+    # Time part should be 00:00:00 and timezone should not matter
+    GeneDate
+    # Date + time + timezone
+    GeneDateTime
+    GeneTimeKind
+    GeneTimezone
     GeneMap
     GeneVector
     GeneSet
@@ -422,6 +435,12 @@ type
       range_end*: GeneValue
       range_incl_start*: bool
       range_incl_end*: bool
+    of GeneDate, GeneDateTime:
+      date: DateTime
+    of GeneTimeKind:
+      time: GeneTime
+    of GeneTimezone:
+      timezone: Timezone
     of GeneMap:
       map*: OrderedTable[string, GeneValue]
     of GeneVector:
@@ -1324,6 +1343,12 @@ proc `==`*(this, that: GeneValue): bool =
       return this.symbol == that.symbol
     of GeneComplexSymbol:
       return this.csymbol == that.csymbol
+    of GeneDate, GeneDateTime:
+      return this.date == that.date
+    of GeneTimeKind:
+      return this.time == that.time
+    of GeneTimezone:
+      return this.timezone == that.timezone
     of GeneSet:
       return this.set.len == that.set.len and (this.set.len == 0 or this.set == that.set)
     of GeneGene:
@@ -1374,6 +1399,12 @@ proc hash*(node: GeneValue): Hash =
     h = h !& hash(node.symbol)
   of GeneComplexSymbol:
     h = h !& hash(node.csymbol.first & "/" & node.csymbol.rest.join("/"))
+  of GeneDate, GeneDateTime:
+    todo($node.internal.kind)
+  of GeneTimeKind:
+    todo($node.internal.kind)
+  of GeneTimezone:
+    todo($node.internal.kind)
   of GeneSet:
     h = h !& hash(node.set)
   of GeneGene:
@@ -1563,6 +1594,24 @@ proc new_gene_range*(rstart: GeneValue, rend: GeneValue): GeneValue =
     range_end: rend,
     range_incl_start: true,
     range_incl_end: false,
+  )
+
+proc new_gene_date*(year, month, day: int): GeneValue =
+  return GeneValue(
+    kind: GeneDate,
+    date: init_date_time(day, cast[Month](month), year, 0, 0, 0, utc()),
+  )
+
+proc new_gene_date*(date: DateTime): GeneValue =
+  return GeneValue(
+    kind: GeneDate,
+    date: date,
+  )
+
+proc new_gene_time*(hour, min, sec: int): GeneValue =
+  return GeneValue(
+    kind: GeneTimeKind,
+    time: GeneTime(hour: hour, minute: min, second: sec, timezone: utc()),
   )
 
 proc new_gene_vec*(items: seq[GeneValue]): GeneValue {.gcsafe.} =

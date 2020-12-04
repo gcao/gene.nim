@@ -44,6 +44,11 @@ test_parser "+foo+", new_gene_symbol("+foo+")
 
 test_parser "#/a/", new_gene_regex("a")
 
+test_parser "2020-12-02", new_gene_date(2020, 12, 02)
+# test_parser "10:11:12", new_gene_time(10, 11, 12)
+# test_parser "2020-12-02T10:11:12", new_gene_datetime(2020, 12, 02, 10, 11, 12)
+# test_parser "2020-12-02T10:11:12Z", new_gene_datetime(2020, 12, 02, 10, 11, 12)
+
 test_parser "{}", OrderedTable[string, GeneValue]()
 test_parser "{^a 1}", {"a": new_gene_int(1)}.toOrderedTable
 

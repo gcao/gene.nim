@@ -3,7 +3,7 @@
 # created by Roland Sadowski.
 # 1. https://github.com/rosado/edn.nim
 
-import lexbase, streams, strutils, unicode, tables, sets
+import lexbase, streams, strutils, unicode, tables, sets, times
 
 import ./types
 
@@ -32,6 +32,9 @@ type
     TkString
     TkInt
     TkFloat
+    TkDate
+    TkDateTime
+    TkTime
 
   ParseErrorKind* = enum
     ErrNone
@@ -264,7 +267,7 @@ proc read_token(self: var Parser, lead_constituent: bool): string =
   while true:
     inc(pos)
     ch = self.buf[pos]
-    if ch == EndOfFile or isSpaceAscii(ch) or ch == ',' or is_terminating_macro(ch):
+    if ch == EndOfFile or is_space_ascii(ch) or ch == ',' or is_terminating_macro(ch):
       break
     elif non_constituent(ch):
       raise new_exception(ParseError, "Invalid constituent character: " & ch)
@@ -671,6 +674,8 @@ proc parse_number(self: var Parser): TokenKind =
       inc(pos)
   self.bufpos = pos
 
+let DATE_FORMAT = init_time_format("yyyy-MM-dd")
+
 proc read_number(self: var Parser): GeneValue =
   var num_result = self.parse_number()
   let opts = self.options
@@ -681,7 +686,20 @@ proc read_number(self: var Parser): GeneValue =
     else:
       result = nil
   of TkInt:
-    if self.buf[self.bufpos] == '/':
+    var c = self.buf[self.bufpos]
+    case c:
+    of '-':
+      var s = self.str & self.read_token(false)
+      var date = parse(s, DATE_FORMAT, utc())
+      result = new_gene_date(date)
+    # of ':':   # How do we neatly support ':' as part of date & time?
+    #   var s = self.str & self.read_token(false)
+    #   var parts = s.split(":")
+    #   var hour = parts[0].parse_int()
+    #   var min = parts[1].parse_int()
+    #   var sec = parts[2].parse_int()
+    #   result = new_gene_time(hour, min, sec)
+    of '/':
       if not isDigit(self.buf[self.bufpos+1]):
         let e = err_info(self)
         raise new_exception(ParseError, "Error reading a ratio: " & $e)
