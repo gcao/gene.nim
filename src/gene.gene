@@ -173,6 +173,34 @@
 (class gene/Symbol
 )
 
+(class gene/Date
+  (method year _
+    (call_native "date_year" self)
+  )
+)
+
+(class gene/Time
+)
+
+(class gene/DateTime
+)
+
+(class gene/Timezone
+)
+
+(fn gene/today _
+  (call_native "date_today")
+)
+
+(fn gene/yesterday _
+)
+
+(fn gene/tomorrow _
+)
+
+(fn gene/now _
+)
+
 (class gene/Array
   (method size _
     (call_native "array_size" self)

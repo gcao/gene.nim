@@ -436,11 +436,11 @@ type
       range_incl_start*: bool
       range_incl_end*: bool
     of GeneDate, GeneDateTime:
-      date: DateTime
+      date*: DateTime
     of GeneTimeKind:
-      time: GeneTime
+      time*: GeneTime
     of GeneTimezone:
-      timezone: Timezone
+      timezone*: Timezone
     of GeneMap:
       map*: OrderedTable[string, GeneValue]
     of GeneVector:
@@ -2075,6 +2075,14 @@ proc get_class*(val: GeneValue): Class =
     return GENE_NS.internal.ns["Regex"].internal.class
   of GeneRange:
     return GENE_NS.internal.ns["Range"].internal.class
+  of GeneDate:
+    return GENE_NS.internal.ns["Date"].internal.class
+  of GeneDateTime:
+    return GENE_NS.internal.ns["DateTime"].internal.class
+  of GeneTimeKind:
+    return GENE_NS.internal.ns["Time"].internal.class
+  of GeneTimezone:
+    return GENE_NS.internal.ns["Timezone"].internal.class
   else:
     todo()
 

@@ -1,4 +1,4 @@
-import strutils, tables, osproc, json, httpclient, base64, os
+import strutils, tables, osproc, json, httpclient, base64, os, times
 import asyncdispatch, asyncfile
 
 import ./types
@@ -134,6 +134,14 @@ proc init_native_procs*() =
   NativeProcs.add_only "str_to_lower_case", proc(args: seq[GeneValue]): GeneValue =
     var self = args[0].str
     result = self.toLower
+
+  NativeProcs.add_only "date_today", proc(args: seq[GeneValue]): GeneValue =
+    var date = now()
+    return new_gene_date(date.year, cast[int](date.month), date.monthday)
+
+  NativeProcs.add_only "date_year", proc(args: seq[GeneValue]): GeneValue =
+    var self = args[0].date
+    return self.year
 
   NativeProcs.add_only "array_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].vec.len
