@@ -256,7 +256,7 @@ proc skip_comment(self: var Parser) =
       inc(pos)
   self.bufpos = pos
 
-proc read_token(self: var Parser, lead_constituent: bool): string =
+proc read_token(self: var Parser, lead_constituent: bool, chars_allowed: openarray[char]): string =
   var pos = self.bufpos
   var ch = self.buf[pos]
   if lead_constituent and non_constituent(ch):
@@ -267,12 +267,15 @@ proc read_token(self: var Parser, lead_constituent: bool): string =
   while true:
     inc(pos)
     ch = self.buf[pos]
-    if ch == EndOfFile or is_space_ascii(ch) or ch == ',' or is_terminating_macro(ch):
+    if ch == EndOfFile or is_space_ascii(ch) or ch == ',' or (is_terminating_macro(ch) and ch notin chars_allowed):
       break
     elif non_constituent(ch):
       raise new_exception(ParseError, "Invalid constituent character: " & ch)
     result.add(ch)
   self.bufpos = pos
+
+proc read_token(self: var Parser, lead_constituent: bool): string =
+  return self.read_token(lead_constituent, [])
 
 proc read_character(self: var Parser): GeneValue =
   var pos = self.bufpos
@@ -675,6 +678,7 @@ proc parse_number(self: var Parser): TokenKind =
   self.bufpos = pos
 
 let DATE_FORMAT = init_time_format("yyyy-MM-dd")
+let DATETIME_FORMAT = init_time_format("yyyy-MM-dd'T'HH:mm:sszzz")
 
 proc read_number(self: var Parser): GeneValue =
   var num_result = self.parse_number()
@@ -689,16 +693,20 @@ proc read_number(self: var Parser): GeneValue =
     var c = self.buf[self.bufpos]
     case c:
     of '-':
-      var s = self.str & self.read_token(false)
-      var date = parse(s, DATE_FORMAT, utc())
-      result = new_gene_date(date)
-    # of ':':   # How do we neatly support ':' as part of date & time?
-    #   var s = self.str & self.read_token(false)
-    #   var parts = s.split(":")
-    #   var hour = parts[0].parse_int()
-    #   var min = parts[1].parse_int()
-    #   var sec = parts[2].parse_int()
-    #   result = new_gene_time(hour, min, sec)
+      var s = self.str & self.read_token(false, [':'])
+      if s.contains(':'):
+        var date = parse(s, DATETIME_FORMAT, utc())
+        result = new_gene_datetime(date)
+      else:
+        var date = parse(s, DATE_FORMAT, utc())
+        result = new_gene_date(date)
+    of ':':
+      var s = self.str & self.read_token(false, [':'])
+      var parts = s.split(":")
+      var hour = parts[0].parse_int()
+      var min = parts[1].parse_int()
+      var sec = parts[2].parse_int()
+      result = new_gene_time(hour, min, sec)
     of '/':
       if not isDigit(self.buf[self.bufpos+1]):
         let e = err_info(self)

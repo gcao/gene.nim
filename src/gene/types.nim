@@ -1275,6 +1275,14 @@ proc add_member*(self: var Enum, name: string, value: int) =
 proc `==`*(this, that: EnumMember): bool =
   return this.parent == that.parent and this.name == that.name
 
+#################### GeneTime ####################
+
+proc `==`*(this, that: GeneTime): bool =
+  return this.hour == that.hour and
+    this.minute == that.minute and
+    this.second == that.second and
+    this.timezone == that.timezone
+
 #################### GeneValue ###################
 
 proc symbol_or_str*(self: GeneValue): string =
@@ -1605,6 +1613,12 @@ proc new_gene_date*(year, month, day: int): GeneValue =
 proc new_gene_date*(date: DateTime): GeneValue =
   return GeneValue(
     kind: GeneDate,
+    date: date,
+  )
+
+proc new_gene_datetime*(date: DateTime): GeneValue =
+  return GeneValue(
+    kind: GeneDateTime,
     date: date,
   )
 

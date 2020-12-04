@@ -1,6 +1,6 @@
 # To run these tests, simply execute `nimble test` or `nim c -r tests/test_parser.nim`
 
-import unittest, options, tables, unicode
+import unittest, options, tables, unicode, times
 
 import gene/types
 
@@ -45,9 +45,9 @@ test_parser "+foo+", new_gene_symbol("+foo+")
 test_parser "#/a/", new_gene_regex("a")
 
 test_parser "2020-12-02", new_gene_date(2020, 12, 02)
-# test_parser "10:11:12", new_gene_time(10, 11, 12)
-# test_parser "2020-12-02T10:11:12", new_gene_datetime(2020, 12, 02, 10, 11, 12)
-# test_parser "2020-12-02T10:11:12Z", new_gene_datetime(2020, 12, 02, 10, 11, 12)
+test_parser "2020-12-02T10:11:12Z",
+  new_gene_datetime(init_date_time(02, cast[Month](12), 2020, 10, 11, 12, utc()))
+test_parser "10:11:12", new_gene_time(10, 11, 12)
 
 test_parser "{}", OrderedTable[string, GeneValue]()
 test_parser "{^a 1}", {"a": new_gene_int(1)}.toOrderedTable
