@@ -179,10 +179,13 @@
   )
 )
 
-(class gene/Time
+(class gene/DateTime
+  (method year _
+    (call_native "date_year" self)
+  )
 )
 
-(class gene/DateTime
+(class gene/Time
 )
 
 (class gene/Timezone
@@ -199,6 +202,7 @@
 )
 
 (fn gene/now _
+  (call_native "time_now")
 )
 
 (class gene/Array

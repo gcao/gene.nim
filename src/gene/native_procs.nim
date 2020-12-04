@@ -143,6 +143,10 @@ proc init_native_procs*() =
     var self = args[0].date
     return self.year
 
+  NativeProcs.add_only "time_now", proc(args: seq[GeneValue]): GeneValue =
+    var date = now()
+    return new_gene_datetime(date)
+
   NativeProcs.add_only "array_size", proc(args: seq[GeneValue]): GeneValue =
     return args[0].vec.len
 

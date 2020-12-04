@@ -16,3 +16,7 @@ import ./helpers
 test_core """
   ((gene/today) .year)
 """, now().year
+
+test_core """
+  ((gene/now) .year)
+""", now().year

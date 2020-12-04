@@ -1461,6 +1461,8 @@ proc `$`*(node: GeneValue): string =
       result = "/" & node.csymbol.rest.join("/")
     else:
       result = node.csymbol.first & "/" & node.csymbol.rest.join("/")
+  of GeneDateTime:
+    todo()
   of GeneVector:
     result = "["
     result &= node.vec.join(" ")
