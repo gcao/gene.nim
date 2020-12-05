@@ -41,17 +41,11 @@
     ($get_class self)
   )
 
-  (method is cls
-    (call_native "object_is" self cls)
-  )
+  (native_method is gene/native/object_is)
 
-  (method to_s _
-    (call_native "object_to_s" self)
-  )
+  (native_method to_s gene/native/object_to_s)
 
-  (method to_json _
-    (call_native "object_to_json" self)
-  )
+  (native_method to_json gene/native/object_to_json)
 )
 
 (class gene/Class

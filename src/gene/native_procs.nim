@@ -4,14 +4,14 @@ import asyncdispatch, asyncfile
 import ./types
 
 proc init_native_procs*() =
-  NativeProcs.add_only "object_is", proc(args: seq[GeneValue]): GeneValue =
-    return args[0].is_a(args[1].internal.class)
+  # NativeProcs.add_only "object_is", proc(args: seq[GeneValue]): GeneValue =
+  #   return args[0].is_a(args[1].internal.class)
 
-  NativeProcs.add_only "object_to_s", proc(args: seq[GeneValue]): GeneValue =
-    return args[0].to_s
+  # NativeProcs.add_only "object_to_s", proc(args: seq[GeneValue]): GeneValue =
+  #   return args[0].to_s
 
-  NativeProcs.add_only "object_to_json", proc(args: seq[GeneValue]): GeneValue =
-    return args[0].to_json()
+  # NativeProcs.add_only "object_to_json", proc(args: seq[GeneValue]): GeneValue =
+  #   return args[0].to_json()
 
   NativeProcs.add_only "class_new", proc(args: seq[GeneValue]): GeneValue =
     var name = args[0].symbol_or_str
@@ -260,3 +260,23 @@ proc init_native_procs*() =
     f.add_callback proc() {.gcsafe.} =
       future.complete(GeneNil)
     return future_to_gene(future)
+
+proc add_native_method*(name: string, fn: NativeMethod) =
+  var native_fns = GENE_NS.internal.ns["native"]
+  if native_fns.has_key(name):
+    todo("Add another method to allow overwriting method")
+  native_fns.internal.ns[name] = fn
+
+proc add_native_methods*() =
+  GENE_NS.internal.ns["native"] = new_namespace("native")
+  add_native_method "object_is",
+    proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+      return self.is_a(data[0].internal.class)
+
+  add_native_method "object_to_s",
+    proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+      return self.to_s()
+
+  add_native_method "object_to_json",
+    proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+      return self.to_json()

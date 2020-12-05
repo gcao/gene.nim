@@ -177,6 +177,7 @@ proc load_core_module*(self: VM) =
   GLOBAL_NS.internal.ns["gene"] = GENE_NS
   GENEX_NS = new_namespace("genex")
   GLOBAL_NS.internal.ns["genex"] = GENEX_NS
+  add_native_methods()
   discard self.import_module("core", readFile(GENE_HOME & "/src/core.gene"))
 
 proc load_gene_module*(self: VM) =
@@ -196,7 +197,7 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     options[FnMethod] = meth
     var args = self.eval_args(frame, @[], args_blk)
     if meth.fn == nil:
-      result = meth.fn_native(instance, args.gene.props, args.gene.data, options)
+      result = meth.fn_native(instance, args.gene.props, args.gene.data)
     else:
       result = self.call_fn(frame, instance, meth.fn, args, options)
   else:

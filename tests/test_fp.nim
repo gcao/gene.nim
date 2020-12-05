@@ -12,7 +12,23 @@ import ./helpers
 # * Iterators
 # * Pure function (mark function as pure, all standard lib should be marked pure if true)
 # * Continuation - is it possible?
-
+#
+# * Native function
+#   proc(props: OrderedTable[string, GeneValue], data: openarray[GeneValue]): GeneValue
+# * Native method
+#   Simple: proc(
+#     self: GeneValue,
+#     props: OrderedTable[string, GeneValue],
+#     data: openarray[GeneValue],
+#   ): GeneValue
+#   Complex: proc(
+#     caller: Frame,
+#     options: Table[FnOption, GeneValue],
+#     self: GeneValue,
+#     props: OrderedTable[string, GeneValue],
+#     data: openarray[GeneValue],
+#   ): GeneValue
+#
 # How do we support "self" inside function?
 # self = true to allow self to be used inside function
 # inherit_self = true to automatically inherit self in the caller's context

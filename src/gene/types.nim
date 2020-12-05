@@ -476,7 +476,6 @@ type
     self: GeneValue,
     props: OrderedTable[string, GeneValue],
     data: seq[GeneValue],
-    options: Table[FnOption, GeneValue],
   ): GeneValue {.nimcall.}
 
   ExprKind* = enum

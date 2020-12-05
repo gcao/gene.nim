@@ -158,7 +158,7 @@ test_interpreter """
 # """, 3
 
 test "Interpreter / eval: native method":
-  proc test_meth(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue], options: Table[FnOption, GeneValue]): GeneValue {.nimcall.} =
+  proc test_meth(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     data[0].int + data[1].int
   GLOBAL_NS.internal.ns["test_fn"] = test_meth.to_gene
   var code = cleanup """
