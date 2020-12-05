@@ -6,10 +6,8 @@ import ./parser
 import ./decorator
 import ./selector
 import ./translators
-import ./native_procs
+import ./native_fns
 import ./repl
-
-init_native_procs()
 
 let GENE_HOME*    = get_env("GENE_HOME", parent_dir(get_app_dir()))
 let GENE_RUNTIME* = Runtime(
@@ -177,6 +175,8 @@ proc load_core_module*(self: VM) =
   GLOBAL_NS.internal.ns["gene"] = GENE_NS
   GENEX_NS = new_namespace("genex")
   GLOBAL_NS.internal.ns["genex"] = GENEX_NS
+  GENE_NS.internal.ns["native"] = new_namespace("native")
+  add_native_fns()
   add_native_methods()
   discard self.import_module("core", readFile(GENE_HOME & "/src/core.gene"))
 
@@ -946,7 +946,7 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
         if v == nil:
           todo()
         else:
-          self.def_member(frame, m.name, new_gene_internal(cast[NativeProc](v)), true)
+          self.def_member(frame, m.name, new_gene_internal(cast[NativeFn](v)), true)
   else:
     # If "from" is not given, import from parent of root namespace.
     if `from` == nil:
@@ -1042,13 +1042,6 @@ EvaluatorMgr[ExCall] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     args = new_gene_gene(GeneNil)
   var options = Table[FnOption, GeneValue]()
   result = self.call_fn(frame, call_self, target.internal.fn, args, options)
-
-EvaluatorMgr[ExCallNative] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var args = new_gene_vec()
-  for item in expr.native_args:
-    args.explode_and_add(self.eval(frame, item))
-  var p = NativeProcs.get(expr.native_index)
-  result = p(args.vec)
 
 EvaluatorMgr[ExGetClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var val = self.eval(frame, expr.get_class_val)
@@ -1189,9 +1182,9 @@ EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     of GeneAspectInstance:
       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
       result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
-    of GeneNativeProc:
+    of GeneNativeFn:
       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-      result = target.internal.native_proc(args.gene.data)
+      result = target.internal.native_fn(args.gene.props, args.gene.data)
     of GeneSelector:
       var val = self.eval(frame, expr.gene_data[0])
       var selector = target.internal.selector

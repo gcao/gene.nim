@@ -465,18 +465,6 @@ proc new_invoke_expr*(parent: Expr, val: GeneValue): Expr =
   for item in val.gene.data:
     result.invoke_args.add(new_expr(result, item))
 
-proc new_call_native_expr*(parent: Expr, val: GeneValue): Expr =
-  result = Expr(
-    kind: ExCallNative,
-    parent: parent,
-  )
-  var name = val.gene.data[0].str
-  var index = NativeProcs.get_index(name)
-  result.native_name = name
-  result.native_index = index
-  for i in 1..<val.gene.data.len:
-    result.native_args.add(new_expr(result, val.gene.data[i]))
-
 proc new_eval_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
     kind: ExEval,
@@ -701,7 +689,6 @@ TranslatorMgr["super"         ] = new_super_expr
 TranslatorMgr["$invoke_method"] = new_invoke_expr
 TranslatorMgr["mixin"         ] = new_mixin_expr
 TranslatorMgr["include"       ] = new_include_expr
-TranslatorMgr["call_native"   ] = new_call_native_expr
 TranslatorMgr["$parse"        ] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExParse)
   result.parse = new_expr(parent, node.gene.data[0])

@@ -243,9 +243,9 @@ test_interpreter """
 
 test_interpreter "self", GeneNil
 
-test_interpreter """
-  (call_native "str_size" "test")
-""", 4
+# test_interpreter """
+#   (call_native "str_size" "test")
+# """, 4
 
 test_interpreter """
   (var a 1)

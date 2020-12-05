@@ -147,7 +147,7 @@ proc test_file*(file: string) =
     interpreter.load_genex_module()
     discard interpreter.eval(read_file(file))
 
-proc test_extension*(path: string, name: string, callback: proc(r: NativeProc)) =
+proc test_extension*(path: string, name: string, callback: proc(r: NativeFn)) =
   test "Interpreter / eval - extension: " & path & "." & name:
     let lib = load_lib("tests/lib" & path & ".dylib")
     if lib == nil:
@@ -155,4 +155,4 @@ proc test_extension*(path: string, name: string, callback: proc(r: NativeProc)) 
     else:
       let ext = lib.sym_addr(name)
       if ext != nil:
-        callback cast[NativeProc](ext)
+        callback cast[NativeFn](ext)

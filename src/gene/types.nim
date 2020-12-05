@@ -258,7 +258,7 @@ type
     GeneExceptionKind
     GeneFuture
     GeneSelector
-    GeneNativeProc
+    GeneNativeFn
     GeneNativeMethod
 
   Internal* = ref object
@@ -305,8 +305,8 @@ type
       future*: Future[GeneValue]
     of GeneSelector:
       selector*: Selector
-    of GeneNativeProc:
-      native_proc*: NativeProc
+    of GeneNativeFn:
+      native_fn*: NativeFn
     of GeneNativeMethod:
       native_meth*: NativeMethod
 
@@ -466,7 +466,7 @@ type
     props*: OrderedTable[string, GeneValue]
     data*: seq[GeneValue]
 
-  NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
+  NativeFn* = proc(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.}
 
   FnOption* = enum
     FnClass
@@ -538,7 +538,6 @@ type
     ExImport
     ExStopInheritance
     ExCall
-    ExCallNative
     ExGetClass
     ExQuote
     ExUnquote
@@ -711,10 +710,6 @@ type
       # call_props*: OrderedTable[string, Expr]
       call_target*: Expr
       call_args*: Expr
-    of ExCallNative:
-      native_name*: string
-      native_index*: int
-      native_args*: seq[Expr]
     of ExGetClass:
       get_class_val*: Expr
     of ExQuote:
@@ -879,10 +874,6 @@ type
     # prop_processed*: seq[string]
     data_index*: int
 
-  NativeProcsType* = ref object
-    procs*: seq[NativeProc]
-    name_mappings*: OrderedTable[string, int]
-
   FrameManager* = ref object
     cache*: seq[Frame]
 
@@ -953,8 +944,6 @@ let
   Catch*     = GeneValue(kind: GeneSymbol, symbol: "catch")
   Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
   Call*      = GeneValue(kind: GeneSymbol, symbol: "call")
-
-var NativeProcs* = NativeProcsType()
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:
@@ -1029,12 +1018,12 @@ converter scope_index_to_int*(v: NameIndexScope): int = cast[int](v)
 
 converter gene_to_ns*(v: GeneValue): Namespace = v.internal.ns
 
-converter proc_to_gene*(v: NativeProc): GeneValue =
+converter to_gene*(v: NativeFn): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(
-      kind: GeneNativeProc,
-      native_proc: v,
+      kind: GeneNativeFn,
+      native_fn: v,
     ),
   )
 
@@ -1764,10 +1753,10 @@ converter new_gene_internal*(file: File): GeneValue =
     internal: Internal(kind: GeneFile, file: file),
   )
 
-converter new_gene_internal*(value: NativeProc): GeneValue =
+converter new_gene_internal*(value: NativeFn): GeneValue =
   return GeneValue(
     kind: GeneInternal,
-    internal: Internal(kind: GeneNativeProc, native_proc: value),
+    internal: Internal(kind: GeneNativeFn, native_fn: value),
   )
 
 proc new_mixin*(name: string): Mixin =
@@ -2337,31 +2326,6 @@ proc match*(self: RootMatcher, input: GeneValue): MatchResult =
     child.match(input, state, result)
   match_prop_splat(children, input, result)
 
-#################### NativeProcs #################
-
-proc add*(self: var NativeProcsType, name: string, p: NativeProc): int =
-  result = self.procs.len
-  self.procs.add(p)
-  self.name_mappings[name] = result
-
-# This is mainly created to make the code in native_procs.nim look slightly better
-# (no discard, or `()` is required)
-proc add_only*(self: var NativeProcsType, name: string, p: NativeProc) =
-  var index = self.procs.len
-  self.procs.add(p)
-  self.name_mappings[name] = index
-
-# Remove the stored proc but leave a nil in place to not cause index changes
-# to any other procs
-proc remove*(self: var NativeProcsType, name: string) =
-  todo()
-
-proc get_index*(self: var NativeProcsType, name: string): int =
-  return self.name_mappings[name]
-
-proc get*(self: var NativeProcsType, index: int): NativeProc =
-  return self.procs[index]
-
 #################### Import ######################
 
 proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatcher]) =
@@ -2457,17 +2421,13 @@ proc `[]=`*(self: EvaluatorManager, key: ExprKind, e: Evaluator) =
 
 #################### Dynamic #####################
 
-proc load_dynamic*(path:string, names: seq[string]): OrderedTable[string, NativeProc] =
-  result = OrderedTable[string, NativeProc]()
+proc load_dynamic*(path:string, names: seq[string]): OrderedTable[string, NativeFn] =
+  result = OrderedTable[string, NativeFn]()
   let lib = loadLib(path)
   for name in names:
     var s = name
-    let p = lib.symAddr(s)
-    result[s] = cast[NativeProc](p)
-
-# This is not needed
-# proc call_dynamic*(p: native_proc, args: seq[GeneValue]): GeneValue =
-#   return p(args)
+    let fn = lib.symAddr(s)
+    result[s] = cast[NativeFn](fn)
 
 #################### Selector ####################
 
