@@ -24,19 +24,10 @@
 )
 (var global/debug gene/debug)
 
-# (fn gene/base64 s
-#   (call_native "base64" s)
-# )
 (var gene/base64 gene/native/base64)
 
-# (fn gene/sleep time_in_ms
-#   (call_native "sleep" time_in_ms)
-# )
 (var gene/sleep gene/native/sleep)
 
-# (fn gene/sleep_async time_in_ms
-#   (call_native "sleep_async" time_in_ms)
-# )
 (var gene/sleep_async gene/native/sleep_async)
 
 (class gene/Object
@@ -52,26 +43,14 @@
 )
 
 (class gene/Class
-  # (fn new [name parent]
-  #   (call_native "class_new" name parent)
-  # )
   (var /new gene/native/class_new)
 
-  # (method name _
-  #   (call_native "class_name" self)
-  # )
   (native_method name gene/native/class_name)
 
-  # (method parent _
-  #   (call_native "class_parent" self)
-  # )
   (native_method parent gene/native/class_parent)
 )
 
 (class gene/Exception     # All exceptions should inherit from this class
-  # (method message _
-  #   (call_native "exception_message" self)
-  # )
   (native_method message gene/native/exception_message)
 
   # (method extra _       # additional data related to the exception
@@ -102,14 +81,8 @@
 )
 
 (class gene/String
-  # (method size _
-  #   (call_native "str_size" self)
-  # )
   (native_method size gene/native/str_size)
 
-  # (method append args...
-  #   (call_native "str_append" self args...)
-  # )
   (native_method append gene/native/str_append)
   (native_method size gene/native/str_size)
   (native_method substr gene/native/str_substr)
@@ -139,44 +112,20 @@
     (self .split "\n")
   )
 
-  # (method index s
-  #   (call_native "str_index" self s)
-  # )
   (native_method index gene/native/str_index)
 
-  # (method rindex s
-  #   (call_native "str_rindex" self s)
-  # )
   (native_method rindex gene/native/str_rindex)
 
-  # (method char_at i
-  #   (call_native "str_char_at" self i)
-  # )
   (native_method char_at gene/native/str_char_at)
 
-  # (method trim _
-  #   (call_native "str_trim" self)
-  # )
   (native_method trim gene/native/str_trim)
 
-  # (method starts_with s
-  #   (call_native "str_starts_with" self s)
-  # )
   (native_method starts_with gene/native/str_starts_with)
 
-  # (method ends_with s
-  #   (call_native "str_ends_with" self s)
-  # )
   (native_method ends_with gene/native/str_ends_with)
 
-  # (method to_upper_case _
-  #   (call_native "str_to_upper_case" self)
-  # )
   (native_method to_upper_case gene/native/str_to_upper_case)
 
-  # (method to_lower_case _
-  #   (call_native "str_to_lower_case" self)
-  # )
   (native_method to_lower_case gene/native/str_to_lower_case)
 )
 
@@ -184,32 +133,20 @@
 )
 
 (class gene/Date
-  # (method year _
-  #   (call_native "date_year" self)
-  # )
   (native_method year gene/native/date_year)
 )
 
 (class gene/DateTime
-  # (method year _
-  #   (call_native "date_year" self)
-  # )
   (native_method year gene/native/date_year)
 )
 
 (class gene/Time
-  # (method hour _
-  #   (call_native "time_hour" self)
-  # )
   (native_method hour gene/native/time_hour)
 )
 
 (class gene/Timezone
 )
 
-# (fn gene/today _
-#   (call_native "date_today")
-# )
 (var gene/today gene/native/date_today)
 
 (fn gene/yesterday _
@@ -218,35 +155,17 @@
 (fn gene/tomorrow _
 )
 
-# (fn gene/now _
-#   (call_native "time_now")
-# )
 (var gene/now gene/native/time_now)
 
 (class gene/Array
-  # (method size _
-  #   (call_native "array_size" self)
-  # )
   (native_method size gene/native/array_size)
 
-  # (method get i
-  #   (call_native "array_get" self i)
-  # )
   (native_method get gene/native/array_get)
 
-  # (method set [i item]
-  #   (call_native "array_set" self i item)
-  # )
   (native_method set gene/native/array_set)
 
-  # (method add item
-  #   (call_native "array_add" self item)
-  # )
   (native_method add gene/native/array_add)
 
-  # (method del i
-    # (call_native "array_del" self i)
-  # )
   (native_method del gene/native/array_del)
 
   (method join [with = ""]
@@ -283,9 +202,6 @@
 )
 
 (class gene/Map
-  # (method size _
-  #   (call_native "map_size" self)
-  # )
   (native_method size gene/native/map_size)
 
   (method keys _
@@ -320,22 +236,13 @@
 )
 
 (class gene/Gene
-  # (method type _
-  #   (call_native "gene_type" self)
-  # )
   (native_method type gene/native/gene_type)
 
-  # (method props _
-  #   (call_native "gene_props" self)
-  # )
   (native_method props gene/native/gene_props)
 
   (method prop name
   )
 
-  # (method data _
-  #   (call_native "gene_data" self)
-  # )
   (native_method data gene/native/gene_data)
 
   (method get [i]
@@ -349,14 +256,8 @@
 )
 
 (class gene/Package
-  # (method name _
-  #   (call_native "package_name" self)
-  # )
   (native_method name gene/native/package_name)
 
-  # (method version _
-  #   (call_native "package_version" self)
-  # )
   (native_method version gene/native/package_version)
 )
 
@@ -369,9 +270,6 @@
     ($on_future_failure self blk)
   )
 
-  # (method finished _
-  #   (call_native "future_finished" self)
-  # )
   (native_method finished gene/native/future_finished)
 
   # Use (async) to create Future
@@ -395,38 +293,22 @@
     (gene/native/file_close self)
   )
 
-  # (fn open name
-  #   (call_native "file_open" name)
-  # )
   (var /open gene/native/file_open)
 
-  # (fn read name
-  #   (call_native "file_read" name)
-  # )
   (var /read gene/native/file_read)
 
-  # (fn read_async name
-  #   (call_native "file_read_async" name)
-  # )
   (var /read_async gene/native/file_read_async)
 
-  # (fn write [name content]
-  #   (call_native "file_write" name content)
-  # )
   (var /write gene/native/file_write)
 )
 
 (ns gene/os
-  # (fn exec [cmd args...]
-  #   (call_native "os_exec" cmd args)
-  # )
-  (var /exec gene/native/os_exec)
+  (fn exec [cmd args...]
+    (gene/native/os_exec cmd args)
+  )
 )
 
 (ns gene/json
-  # (fn parse json_string
-  #   (call_native "json_parse" json_string)
-  # )
   (var /parse gene/native/json_parse)
 )
 
@@ -438,8 +320,5 @@
 (ns global/nim) # Namespace for Nim classes
 
 (class nim/CatchableError   # Base class for Nim exception classes
-  # (method message _
-  #   (call_native "exception_message" self)
-  # )
   (native_method message gene/native/exception_message)
 )
