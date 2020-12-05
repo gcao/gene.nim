@@ -139,6 +139,7 @@
 (class gene/DateTime
   (native_method year gene/native/date_year)
   (native_method "-" gene/native/datetime_sub)
+  (native_method elapsed gene/native/datetime_elapsed)
 )
 
 (class gene/Time
