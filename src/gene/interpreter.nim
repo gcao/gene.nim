@@ -600,7 +600,31 @@ EvaluatorMgr[ExNotAllowed] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
   else:
     not_allowed()
 
+proc resolve(self: VM, frame: Frame, name: string): tuple[value: GeneValue, resolver: NameResolver] =
+  case name:
+  of "gene":
+    result = (value: GENE_NS, resolver: NameResolver(kind: NkConstant, const_value: GENE_NS))
+  of "genex":
+    result = (value: GENEX_NS, resolver: NameResolver(kind: NkConstant, const_value: GENEX_NS))
+  else:
+    if frame.scope.has_key(name):
+      var r = NameResolver(kind: NkScope, scope: frame.scope)
+      var v = frame.scope[name]
+      result = (value: v, resolver: r)
+    else:
+      todo()
+
 EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  # case expr.symbol_resolver.kind:
+  # of NkUnknown:
+  #   var r = self.resolve(frame, expr.symbol_resolver.name)
+  #   expr.symbol_resolver = r.resolver
+  #   result = r.value
+  # of NkConstant:
+  #   result = expr.symbol_resolver.const_value
+  # else:
+  #   todo()
+
   case expr.symbol:
   of "gene":
     return GENE_NS

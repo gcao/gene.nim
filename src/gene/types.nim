@@ -72,6 +72,10 @@ type
     mappings*: OrderedTable[string, seq[NameIndexScope]]
     usage*: int
 
+  ScopeResolver* = ref object
+    scope*: Scope
+    index*: NameIndexScope
+
   Class* = ref object
     parent*: Class
     name*: string
@@ -478,6 +482,24 @@ type
     data: seq[GeneValue],
   ): GeneValue {.nimcall.}
 
+  NameKind* = enum
+    NkUnknown
+    NkNamespace
+    NkConstant
+    NkScope
+
+  NameResolver* = ref object
+    name*: string
+    case kind*: NameKind
+    of NkNamespace:
+      ns*: Namespace
+    of NkScope:
+      scope*: Scope
+      scope_index_max*: int
+    of NkConstant:
+      const_value*: GeneValue
+    else: discard
+
   ExprKind* = enum
     ExCustom
     ExTodo
@@ -572,6 +594,7 @@ type
       str*: string
     of ExSymbol:
       symbol*: string
+      symbol_resolver*: NameResolver
     of ExComplexSymbol:
       csymbol*: ComplexSymbol
     of ExUnknown:
@@ -1139,6 +1162,10 @@ proc has_key*(self: Scope, key: string): bool {.inline.} =
   elif self.parent != nil:
     return self.parent.has_key(key, self.parent_index_max)
 
+# Return scope and index for the name/key
+proc who_has_key*(self: Scope, key: string): ScopeResolver {.inline.} =
+  todo()
+
 proc def_member*(self: var Scope, key: string, val: GeneValue) {.inline.} =
   var index = self.members.len
   self.members.add(val)
@@ -1209,6 +1236,9 @@ proc `[]`*(self: Frame, name: string): GeneValue {.inline.} =
     return self.scope[name]
   else:
     return self.ns[name]
+
+proc scope_has_key*(self: Frame, name: string): ScopeResolver {.inline.} =
+  result = self.scope.who_has_key(name)
 
 #################### Function ####################
 

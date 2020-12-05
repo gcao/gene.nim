@@ -62,6 +62,7 @@ proc new_symbol_expr*(parent: Expr, s: string): Expr =
     kind: ExSymbol,
     parent: parent,
     symbol: s,
+    symbol_resolver: NameResolver(kind: NkUnknown, name: s),
   )
 
 proc new_complex_symbol_expr*(parent: Expr, node: GeneValue): Expr =
