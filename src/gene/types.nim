@@ -87,7 +87,7 @@ type
     class*: Class
     name*: string
     fn*: Function
-    fn_native*: NativeProc
+    fn_native*: NativeMethod
     # public*: bool
 
   Instance* = ref object
@@ -259,6 +259,7 @@ type
     GeneFuture
     GeneSelector
     GeneNativeProc
+    GeneNativeMethod
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -306,6 +307,8 @@ type
       selector*: Selector
     of GeneNativeProc:
       native_proc*: NativeProc
+    of GeneNativeMethod:
+      native_meth*: NativeMethod
 
   ComplexSymbol* = ref object
     first*: string
@@ -464,6 +467,17 @@ type
     data*: seq[GeneValue]
 
   NativeProc* = proc(args: seq[GeneValue]): GeneValue {.nimcall.}
+
+  FnOption* = enum
+    FnClass
+    FnMethod
+
+  NativeMethod* = proc(
+    self: GeneValue,
+    props: OrderedTable[string, GeneValue],
+    data: seq[GeneValue],
+    options: Table[FnOption, GeneValue],
+  ): GeneValue {.nimcall.}
 
   ExprKind* = enum
     ExCustom
@@ -926,6 +940,8 @@ let
   GeneFalse* = GeneValue(kind: GeneBool, bool: false)
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
 
+  EmptyMap*  = OrderedTable[string, GeneValue]()
+
   Quote*     = GeneValue(kind: GeneSymbol, symbol: "quote")
   Unquote*   = GeneValue(kind: GeneSymbol, symbol: "unquote")
   If*        = GeneValue(kind: GeneSymbol, symbol: "if")
@@ -1020,6 +1036,15 @@ converter proc_to_gene*(v: NativeProc): GeneValue =
     internal: Internal(
       kind: GeneNativeProc,
       native_proc: v,
+    ),
+  )
+
+converter to_gene*(v: NativeMethod): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(
+      kind: GeneNativeMethod,
+      native_meth: v,
     ),
   )
 

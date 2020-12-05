@@ -9,11 +9,6 @@ import ./translators
 import ./native_procs
 import ./repl
 
-type
-  FnOption = enum
-    FnClass
-    FnMethod
-
 init_native_procs()
 
 let GENE_HOME*    = get_env("GENE_HOME", parent_dir(get_app_dir()))
@@ -201,7 +196,7 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     options[FnMethod] = meth
     var args = self.eval_args(frame, @[], args_blk)
     if meth.fn == nil:
-      result = meth.fn_native(args.gene.data)
+      result = meth.fn_native(instance, args.gene.props, args.gene.data, options)
     else:
       result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
@@ -1012,7 +1007,7 @@ EvaluatorMgr[ExNew] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var meth = expr.meth
   if expr.meth_fn_native != nil:
-    meth.internal.meth.fn_native = self.eval(frame, expr.meth_fn_native).internal.native_proc
+    meth.internal.meth.fn_native = self.eval(frame, expr.meth_fn_native).internal.native_meth
   case frame.self.internal.kind:
   of GeneClass:
     meth.internal.meth.class = frame.self.internal.class
