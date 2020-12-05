@@ -10,6 +10,12 @@ proc add_native_fn*(name: string, fn: NativeFn) =
   native_fns.internal.ns[name] = fn
 
 proc add_native_fns*() =
+  add_native_fn "class_new",
+    proc(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+      var name = data[0].symbol_or_str
+      result = new_class(name)
+      result.internal.class.parent = data[1].internal.class
+
   add_native_fn "file_open",
     proc(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       var file = open(data[0].str)
@@ -131,12 +137,6 @@ proc add_native_methods*() =
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.to_json()
 
-  add_native_method "class_new",
-    proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
-      var name = self.symbol_or_str
-      result = new_class(name)
-      result.internal.class.parent = data[0].internal.class
-
   add_native_method "class_name",
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       if self.kind == GeneInternal and self.internal.kind == GeneClass:
@@ -164,6 +164,10 @@ proc add_native_methods*() =
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.internal.pkg.name
 
+  add_native_method "package_version",
+    proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+      result = self.internal.pkg.version
+
   add_native_method "str_size",
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.str.len
@@ -177,13 +181,13 @@ proc add_native_methods*() =
   add_native_method "str_substr",
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       case data.len:
-      of 2:
+      of 1:
         var start = data[0].int
         if start >= 0:
           return self.str[start..^1]
         else:
           return self.str[^(-start)..^1]
-      of 3:
+      of 2:
         var start = data[0].int
         var end_index = data[1].int
         if start >= 0:
@@ -203,12 +207,12 @@ proc add_native_methods*() =
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       var separator = data[0].str
       case data.len:
-      of 2:
+      of 1:
         var parts = self.str.split(separator)
         result = new_gene_vec()
         for part in parts:
           result.vec.add(part)
-      of 3:
+      of 2:
         var maxsplit = data[1].int - 1
         var parts = self.str.split(separator, maxsplit)
         result = new_gene_vec()

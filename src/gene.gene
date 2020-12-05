@@ -349,13 +349,15 @@
 )
 
 (class gene/Package
-  (method name _
-    (call_native "package_name" self)
-  )
+  # (method name _
+  #   (call_native "package_name" self)
+  # )
+  (native_method name gene/native/package_name)
 
-  (method version _
-    (call_native "package_version" self)
-  )
+  # (method version _
+  #   (call_native "package_version" self)
+  # )
+  (native_method version gene/native/package_version)
 )
 
 (class gene/Future
@@ -367,9 +369,10 @@
     ($on_future_failure self blk)
   )
 
-  (method finished _
-    (call_native "future_finished" self)
-  )
+  # (method finished _
+  #   (call_native "future_finished" self)
+  # )
+  (native_method finished gene/native/future_finished)
 
   # Use (async) to create Future
   # (fn new _
@@ -383,40 +386,48 @@
   )
 
   (method read _
-    (call_native "file_read" self)
+    # (call_native "file_close" self)
+    (gene/native/file_read self)
   )
 
   (method close _
-    (call_native "file_close" self)
+    # (call_native "file_close" self)
+    (gene/native/file_close self)
   )
 
-  (fn open name
-    (call_native "file_open" name)
-  )
+  # (fn open name
+  #   (call_native "file_open" name)
+  # )
+  (var /open gene/native/file_open)
 
-  (fn read name
-    (call_native "file_read" name)
-  )
+  # (fn read name
+  #   (call_native "file_read" name)
+  # )
+  (var /read gene/native/file_read)
 
-  (fn read_async name
-    (call_native "file_read_async" name)
-  )
+  # (fn read_async name
+  #   (call_native "file_read_async" name)
+  # )
+  (var /read_async gene/native/file_read_async)
 
-  (fn write [name content]
-    (call_native "file_write" name content)
-  )
+  # (fn write [name content]
+  #   (call_native "file_write" name content)
+  # )
+  (var /write gene/native/file_write)
 )
 
 (ns gene/os
-  (fn exec [cmd args...]
-    (call_native "os_exec" cmd args)
-  )
+  # (fn exec [cmd args...]
+  #   (call_native "os_exec" cmd args)
+  # )
+  (var /exec gene/native/os_exec)
 )
 
 (ns gene/json
-  (fn parse json_string
-    (call_native "json_parse" json_string)
-  )
+  # (fn parse json_string
+  #   (call_native "json_parse" json_string)
+  # )
+  (var /parse gene/native/json_parse)
 )
 
 (class gene/AssertionError < gene/Exception
@@ -427,7 +438,8 @@
 (ns global/nim) # Namespace for Nim classes
 
 (class nim/CatchableError   # Base class for Nim exception classes
-  (method message _
-    (call_native "exception_message" self)
-  )
+  # (method message _
+  #   (call_native "exception_message" self)
+  # )
+  (native_method message gene/native/exception_message)
 )
