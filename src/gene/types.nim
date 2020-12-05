@@ -1465,6 +1465,8 @@ proc `$`*(node: GeneValue): string =
     result = $(node.bool)
   of GeneInt:
     result = $(node.int)
+  of GeneFloat:
+    result = $(node.float)
   of GeneString:
     result = "\"" & node.str.replace("\"", "\\\"") & "\""
   of GeneSymbol:

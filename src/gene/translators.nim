@@ -437,7 +437,7 @@ proc new_super_expr*(parent: Expr, val: GeneValue): Expr =
 proc new_method_expr*(parent: Expr, val: GeneValue): Expr =
   if val.gene.type.symbol == "native_method":
     var meth = Method(
-      name: val.gene.data[0].symbol
+      name: val.gene.data[0].symbol_or_str
     )
     result = Expr(
       kind: ExMethod,

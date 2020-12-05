@@ -32,6 +32,7 @@ proc explode_and_add*(parent: GeneValue, value: GeneValue)
 proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: GeneValue): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: Table[FnOption, GeneValue]): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
@@ -189,13 +190,12 @@ proc load_gene_module*(self: VM) =
 proc load_genex_module*(self: VM) =
   discard self.import_module("genex", readFile(GENE_HOME & "/src/genex.gene"))
 
-proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: GeneValue): GeneValue =
   var meth = class.get_method(method_name)
   if meth != nil:
     var options = Table[FnOption, GeneValue]()
     options[FnClass] = class
     options[FnMethod] = meth
-    var args = self.eval_args(frame, @[], args_blk)
     if meth.fn == nil:
       result = meth.fn_native(instance, args.gene.props, args.gene.data)
     else:
@@ -206,6 +206,11 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
       discard
     else:
       todo("Method is missing: " & method_name)
+
+
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
+  var args = self.eval_args(frame, @[], args_blk)
+  result = self.call_method(frame, instance, class, method_name, args)
 
 proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue =
   result = new_gene_gene(GeneNil)
@@ -674,14 +679,42 @@ EvaluatorMgr[ExRange] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExNot] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   result = not self.eval(frame, expr.not)
 
+proc bin_add(self: VM, frame: Frame, first, second: GeneValue): GeneValue {.inline.} =
+  case first.kind:
+  of GeneInt:
+    case second.kind:
+    of GeneInt:
+      result = new_gene_int(first.int + second.int)
+    else:
+      todo()
+  else:
+    var class = first.get_class()
+    var args = new_gene_gene(GeneNil)
+    args.gene.data.add(second)
+    result = self.call_method(frame, first, class, "+", args)
+
+proc bin_sub(self: VM, frame: Frame, first, second: GeneValue): GeneValue {.inline.} =
+  case first.kind:
+  of GeneInt:
+    case second.kind:
+    of GeneInt:
+      result = new_gene_int(first.int - second.int)
+    else:
+      todo()
+  else:
+    var class = first.get_class()
+    var args = new_gene_gene(GeneNil)
+    args.gene.data.add(second)
+    result = self.call_method(frame, first, class, "-", args)
+
 EvaluatorMgr[ExBinary] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var first = self.eval(frame, expr.bin_first)
   var second = self.eval(frame, expr.bin_second)
   case expr.bin_op:
-  of BinAdd: result = new_gene_int(first.int + second.int)
-  of BinSub: result = new_gene_int(first.int - second.int)
+  of BinAdd: result = bin_add(self, frame, first, second)
+  of BinSub: result = bin_sub(self, frame, first, second)
   of BinMul: result = new_gene_int(first.int * second.int)
-  # of BinDiv: result = new_gene_int(first.int / second.int)
+  of BinDiv: result = new_gene_float(first.int / second.int)
   of BinEq:  result = new_gene_bool(first == second)
   of BinNeq: result = new_gene_bool(first != second)
   of BinLt:  result = new_gene_bool(first.int < second.int)
@@ -699,7 +732,7 @@ EvaluatorMgr[ExBinImmediate] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
   of BinAdd: result = new_gene_int(first.int + second.int)
   of BinSub: result = new_gene_int(first.int - second.int)
   of BinMul: result = new_gene_int(first.int * second.int)
-  # of BinDiv: result = new_gene_int(first.int / second.int)
+  of BinDiv: result = new_gene_float(first.int / second.int)
   of BinEq:  result = new_gene_bool(first == second)
   of BinNeq: result = new_gene_bool(first != second)
   of BinLt:  result = new_gene_bool(first.int < second.int)

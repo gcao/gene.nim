@@ -262,6 +262,11 @@ proc add_native_methods*() =
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.date.year
 
+  add_native_method "datetime_sub",
+    proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+      var duration = self.date.toTime() - data[0].date.toTime()
+      result = duration.inMicroseconds / 1000_000
+
   add_native_method "time_hour",
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.time.hour
