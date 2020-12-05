@@ -6,4 +6,7 @@
     ((fib (n - 1)) + (fib (n - 2)))
   )
 )
+
+(var start (gene/now))
 (println (fib 24))
+(println "Execution time: " (start .elapsed) " seconds.")

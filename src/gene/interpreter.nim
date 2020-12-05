@@ -437,7 +437,7 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
 
   ScopeMgr.free(new_scope)
 
-proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, expr: Expr): GeneValue {.gcsafe.} =
+proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, expr: Expr): GeneValue =
   case target.kind:
   of GeneInternal:
     case target.internal.kind:
@@ -723,7 +723,6 @@ EvaluatorMgr[ExBinary] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   of BinGe:  result = new_gene_bool(first.int >= second.int)
   of BinAnd: result = new_gene_bool(first.bool and second.bool)
   of BinOr:  result = new_gene_bool(first.bool or second.bool)
-  else: todo()
 
 EvaluatorMgr[ExBinImmediate] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var first = self.eval(frame, expr.bini_first)
@@ -741,7 +740,6 @@ EvaluatorMgr[ExBinImmediate] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
   of BinGe:  result = new_gene_bool(first.int >= second.int)
   of BinAnd: result = new_gene_bool(first.bool and second.bool)
   of BinOr:  result = new_gene_bool(first.bool or second.bool)
-  else: todo()
 
 EvaluatorMgr[ExVar] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var val = self.eval(frame, expr.var_val)
