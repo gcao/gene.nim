@@ -16,11 +16,11 @@
   # Response body - JSON
 
   (fn get [url params = {} headers = {}]
-    (call_native "http_get" url params headers)
+    (gene/native/http_get url params headers)
   )
 
   (fn ^^async get_async [url params = {} headers = {}]
-    (call_native "http_get_async" url params headers)
+    (gene/native/http_get_async url params headers)
   )
 
   (fn get_json [url params = {} headers = {}]

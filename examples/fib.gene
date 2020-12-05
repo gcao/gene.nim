@@ -6,4 +6,4 @@
     ((fib (n - 1)) + (fib (n - 2)))
   )
 )
-(fib ($ARGV 1))
+(fib (($cmd_args .@0).to_i))

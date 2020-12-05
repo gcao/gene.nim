@@ -286,7 +286,7 @@ proc add_native_methods*() =
 
   add_native_method "array_del",
     proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
-      var index = data[1].int
+      var index = data[0].int
       result = self.vec[index]
       self.vec.delete(index)
 

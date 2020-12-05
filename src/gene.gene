@@ -65,7 +65,7 @@
   # (method parent _
   #   (call_native "class_parent" self)
   # )
-  (native_method name gene/native/class_parent)
+  (native_method parent gene/native/class_parent)
 )
 
 (class gene/Exception     # All exceptions should inherit from this class
