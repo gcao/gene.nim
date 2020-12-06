@@ -33,6 +33,7 @@ test_core """
   (var a 0)
   (future .on_success (-> (a = 1)))
   (future .on_failure (ex -> (a = (ex .message))))
+  (for i in (range 0 100) i)  # Wait for the interpreter to check status of futures
   a
 """, "test"
 
