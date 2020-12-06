@@ -43,13 +43,6 @@ proc `[]=`*(self: TranslatorManager, name: string, t: Translator) =
 proc add_custom_translator*(t: Translator) =
   CustomTranslators.add(t)
 
-proc new_unknown_expr*(parent: Expr, v: GeneValue): Expr =
-  return Expr(
-    kind: ExUnknown,
-    parent: parent,
-    unknown: v,
-  )
-
 proc new_literal_expr*(parent: Expr, v: GeneValue): Expr =
   return Expr(
     kind: ExLiteral,
@@ -164,7 +157,7 @@ proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
     parent: parent,
   )
   for node in nodes:
-    result.group.add(new_unknown_expr(result, node))
+    result.group.add(new_expr(result, node))
 
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(

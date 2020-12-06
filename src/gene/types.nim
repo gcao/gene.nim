@@ -503,7 +503,6 @@ type
     ExBinary
     ExBinImmediate
     # ExBinImmediate2
-    ExUnknown
     ExIf
     # ExIfElseIf
     ExLoop
@@ -574,8 +573,6 @@ type
       symbol*: string
     of ExComplexSymbol:
       csymbol*: ComplexSymbol
-    of ExUnknown:
-      unknown*: GeneValue
     of ExArray:
       array*: seq[Expr]
     of ExMap:

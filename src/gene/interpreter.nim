@@ -936,18 +936,6 @@ EvaluatorMgr[ExAdvice] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     todo()
   advice.owner = instance
 
-EvaluatorMgr[ExUnknown] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var parent = expr.parent
-  case parent.kind:
-  of ExGroup:
-    var e = new_expr(parent, expr.unknown)
-    result = self.eval(frame, e)
-  of ExLoop:
-    var e = new_expr(parent, expr.unknown)
-    result = self.eval(frame, e)
-  else:
-    todo($expr.unknown)
-
 EvaluatorMgr[ExNamespace] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   expr.ns.internal.ns.parent = frame.ns
   self.def_member(frame, expr.ns_name, expr.ns, true)
