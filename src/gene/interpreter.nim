@@ -118,14 +118,25 @@ proc prepare*(self: VM, code: string): Expr =
   )
   result.root = new_group_expr(result, parsed)
 
+const DRAIN_MAX = 3
+var drain_count = 0
+proc drain() {.inline.} =
+  if drain_count < DRAIN_MAX:
+    drain_count += 1
+  else:
+    drain_count = 0
+    if hasPendingOperations():
+      drain(0)
+
 proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue =
   if expr.evaluator != nil:
     result = expr.evaluator(self, frame, expr)
   else:
     var evaluator = EvaluatorMgr[expr.kind]
+    expr.evaluator = evaluator
     result = evaluator(self, frame, expr)
 
-  drain(0)
+  drain()
   if result == nil:
     return GeneNil
   else:
@@ -136,12 +147,14 @@ proc eval_prepare*(self: VM): Frame =
   return FrameMgr.get(FrModule, module.root_ns, new_scope())
 
 proc eval_only*(self: VM, frame: Frame, code: string): GeneValue =
-  return self.eval(frame, self.prepare(code))
+  result = self.eval(frame, self.prepare(code))
+  drain(0)
 
 proc eval*(self: VM, code: string): GeneValue =
   var module = new_module()
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
-  return self.eval(frame, self.prepare(code))
+  result = self.eval(frame, self.prepare(code))
+  drain(0)
 
 proc init_package*(self: VM, dir: string) =
   APP.pkg = new_package(dir)
