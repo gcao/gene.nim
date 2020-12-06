@@ -2243,8 +2243,7 @@ proc `len`(self: GeneValue): int =
     not_allowed()
 
 proc match_prop_splat*(self: seq[Matcher], input: GeneValue, r: MatchResult) =
-  var splat_name = self.prop_splat
-  if splat_name == "":
+  if self.prop_splat == "":
     return
 
   var map: OrderedTable[string, GeneValue]
@@ -2256,17 +2255,15 @@ proc match_prop_splat*(self: seq[Matcher], input: GeneValue, r: MatchResult) =
   else:
     return
 
-  var props = self.props
   var splat = OrderedTable[string, GeneValue]()
   for k, v in map:
-    if k notin props:
+    if k notin self.props:
       splat[k] = v
-  r.fields.add(new_matched_field(splat_name, new_gene_map(splat)))
+  r.fields.add(new_matched_field(self.prop_splat, new_gene_map(splat)))
 
 proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
   case self.kind:
   of MatchData:
-    var name = self.name
     var value: GeneValue
     var value_expr: Expr
     if self.splat:
@@ -2286,8 +2283,8 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
         value_expr = self.default_value_expr
       else:
         value = self.default_value # Default value
-    if name != "":
-      var matched_field = new_matched_field(name, value)
+    if self.name != "":
+      var matched_field = new_matched_field(self.name, value)
       matched_field.value_expr = value_expr
       r.fields.add(matched_field)
     var child_state = MatchState()
@@ -2295,13 +2292,12 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
       child.match(value, child_state, r)
     match_prop_splat(self.children, value, r)
   of MatchProp:
-    var name = self.name
     var value: GeneValue
     var value_expr: Expr
     if self.splat:
       return
-    elif input.gene.props.has_key(name):
-      value = input.gene.props[name]
+    elif input.gene.props.has_key(self.name):
+      value = input.gene.props[self.name]
     else:
       if self.default_value == nil:
         r.kind = MatchMissingFields
@@ -2311,7 +2307,7 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
         value_expr = self.default_value_expr
       else:
         value = self.default_value # Default value
-    var matched_field = new_matched_field(name, value)
+    var matched_field = new_matched_field(self.name, value)
     matched_field.value_expr = value_expr
     r.fields.add(matched_field)
   else:
@@ -2650,16 +2646,15 @@ proc match*(self: var ArgMatcherRoot, input: seq[string]): ArgMatchingResult =
     else:
       if arg_index < self.args.len:
         var arg = self.args[arg_index]
-        var name = arg.name
         var value = arg.translate(item)
         if arg.multiple:
-          if result.args.has_key(name):
-            result.args[name].vec.add(value)
+          if result.args.has_key(arg.name):
+            result.args[arg.name].vec.add(value)
           else:
-            result.args[name] = @[value]
+            result.args[arg.name] = @[value]
         else:
           arg_index += 1
-          result.args[name] = value
+          result.args[arg.name] = value
       else:
         echo "Too many arguments are found. Ignoring " & $item
 
