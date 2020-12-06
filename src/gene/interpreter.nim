@@ -129,12 +129,157 @@ proc drain() {.inline.} =
       drain(0)
 
 proc eval*(self: VM, frame: Frame, expr: Expr): GeneValue =
-  if expr.evaluator != nil:
-    result = expr.evaluator(self, frame, expr)
+  case expr.kind:
+  of ExRoot:
+    result = self.eval(frame, expr.root)
+  of ExTodo:
+    if expr.todo != nil:
+      todo(self.eval(frame, expr.todo).str)
+    else:
+      todo()
+  of ExNotAllowed:
+    if expr.not_allowed != nil:
+      not_allowed(self.eval(frame, expr.not_allowed).str)
+    else:
+      not_allowed()
+  of ExLiteral:
+    result = expr.literal
+  of ExString:
+    result = new_gene_string(expr.str)
+  of ExSymbol:
+    case expr.symbol:
+    of "gene":
+      return GENE_NS
+    of "genex":
+      return GENEX_NS
+    else:
+      result = frame[expr.symbol]
+  of ExComplexSymbol:
+    result = self.get_member(frame, expr.csymbol)
+  of ExEnum:
+    var e = expr.enum
+    result = e
+    self.def_member(frame, e.name, result, true)
+  of ExGene:
+    var target = self.eval(frame, expr.gene_type)
+    case target.kind:
+    of GeneInternal:
+      case target.internal.kind:
+      of GeneFunction:
+        var options = Table[FnOption, GeneValue]()
+        var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+        result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
+      of GeneMacro:
+        result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
+      of GeneBlock:
+        result = self.call_block(frame, GeneNil, target.internal.blk, expr)
+      of GeneReturn:
+        var val = GeneNil
+        if expr.gene_data.len == 0:
+          discard
+        elif expr.gene_data.len == 1:
+          val = self.eval(frame, expr.gene_data[0])
+        else:
+          not_allowed()
+        raise Return(
+          frame: target.internal.ret.frame,
+          val: val,
+        )
+      of GeneAspect:
+        result = self.call_aspect(frame, target.internal.aspect, expr)
+      of GeneAspectInstance:
+        var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+        result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
+      of GeneNativeFn:
+        var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+        result = target.internal.native_fn(args.gene.props, args.gene.data)
+      of GeneSelector:
+        var val = self.eval(frame, expr.gene_data[0])
+        var selector = target.internal.selector
+        result = selector.search(val)
+      else:
+        todo($target.internal.kind)
+    of GeneString:
+      var str = target.str
+      for item in expr.gene_data:
+        str &= self.eval(frame, item).to_s
+      result = new_gene_string_move(str)
+    else:
+      result = new_gene_gene(target)
+      for e in expr.gene_props:
+        result.gene.props[e.map_key] = self.eval(frame, e.map_val)
+      for e in expr.gene_data:
+        result.gene.data.add(self.eval(frame, e))
+  of ExFor:
+    try:
+      var for_in = self.eval(frame, expr.for_in)
+      var first, second: GeneValue
+      case expr.for_vars.kind:
+      of GeneSymbol:
+        first = expr.for_vars
+      of GeneVector:
+        first = expr.for_vars.vec[0]
+        second = expr.for_vars.vec[1]
+      else:
+        not_allowed()
+
+      if second == nil:
+        var val = first.symbol
+        frame.scope.def_member(val, GeneNil)
+        case for_in.kind:
+        of GeneRange:
+          for i in for_in.range_start.int..<for_in.range_end.int:
+            try:
+              frame.scope[val] = i
+              for e in expr.for_blk:
+                discard self.eval(frame, e)
+            except Continue:
+              discard
+        of GeneVector:
+          for i in for_in.vec:
+            try:
+              frame.scope[val] = i
+              for e in expr.for_blk:
+                discard self.eval(frame, e)
+            except Continue:
+              discard
+        else:
+          todo()
+      else:
+        var key = first.symbol
+        var val = second.symbol
+        frame.scope.def_member(key, GeneNil)
+        frame.scope.def_member(val, GeneNil)
+        case for_in.kind:
+        of GeneVector:
+          for k, v in for_in.vec:
+            try:
+              frame.scope[key] = k
+              frame.scope[val] = v
+              for e in expr.for_blk:
+                discard self.eval(frame, e)
+            except Continue:
+              discard
+        of GeneMap:
+          for k, v in for_in.map:
+            try:
+              frame.scope[key] = k
+              frame.scope[val] = v
+              for e in expr.for_blk:
+                discard self.eval(frame, e)
+            except Continue:
+              discard
+        else:
+          todo()
+    except Break:
+      discard
   else:
-    var evaluator = EvaluatorMgr[expr.kind]
-    expr.evaluator = evaluator
-    result = evaluator(self, frame, expr)
+    if expr.evaluator != nil:
+      result = expr.evaluator(self, frame, expr)
+    else:
+      var evaluator = EvaluatorMgr[expr.kind]
+      expr.evaluator = evaluator
+      result = evaluator(self, frame, expr)
 
   drain()
   if result == nil:
@@ -601,26 +746,26 @@ proc explode_and_add*(parent: GeneValue, value: GeneValue) =
     else:
       todo()
 
-EvaluatorMgr[ExTodo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  if expr.todo != nil:
-    todo(self.eval(frame, expr.todo).str)
-  else:
-    todo()
+# EvaluatorMgr[ExTodo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   if expr.todo != nil:
+#     todo(self.eval(frame, expr.todo).str)
+#   else:
+#     todo()
 
-EvaluatorMgr[ExNotAllowed] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  if expr.not_allowed != nil:
-    not_allowed(self.eval(frame, expr.not_allowed).str)
-  else:
-    not_allowed()
+# EvaluatorMgr[ExNotAllowed] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   if expr.not_allowed != nil:
+#     not_allowed(self.eval(frame, expr.not_allowed).str)
+#   else:
+#     not_allowed()
 
-EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  case expr.symbol:
-  of "gene":
-    return GENE_NS
-  of "genex":
-    return GENEX_NS
-  else:
-    result = frame[expr.symbol]
+# EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   case expr.symbol:
+#   of "gene":
+#     return GENE_NS
+#   of "genex":
+#     return GENEX_NS
+#   else:
+#     result = frame[expr.symbol]
 
 EvaluatorMgr[ExDo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var old_self = frame.self
@@ -1184,136 +1329,136 @@ EvaluatorMgr[ExPrint] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   if expr.print_and_return:
     print_to.write "\n"
 
-EvaluatorMgr[ExRoot] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  return self.eval(frame, expr.root)
+# EvaluatorMgr[ExRoot] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   return self.eval(frame, expr.root)
 
-EvaluatorMgr[ExLiteral] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  return expr.literal
+# EvaluatorMgr[ExLiteral] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   return expr.literal
 
-EvaluatorMgr[ExString] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  return new_gene_string(expr.str)
+# EvaluatorMgr[ExString] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   return new_gene_string(expr.str)
 
-EvaluatorMgr[ExComplexSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  return self.get_member(frame, expr.csymbol)
+# EvaluatorMgr[ExComplexSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   return self.get_member(frame, expr.csymbol)
 
-EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var target = self.eval(frame, expr.gene_type)
-  case target.kind:
-  of GeneInternal:
-    case target.internal.kind:
-    of GeneFunction:
-      var options = Table[FnOption, GeneValue]()
-      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-      result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
-    of GeneMacro:
-      result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
-    of GeneBlock:
-      result = self.call_block(frame, GeneNil, target.internal.blk, expr)
-    of GeneReturn:
-      var val = GeneNil
-      if expr.gene_data.len == 0:
-        discard
-      elif expr.gene_data.len == 1:
-        val = self.eval(frame, expr.gene_data[0])
-      else:
-        not_allowed()
-      raise Return(
-        frame: target.internal.ret.frame,
-        val: val,
-      )
-    of GeneAspect:
-      result = self.call_aspect(frame, target.internal.aspect, expr)
-    of GeneAspectInstance:
-      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-      result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
-    of GeneNativeFn:
-      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-      result = target.internal.native_fn(args.gene.props, args.gene.data)
-    of GeneSelector:
-      var val = self.eval(frame, expr.gene_data[0])
-      var selector = target.internal.selector
-      result = selector.search(val)
-    else:
-      todo($target.internal.kind)
-  of GeneString:
-    var str = target.str
-    for item in expr.gene_data:
-      str &= self.eval(frame, item).to_s
-    result = new_gene_string_move(str)
-  else:
-    result = new_gene_gene(target)
-    for e in expr.gene_props:
-      result.gene.props[e.map_key] = self.eval(frame, e.map_val)
-    for e in expr.gene_data:
-      result.gene.data.add(self.eval(frame, e))
+# EvaluatorMgr[ExGene] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   var target = self.eval(frame, expr.gene_type)
+#   case target.kind:
+#   of GeneInternal:
+#     case target.internal.kind:
+#     of GeneFunction:
+#       var options = Table[FnOption, GeneValue]()
+#       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+#       result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
+#     of GeneMacro:
+#       result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
+#     of GeneBlock:
+#       result = self.call_block(frame, GeneNil, target.internal.blk, expr)
+#     of GeneReturn:
+#       var val = GeneNil
+#       if expr.gene_data.len == 0:
+#         discard
+#       elif expr.gene_data.len == 1:
+#         val = self.eval(frame, expr.gene_data[0])
+#       else:
+#         not_allowed()
+#       raise Return(
+#         frame: target.internal.ret.frame,
+#         val: val,
+#       )
+#     of GeneAspect:
+#       result = self.call_aspect(frame, target.internal.aspect, expr)
+#     of GeneAspectInstance:
+#       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+#       result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
+#     of GeneNativeFn:
+#       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+#       result = target.internal.native_fn(args.gene.props, args.gene.data)
+#     of GeneSelector:
+#       var val = self.eval(frame, expr.gene_data[0])
+#       var selector = target.internal.selector
+#       result = selector.search(val)
+#     else:
+#       todo($target.internal.kind)
+#   of GeneString:
+#     var str = target.str
+#     for item in expr.gene_data:
+#       str &= self.eval(frame, item).to_s
+#     result = new_gene_string_move(str)
+#   else:
+#     result = new_gene_gene(target)
+#     for e in expr.gene_props:
+#       result.gene.props[e.map_key] = self.eval(frame, e.map_val)
+#     for e in expr.gene_data:
+#       result.gene.data.add(self.eval(frame, e))
 
-EvaluatorMgr[ExEnum] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  var e = expr.enum
-  self.def_member(frame, e.name, e, true)
+# EvaluatorMgr[ExEnum] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   var e = expr.enum
+#   self.def_member(frame, e.name, e, true)
 
-EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  try:
-    var for_in = self.eval(frame, expr.for_in)
-    var first, second: GeneValue
-    case expr.for_vars.kind:
-    of GeneSymbol:
-      first = expr.for_vars
-    of GeneVector:
-      first = expr.for_vars.vec[0]
-      second = expr.for_vars.vec[1]
-    else:
-      not_allowed()
+# EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+#   try:
+#     var for_in = self.eval(frame, expr.for_in)
+#     var first, second: GeneValue
+#     case expr.for_vars.kind:
+#     of GeneSymbol:
+#       first = expr.for_vars
+#     of GeneVector:
+#       first = expr.for_vars.vec[0]
+#       second = expr.for_vars.vec[1]
+#     else:
+#       not_allowed()
 
-    if second == nil:
-      var val = first.symbol
-      frame.scope.def_member(val, GeneNil)
-      case for_in.kind:
-      of GeneRange:
-        for i in for_in.range_start.int..<for_in.range_end.int:
-          try:
-            frame.scope[val] = i
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-          except Continue:
-            discard
-      of GeneVector:
-        for i in for_in.vec:
-          try:
-            frame.scope[val] = i
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-          except Continue:
-            discard
-      else:
-        todo()
-    else:
-      var key = first.symbol
-      var val = second.symbol
-      frame.scope.def_member(key, GeneNil)
-      frame.scope.def_member(val, GeneNil)
-      case for_in.kind:
-      of GeneVector:
-        for k, v in for_in.vec:
-          try:
-            frame.scope[key] = k
-            frame.scope[val] = v
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-          except Continue:
-            discard
-      of GeneMap:
-        for k, v in for_in.map:
-          try:
-            frame.scope[key] = k
-            frame.scope[val] = v
-            for e in expr.for_blk:
-              discard self.eval(frame, e)
-          except Continue:
-            discard
-      else:
-        todo()
-  except Break:
-    discard
+#     if second == nil:
+#       var val = first.symbol
+#       frame.scope.def_member(val, GeneNil)
+#       case for_in.kind:
+#       of GeneRange:
+#         for i in for_in.range_start.int..<for_in.range_end.int:
+#           try:
+#             frame.scope[val] = i
+#             for e in expr.for_blk:
+#               discard self.eval(frame, e)
+#           except Continue:
+#             discard
+#       of GeneVector:
+#         for i in for_in.vec:
+#           try:
+#             frame.scope[val] = i
+#             for e in expr.for_blk:
+#               discard self.eval(frame, e)
+#           except Continue:
+#             discard
+#       else:
+#         todo()
+#     else:
+#       var key = first.symbol
+#       var val = second.symbol
+#       frame.scope.def_member(key, GeneNil)
+#       frame.scope.def_member(val, GeneNil)
+#       case for_in.kind:
+#       of GeneVector:
+#         for k, v in for_in.vec:
+#           try:
+#             frame.scope[key] = k
+#             frame.scope[val] = v
+#             for e in expr.for_blk:
+#               discard self.eval(frame, e)
+#           except Continue:
+#             discard
+#       of GeneMap:
+#         for k, v in for_in.map:
+#           try:
+#             frame.scope[key] = k
+#             frame.scope[val] = v
+#             for e in expr.for_blk:
+#               discard self.eval(frame, e)
+#           except Continue:
+#             discard
+#       else:
+#         todo()
+#   except Break:
+#     discard
 
 EvaluatorMgr[ExParseCmdArgs] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var cmd_args = self.eval(frame, expr.cmd_args)
