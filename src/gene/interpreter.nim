@@ -118,7 +118,7 @@ proc prepare*(self: VM, code: string): Expr =
   )
   result.root = new_group_expr(result, parsed)
 
-const DRAIN_MAX = 3
+const DRAIN_MAX = 15
 var drain_count = 0
 proc drain() {.inline.} =
   if drain_count < DRAIN_MAX:

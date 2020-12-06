@@ -53,6 +53,7 @@ test_core """
   (var a 0)
   (future .on_success (-> (a = 1)))
   (gene/sleep 100)
+  (for i in (range 0 100) i)  # Wait for the interpreter to check status of futures
   a   # future should have finished
 """, 1
 
