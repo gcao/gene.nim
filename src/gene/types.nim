@@ -1,5 +1,7 @@
 import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch, times, strformat
 
+import ./map_key
+
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
   "+", "-", "*", "/",
@@ -63,24 +65,24 @@ type
     parent*: Namespace
     stop_inheritance*: bool  # When set to true, stop looking up for members
     name*: string
-    members*: Table[string, GeneValue]
+    members*: Table[MapKey, GeneValue]
 
   Scope* = ref object
     parent*: Scope
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
-    mappings*: Table[string, seq[NameIndexScope]]
+    mappings*: Table[MapKey, seq[NameIndexScope]]
     usage*: int
 
   Class* = ref object
     parent*: Class
     name*: string
-    methods*: Table[string, Method]
+    methods*: Table[MapKey, Method]
     ns*: Namespace # Class can act like a namespace
 
   Mixin* = ref object
     name*: string
-    methods*: Table[string, Method]
+    methods*: Table[MapKey, Method]
     # TODO: ns*: Namespace # Mixin can act like a namespace
 
   Method* = ref object
@@ -324,7 +326,7 @@ type
 
   Gene* {.acyclic.} = ref object
     `type`*: GeneValue
-    props*: OrderedTable[string, GeneValue]
+    props*: OrderedTable[MapKey, GeneValue]
     data*: seq[GeneValue]
     # A gene can be normalized to match expected format
     # Example: (a = 1) => (= a 1)
@@ -445,7 +447,7 @@ type
     of GeneTimezone:
       timezone*: Timezone
     of GeneMap:
-      map*: OrderedTable[string, GeneValue]
+      map*: OrderedTable[MapKey, GeneValue]
     of GeneVector:
       vec*: seq[GeneValue]
     of GeneSet:
@@ -463,10 +465,10 @@ type
 
   GeneDocument* = ref object
     `type`: GeneValue
-    props*: OrderedTable[string, GeneValue]
+    props*: OrderedTable[MapKey, GeneValue]
     data*: seq[GeneValue]
 
-  NativeFn* = proc(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.}
+  NativeFn* = proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.}
 
   FnOption* = enum
     FnClass
@@ -474,7 +476,7 @@ type
 
   NativeMethod* = proc(
     self: GeneValue,
-    props: OrderedTable[string, GeneValue],
+    props: OrderedTable[MapKey, GeneValue],
     data: seq[GeneValue],
   ): GeneValue {.nimcall.}
 
@@ -704,7 +706,7 @@ type
     of ExStopInheritance:
       discard
     of ExCall:
-      # call_props*: OrderedTable[string, Expr]
+      # call_props*: OrderedTable[MapKey, Expr]
       call_target*: Expr
       call_args*: Expr
     of ExGetClass:
@@ -751,7 +753,7 @@ type
 
   VM* = ref object
     app*: Application
-    modules*: OrderedTable[string, Namespace]
+    modules*: OrderedTable[MapKey, Namespace]
     repl_on_error*: bool
 
   Evaluator* = proc(self: VM, frame: Frame, expr: Expr): GeneValue
@@ -882,7 +884,7 @@ type
 
   ArgMatcherRoot* = ref object
     include_program*: bool
-    options*: Table[string, ArgMatcher]
+    options*: Table[MapKey, ArgMatcher]
     args*: seq[ArgMatcher]
     # Extra is always returned if "-- ..." is found.
 
@@ -916,8 +918,8 @@ type
   ArgMatchingResult* = ref object
     kind*: ArgMatchingResultKind
     program*: string
-    options*: Table[string, GeneValue]
-    args*: Table[string, GeneValue]
+    options*: Table[MapKey, GeneValue]
+    args*: Table[MapKey, GeneValue]
     extra*: seq[string]
     failure*: string  # if kind == AmFailure
 
@@ -926,8 +928,6 @@ let
   GeneTrue*  = GeneValue(kind: GeneBool, bool: true)
   GeneFalse* = GeneValue(kind: GeneBool, bool: false)
   GenePlaceholder* = GeneValue(kind: GenePlaceholderKind)
-
-  EmptyMap*  = OrderedTable[string, GeneValue]()
 
   Quote*     = GeneValue(kind: GeneSymbol, symbol: "quote")
   Unquote*   = GeneValue(kind: GeneSymbol, symbol: "unquote")
@@ -1006,6 +1006,7 @@ proc new_gene_exception*(): ref Exception =
 converter int_to_gene*(v: int): GeneValue = new_gene_int(v)
 converter int_to_gene*(v: int64): GeneValue = new_gene_int(v)
 converter biggest_to_int*(v: BiggestInt): int = cast[int](v)
+converter key_to_gene*(v: MapKey): GeneValue = new_gene_int(cast[int](v))
 
 converter seq_to_gene*(v: seq[GeneValue]): GeneValue {.gcsafe.} = new_gene_vec(v)
 converter str_to_gene*(v: string): GeneValue {.gcsafe.} = new_gene_string(v)
@@ -1058,27 +1059,27 @@ proc new_module*(ns: Namespace): Module =
 proc new_namespace*(): Namespace =
   return Namespace(
     name: "<root>",
-    members: Table[string, GeneValue](),
+    members: Table[MapKey, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace): Namespace =
   return Namespace(
     parent: parent,
     name: "<root>",
-    members: Table[string, GeneValue](),
+    members: Table[MapKey, GeneValue](),
   )
 
 proc new_namespace*(name: string): Namespace =
   return Namespace(
     name: name,
-    members: Table[string, GeneValue](),
+    members: Table[MapKey, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace, name: string): Namespace =
   return Namespace(
     parent: parent,
     name: name,
-    members: Table[string, GeneValue](),
+    members: Table[MapKey, GeneValue](),
   )
 
 proc root*(self: Namespace): Namespace =
@@ -1105,7 +1106,7 @@ proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
 
 proc new_scope*(): Scope = Scope(
   members: @[],
-  mappings: Table[string, seq[NameIndexScope]](),
+  mappings: Table[MapKey, seq[NameIndexScope]](),
   usage: 1,
 )
 
@@ -1121,7 +1122,7 @@ proc reset*(self: var Scope) {.inline.} =
   self.parent = nil
   self.members.setLen(0)
 
-proc has_key(self: Scope, key: string, max: int): bool {.inline.} =
+proc has_key(self: Scope, key: MapKey, max: int): bool {.inline.} =
   if self.mappings.has_key(key):
     # If first >= max, all others will be >= max
     if self.mappings[key][0] < max:
@@ -1663,7 +1664,7 @@ proc new_gene_stream*(items: seq[GeneValue]): GeneValue =
 proc new_gene_map*(): GeneValue =
   return GeneValue(
     kind: GeneMap,
-    map: OrderedTable[string, GeneValue](),
+    map: OrderedTable[MapKey, GeneValue](),
   )
 
 proc new_gene_set*(items: varargs[GeneValue]): GeneValue =
@@ -1674,7 +1675,7 @@ proc new_gene_set*(items: varargs[GeneValue]): GeneValue =
   for item in items:
     result.set.incl(item)
 
-proc new_gene_map*(map: OrderedTable[string, GeneValue]): GeneValue =
+proc new_gene_map*(map: OrderedTable[MapKey, GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneMap,
     map: map,
@@ -1692,7 +1693,7 @@ proc new_gene_gene*(`type`: GeneValue, data: varargs[GeneValue]): GeneValue =
     gene: Gene(type: `type`, data: @data),
   )
 
-proc new_gene_gene*(`type`: GeneValue, props: OrderedTable[string, GeneValue], data: varargs[GeneValue]): GeneValue =
+proc new_gene_gene*(`type`: GeneValue, props: OrderedTable[MapKey, GeneValue], data: varargs[GeneValue]): GeneValue =
   return GeneValue(
     kind: GeneGene,
     gene: Gene(type: `type`, props: props, data: @data),
@@ -1884,7 +1885,7 @@ converter to_gene*(v: float): GeneValue                    = new_gene_float(v)
 converter to_gene*(v: string): GeneValue                   = new_gene_string(v)
 converter to_gene*(v: char): GeneValue                     = new_gene_char(v)
 converter to_gene*(v: Rune): GeneValue                     = new_gene_char(v)
-converter to_gene*(v: OrderedTable[string, GeneValue]): GeneValue = new_gene_map(v)
+converter to_gene*(v: OrderedTable[MapKey, GeneValue]): GeneValue = new_gene_map(v)
 
 # Below converter causes problem with the hash function
 # converter to_gene*(v: seq[GeneValue]): GeneValue           = new_gene_vec(v)
@@ -2246,7 +2247,7 @@ proc match_prop_splat*(self: seq[Matcher], input: GeneValue, r: MatchResult) =
   if self.prop_splat == "":
     return
 
-  var map: OrderedTable[string, GeneValue]
+  var map: OrderedTable[MapKey, GeneValue]
   case input.kind:
   of GeneMap:
     map = input.map
@@ -2255,7 +2256,7 @@ proc match_prop_splat*(self: seq[Matcher], input: GeneValue, r: MatchResult) =
   else:
     return
 
-  var splat = OrderedTable[string, GeneValue]()
+  var splat = OrderedTable[MapKey, GeneValue]()
   for k, v in map:
     if k notin self.props:
       splat[k] = v
@@ -2416,8 +2417,8 @@ proc `[]=`*(self: EvaluatorManager, key: ExprKind, e: Evaluator) =
 
 #################### Dynamic #####################
 
-proc load_dynamic*(path:string, names: seq[string]): OrderedTable[string, NativeFn] =
-  result = OrderedTable[string, NativeFn]()
+proc load_dynamic*(path:string, names: seq[string]): OrderedTable[MapKey, NativeFn] =
+  result = OrderedTable[MapKey, NativeFn]()
   let lib = loadLib(path)
   for name in names:
     var s = name
@@ -2488,7 +2489,7 @@ proc is_last*(self: SelectorItem): bool =
 
 proc new_cmd_args_matcher*(): ArgMatcherRoot =
   return ArgMatcherRoot(
-    options: Table[string, ArgMatcher](),
+    options: Table[MapKey, ArgMatcher](),
   )
 
 proc name*(self: ArgMatcher): string =
@@ -2528,7 +2529,7 @@ proc default_value*(self: ArgMatcher): GeneValue =
     else:
       return self.default
 
-proc fields*(self: ArgMatchingResult): Table[string, GeneValue] =
+proc fields*(self: ArgMatchingResult): Table[MapKey, GeneValue] =
   for k, v in self.options:
     result[k] = v
   for k, v in self.args:

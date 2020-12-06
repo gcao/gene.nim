@@ -1,5 +1,6 @@
 import tables
 
+import ./map_key
 import ./types
 
 let NO_RESULT = new_gene_gene(new_gene_symbol("SELECTOR_NO_RESULT"))

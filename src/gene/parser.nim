@@ -5,6 +5,7 @@
 
 import lexbase, streams, strutils, unicode, tables, sets, times
 
+import ./map_key
 import ./types
 
 type
@@ -20,7 +21,7 @@ type
     document*: GeneDocument
     token*: TokenKind
     error: ParseErrorKind
-    # stored_references: Table[string, GeneValue]
+    # stored_references: Table[MapKey, GeneValue]
     document_props_done: bool  # flag to tell whether we have read document properties
 
   ParseError* = object of CatchableError
@@ -57,7 +58,7 @@ type
 
   DelimitedListResult = object
     list: seq[GeneValue]
-    map: OrderedTable[string, GeneValue]
+    map: OrderedTable[MapKey, GeneValue]
 
 const non_constituents = ['`']
 
@@ -386,7 +387,7 @@ proc read_gene_type(self: var Parser): GeneValue =
         inc(count)
         break
 
-proc read_map(self: var Parser, mode: MapKind): OrderedTable[string, GeneValue] =
+proc read_map(self: var Parser, mode: MapKind): OrderedTable[MapKey, GeneValue] =
   var ch: char
   var key: string
   var state = PropState.PropKey

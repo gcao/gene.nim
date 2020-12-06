@@ -1,5 +1,6 @@
 import tables, strutils
 
+import ./map_key
 import ./types
 import ./normalizers
 import ./decorator
@@ -8,7 +9,7 @@ type
   Translator* = proc(parent: Expr, val: GeneValue): Expr
 
   TranslatorManager* = ref object
-    mappings*: Table[string, Translator]
+    mappings*: Table[MapKey, Translator]
 
   TryParsingState = enum
     TryBody

@@ -1,6 +1,7 @@
 import tables, os, sequtils, strutils, dynlib
 import asyncdispatch
 
+import ./map_key
 import ./types
 import ./parser
 import ./decorator

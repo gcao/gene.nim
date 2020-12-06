@@ -1,5 +1,6 @@
 import tables
 
+import ./map_key
 import ./types
 
 proc is_decorator(v: GeneValue): bool =
