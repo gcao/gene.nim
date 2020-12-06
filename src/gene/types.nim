@@ -63,24 +63,24 @@ type
     parent*: Namespace
     stop_inheritance*: bool  # When set to true, stop looking up for members
     name*: string
-    members*: OrderedTable[string, GeneValue]
+    members*: Table[string, GeneValue]
 
   Scope* = ref object
     parent*: Scope
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
-    mappings*: OrderedTable[string, seq[NameIndexScope]]
+    mappings*: Table[string, seq[NameIndexScope]]
     usage*: int
 
   Class* = ref object
     parent*: Class
     name*: string
-    methods*: OrderedTable[string, Method]
+    methods*: Table[string, Method]
     ns*: Namespace # Class can act like a namespace
 
   Mixin* = ref object
     name*: string
-    methods*: OrderedTable[string, Method]
+    methods*: Table[string, Method]
     # TODO: ns*: Namespace # Mixin can act like a namespace
 
   Method* = ref object
@@ -1061,27 +1061,27 @@ proc new_module*(ns: Namespace): Module =
 proc new_namespace*(): Namespace =
   return Namespace(
     name: "<root>",
-    members: OrderedTable[string, GeneValue](),
+    members: Table[string, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace): Namespace =
   return Namespace(
     parent: parent,
     name: "<root>",
-    members: OrderedTable[string, GeneValue](),
+    members: Table[string, GeneValue](),
   )
 
 proc new_namespace*(name: string): Namespace =
   return Namespace(
     name: name,
-    members: OrderedTable[string, GeneValue](),
+    members: Table[string, GeneValue](),
   )
 
 proc new_namespace*(parent: Namespace, name: string): Namespace =
   return Namespace(
     parent: parent,
     name: name,
-    members: OrderedTable[string, GeneValue](),
+    members: Table[string, GeneValue](),
   )
 
 proc root*(self: Namespace): Namespace =
@@ -1108,7 +1108,7 @@ proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
 
 proc new_scope*(): Scope = Scope(
   members: @[],
-  mappings: OrderedTable[string, seq[NameIndexScope]](),
+  mappings: Table[string, seq[NameIndexScope]](),
   usage: 1,
 )
 
