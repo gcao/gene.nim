@@ -69,12 +69,12 @@ type
     parent*: Scope
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
-    mappings*: OrderedTable[string, seq[NameIndexScope]]
+    mappings*: Table[string, seq[NameIndexScope]]
     usage*: int
 
-  ScopeResolver* = ref object
-    scope*: Scope
-    index*: NameIndexScope
+  # ScopeResolver* = ref object
+  #   scope*: Scope
+  #   index*: NameIndexScope
 
   Class* = ref object
     parent*: Class
@@ -494,8 +494,9 @@ type
     of NkNamespace:
       ns*: Namespace
     of NkScope:
-      scope*: Scope
-      scope_index_max*: int
+      discard
+      # scope*: Scope
+      # index*: int
     of NkConstant:
       const_value*: GeneValue
     else: discard
@@ -1116,6 +1117,12 @@ proc root*(self: Namespace): Namespace =
 proc has_key*(self: Namespace, key: string): bool {.inline.} =
   return self.members.has_key(key)
 
+proc who_has_key*(self: Namespace, key: string): Namespace {.inline.} =
+  if self.members.has_key(key):
+    result = self
+  elif self.parent != nil:
+    result = self.parent.who_has_key(key)
+
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
   if self.has_key(key):
     return self.members[key]
@@ -1131,7 +1138,7 @@ proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
 
 proc new_scope*(): Scope = Scope(
   members: @[],
-  mappings: OrderedTable[string, seq[NameIndexScope]](),
+  mappings: Table[string, seq[NameIndexScope]](),
   usage: 1,
 )
 
@@ -1145,7 +1152,7 @@ proc set_parent*(self: var Scope, parent: Scope, max: NameIndexScope) {.inline.}
 
 proc reset*(self: var Scope) {.inline.} =
   self.parent = nil
-  self.members.setLen(0)
+  self.members.set_len(0)
 
 proc has_key(self: Scope, key: string, max: int): bool {.inline.} =
   if self.mappings.has_key(key):
@@ -1162,9 +1169,25 @@ proc has_key*(self: Scope, key: string): bool {.inline.} =
   elif self.parent != nil:
     return self.parent.has_key(key, self.parent_index_max)
 
-# Return scope and index for the name/key
-proc who_has_key*(self: Scope, key: string): ScopeResolver {.inline.} =
-  todo()
+# proc who_has_key*(self: Scope, key: string, max: int): ScopeResolver {.inline.} =
+#   if self.mappings.has_key(key):
+#     var found = self.mappings[key]
+#     var i = found.len - 1
+#     while i >= 0:
+#       var index: int = found[i]
+#       if index < max:
+#         return ScopeResolver(scope: self, index: index)
+#       i -= 1
+
+#   if self.parent != nil:
+#     result = self.parent.who_has_key(key, self.parent_index_max)
+
+# # Return scope and index for the key
+# proc who_has_key*(self: Scope, key: string): ScopeResolver {.inline.} =
+#   if self.mappings.has_key(key):
+#     result = ScopeResolver(scope: self, index: self.mappings[key][^1])
+#   elif self.parent != nil:
+#     result = self.parent.who_has_key(key, self.parent_index_max)
 
 proc def_member*(self: var Scope, key: string, val: GeneValue) {.inline.} =
   var index = self.members.len
@@ -1237,8 +1260,11 @@ proc `[]`*(self: Frame, name: string): GeneValue {.inline.} =
   else:
     return self.ns[name]
 
-proc scope_has_key*(self: Frame, name: string): ScopeResolver {.inline.} =
-  result = self.scope.who_has_key(name)
+# proc scope_has_key*(self: Frame, key: string): ScopeResolver {.inline.} =
+#   result = self.scope.who_has_key(key)
+
+proc ns_has_key*(self: Frame, key: string): Namespace {.inline.} =
+  result = self.ns.who_has_key(key)
 
 #################### Function ####################
 

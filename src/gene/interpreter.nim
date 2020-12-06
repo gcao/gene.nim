@@ -607,31 +607,49 @@ proc resolve(self: VM, frame: Frame, name: string): tuple[value: GeneValue, reso
   of "genex":
     result = (value: GENEX_NS, resolver: NameResolver(kind: NkConstant, const_value: GENEX_NS))
   else:
+    # var scope_resolver = frame.scope_has_key(name)
+    # if scope_resolver != nil:
+    #   var scope = scope_resolver.scope
+    #   var index = scope_resolver.index
+    #   var value = scope.members[index]
+    #   result = (
+    #     value: value,
+    #     resolver: NameResolver(kind: NkScope, scope: scope, index: index),
+    #   )
     if frame.scope.has_key(name):
-      var r = NameResolver(kind: NkScope, scope: frame.scope)
-      var v = frame.scope[name]
-      result = (value: v, resolver: r)
+      var value = frame.scope[name]
+      result = (
+        value: value,
+        resolver: NameResolver(kind: NkScope, name: name),
+      )
     else:
-      todo()
+      var ns = frame.ns_has_key(name)
+      var value = ns.members[name]
+      result = (
+        value: value,
+        resolver: NameResolver(kind: NkNamespace, ns: ns, name: name),
+      )
 
 EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  # case expr.symbol_resolver.kind:
-  # of NkUnknown:
-  #   var r = self.resolve(frame, expr.symbol_resolver.name)
-  #   expr.symbol_resolver = r.resolver
-  #   result = r.value
-  # of NkConstant:
-  #   result = expr.symbol_resolver.const_value
+  # case expr.symbol:
+  # of "gene":
+  #   return GENE_NS
+  # of "genex":
+  #   return GENEX_NS
   # else:
-  #   todo()
-
-  case expr.symbol:
-  of "gene":
-    return GENE_NS
-  of "genex":
-    return GENEX_NS
-  else:
-    result = frame[expr.symbol]
+  #   result = frame[expr.symbol]
+  case expr.symbol_resolver.kind:
+  of NkUnknown:
+    var r = self.resolve(frame, expr.symbol_resolver.name)
+    expr.symbol_resolver = r.resolver
+    result = r.value
+  of NkConstant:
+    result = expr.symbol_resolver.const_value
+  of NkNamespace:
+    result = expr.symbol_resolver.ns[expr.symbol_resolver.name]
+  of NkScope:
+    # result = expr.symbol_resolver.scope.members[expr.symbol_resolver.index]
+    result = frame.scope[expr.symbol_resolver.name]
 
 EvaluatorMgr[ExDo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var old_self = frame.self
