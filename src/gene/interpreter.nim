@@ -19,7 +19,7 @@ let GENE_RUNTIME* = Runtime(
 
 #################### Definitions #################
 
-proc import_module*(self: VM, name: string, code: string): Namespace
+proc import_module*(self: VM, name: MapKey, code: string): Namespace
 proc load_core_module*(self: VM)
 proc load_gene_module*(self: VM)
 proc load_genex_module*(self: VM)
@@ -165,44 +165,44 @@ proc run_file*(self: VM, file: string): GeneValue =
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   var code = read_file(file)
   discard self.eval(frame, self.prepare(code))
-  if frame.ns.has_key("main"):
-    var main = frame["main"]
+  if frame.ns.has_key(MAIN_KEY):
+    var main = frame[MAIN_KEY]
     if main.kind == GeneInternal and main.internal.kind == GeneFunction:
-      var args = GLOBAL_NS.internal.ns["$cmd_args"]
+      var args = GLOBAL_NS.internal.ns[CMD_ARGS_KEY]
       var options = Table[FnOption, GeneValue]()
       result = self.call_fn(frame, GeneNil, main.internal.fn, args, options)
       self.wait_for_futures()
     else:
       raise new_exception(CatchableError, "main is not a function.")
 
-proc import_module*(self: VM, name: string, code: string): Namespace =
+proc import_module*(self: VM, name: MapKey, code: string): Namespace =
   if self.modules.has_key(name):
     return self.modules[name]
-  var module = new_module(name)
+  var module = new_module(name.to_s)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
-  self.def_member(frame, "$file", name, true)
+  self.def_member(frame, FILE_KEY, name, true)
   discard self.eval(frame, self.prepare(code))
   result = module.root_ns
   self.modules[name] = result
 
 proc load_core_module*(self: VM) =
   GENE_NS  = new_namespace("gene")
-  GLOBAL_NS.internal.ns["gene"] = GENE_NS
+  GLOBAL_NS.internal.ns[GENE_KEY] = GENE_NS
   GENEX_NS = new_namespace("genex")
-  GLOBAL_NS.internal.ns["genex"] = GENEX_NS
-  GENE_NS.internal.ns["native"] = new_namespace("native")
+  GLOBAL_NS.internal.ns[GENEX_KEY] = GENEX_NS
+  GENE_NS.internal.ns[NATIVE_KEY] = new_namespace("native")
   add_native_fns()
   add_native_methods()
-  discard self.import_module("core", readFile(GENE_HOME & "/src/core.gene"))
+  discard self.import_module(CORE_KEY, readFile(GENE_HOME & "/src/core.gene"))
 
 proc load_gene_module*(self: VM) =
-  discard self.import_module("gene", readFile(GENE_HOME & "/src/gene.gene"))
-  GeneObjectClass    = GENE_NS["Object"]
-  GeneClassClass     = GENE_NS["Class"]
-  GeneExceptionClass = GENE_NS["Exception"]
+  discard self.import_module(GENE_KEY, readFile(GENE_HOME & "/src/gene.gene"))
+  GeneObjectClass    = GENE_NS[OBJECT_CLASS_KEY]
+  GeneClassClass     = GENE_NS[CLASS_CLASS_KEY]
+  GeneExceptionClass = GENE_NS[EXCEPTION_CLASS_KEY]
 
 proc load_genex_module*(self: VM) =
-  discard self.import_module("genex", readFile(GENE_HOME & "/src/genex.gene"))
+  discard self.import_module(GENEX_KEY, readFile(GENE_HOME & "/src/genex.gene"))
 
 proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args: GeneValue): GeneValue =
   var meth = class.get_method(method_name)
@@ -276,9 +276,9 @@ proc call_fn_internal*(
   var new_frame: Frame
   if options.has_key(FnMethod):
     new_frame = FrameMgr.get(FrMethod, ns, fn_scope)
-    fn_scope.def_member("$class", options[FnClass])
+    fn_scope.def_member(CLASS_OPTION_KEY, options[FnClass])
     var meth = options[FnMethod]
-    fn_scope.def_member("$method", meth)
+    fn_scope.def_member(METHOD_OPTION_KEY, meth)
   else:
     new_frame = FrameMgr.get(FrFunction, ns, fn_scope)
   new_frame.parent = frame
@@ -469,14 +469,14 @@ proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
   case name.kind:
   of GeneString:
     if in_ns:
-      frame.ns[name.str] = value
+      frame.ns[name.str.to_key] = value
     else:
-      frame.scope.def_member(name.str, value)
+      frame.scope.def_member(name.str.to_key, value)
   of GeneSymbol:
     if in_ns:
-      frame.ns[name.symbol] = value
+      frame.ns[name.symbol.to_key] = value
     else:
-      frame.scope.def_member(name.symbol, value)
+      frame.scope.def_member(name.symbol.to_key, value)
   of GeneComplexSymbol:
     var ns: Namespace
     case name.csymbol.first:
@@ -490,12 +490,12 @@ proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_n
       ns = frame.ns
     else:
       var s = name.csymbol.first
-      ns = frame[s].internal.ns
+      ns = frame[s.to_key].internal.ns
     for i in 0..<(name.csymbol.rest.len - 1):
       var name = name.csymbol.rest[i]
-      ns = ns[name].internal.ns
+      ns = ns[name.to_key].internal.ns
     var base_name = name.csymbol.rest[^1]
-    ns[base_name] = value
+    ns[base_name.to_key] = value
   else:
     not_allowed()
 
@@ -509,17 +509,17 @@ proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue =
   elif name.first == "":
     result = frame.ns
   else:
-    result = frame[name.first]
+    result = frame[name.first.to_key]
   for name in name.rest:
     result = result.get_member(name)
 
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue) =
   case name.kind:
   of GeneSymbol:
-    if frame.scope.has_key(name.symbol):
-      frame.scope[name.symbol] = value
+    if frame.scope.has_key(name.symbol.to_key):
+      frame.scope[name.symbol.to_key] = value
     else:
-      frame.ns[name.symbol] = value
+      frame.ns[name.symbol.to_key] = value
   of GeneComplexSymbol:
     var ns: Namespace
     case name.csymbol.first:
@@ -533,12 +533,12 @@ proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue) =
       ns = frame.ns
     else:
       var s = name.csymbol.first
-      ns = frame[s].internal.ns
+      ns = frame[s.to_key].internal.ns
     for i in 0..<(name.csymbol.rest.len - 1):
       var name = name.csymbol.rest[i]
-      ns = ns[name].internal.ns
+      ns = ns[name.to_key].internal.ns
     var base_name = name.csymbol.rest[^1]
-    ns[base_name] = value
+    ns[base_name.to_key] = value
   else:
     not_allowed()
 
@@ -548,16 +548,16 @@ proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: Ma
     var name = pattern.symbol
     case mode:
     of MatchArgs:
-      frame.scope.def_member(name, val.gene.data[0])
+      frame.scope.def_member(name.to_key, val.gene.data[0])
     else:
-      frame.scope.def_member(name, val)
+      frame.scope.def_member(name.to_key, val)
   of GeneVector:
     for i in 0..<pattern.vec.len:
       var name = pattern.vec[i].symbol
       if i < val.gene.data.len:
-        frame.scope.def_member(name, val.gene.data[i])
+        frame.scope.def_member(name.to_key, val.gene.data[i])
       else:
-        frame.scope.def_member(name, GeneNil)
+        frame.scope.def_member(name.to_key, GeneNil)
   else:
     todo()
 
@@ -679,12 +679,12 @@ EvaluatorMgr[ExSet] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExDefMember] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var name = self.eval(frame, expr.def_member_name).symbol_or_str
   var value = self.eval(frame, expr.def_member_value)
-  frame.scope.def_member(name, value)
+  frame.scope.def_member(name.to_key, value)
 
 EvaluatorMgr[ExDefNsMember] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var name = self.eval(frame, expr.def_ns_member_name).symbol_or_str
   var value = self.eval(frame, expr.def_ns_member_value)
-  frame.ns[name] = value
+  frame.ns[name.to_key] = value
 
 EvaluatorMgr[ExRange] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var range_start = self.eval(frame, expr.range_start)
@@ -706,7 +706,7 @@ proc bin_add(self: VM, frame: Frame, first, second: GeneValue): GeneValue {.inli
     var class = first.get_class()
     var args = new_gene_gene(GeneNil)
     args.gene.data.add(second)
-    result = self.call_method(frame, first, class, "+", args)
+    result = self.call_method(frame, first, class, ADD_KEY, args)
 
 proc bin_sub(self: VM, frame: Frame, first, second: GeneValue): GeneValue {.inline.} =
   case first.kind:
@@ -720,7 +720,7 @@ proc bin_sub(self: VM, frame: Frame, first, second: GeneValue): GeneValue {.inli
     var class = first.get_class()
     var args = new_gene_gene(GeneNil)
     args.gene.data.add(second)
-    result = self.call_method(frame, first, class, "-", args)
+    result = self.call_method(frame, first, class, SUB_KEY, args)
 
 EvaluatorMgr[ExBinary] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var first = self.eval(frame, expr.bin_first)
@@ -920,7 +920,7 @@ EvaluatorMgr[ExReturnRef] = proc(self: VM, frame: Frame, expr: Expr): GeneValue 
 EvaluatorMgr[ExAspect] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var aspect = expr.aspect.internal.aspect
   aspect.ns = frame.ns
-  frame.ns[aspect.name] = expr.aspect
+  frame.ns[aspect.name.to_key] = expr.aspect
   result = expr.aspect
 
 EvaluatorMgr[ExAdvice] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
@@ -962,8 +962,8 @@ EvaluatorMgr[ExGlobal] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
 EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var ns: Namespace
   var dir = ""
-  if frame.ns.has_key("$pkg"):
-    var pkg = frame.ns["$pkg"].internal.pkg
+  if frame.ns.has_key(PKG_KEY):
+    var pkg = frame.ns[PKG_KEY].internal.pkg
     dir = pkg.dir & "/"
   # TODO: load import_pkg on demand
   # Set dir to import_pkg's root directory
@@ -987,12 +987,12 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       ns = frame.ns.root.parent
     else:
       var `from` = self.eval(frame, `from`).str
-      if self.modules.has_key(`from`):
-        ns = self.modules[`from`]
+      if self.modules.has_key(FROM_KEY):
+        ns = self.modules[FROM_KEY]
       else:
         var code = read_file(dir & `from` & ".gene")
-        ns = self.import_module(`from`, code)
-        self.modules[`from`] = ns
+        ns = self.import_module(`from`.to_key, code)
+        self.modules[`from`.to_key] = ns
     self.import_from_ns(frame, ns, expr.import_matcher.children)
 
 EvaluatorMgr[ExStopInheritance] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
@@ -1002,8 +1002,8 @@ EvaluatorMgr[ExClass] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   expr.class.internal.class.ns.parent = frame.ns
   var super_class: Class
   if expr.super_class == nil:
-    if GENE_NS != nil and GENE_NS.internal.ns.has_key("Object"):
-      super_class = GENE_NS.internal.ns["Object"].internal.class
+    if GENE_NS != nil and GENE_NS.internal.ns.has_key(OBJECT_CLASS_KEY):
+      super_class = GENE_NS.internal.ns[OBJECT_CLASS_KEY].internal.class
   else:
     super_class = self.eval(frame, expr.super_class).internal.class
   expr.class.internal.class.parent = super_class
@@ -1037,7 +1037,7 @@ EvaluatorMgr[ExNew] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var class = self.eval(frame, expr.new_class)
   var instance = new_instance(class.internal.class)
   result = new_gene_instance(instance)
-  discard self.call_method(frame, result, class.internal.class, "new", expr.new_args)
+  discard self.call_method(frame, result, class.internal.class, NEW_KEY, expr.new_args)
 
 EvaluatorMgr[ExMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var meth = expr.meth
@@ -1046,9 +1046,9 @@ EvaluatorMgr[ExMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   case frame.self.internal.kind:
   of GeneClass:
     meth.internal.meth.class = frame.self.internal.class
-    frame.self.internal.class.methods[meth.internal.meth.name] = meth.internal.meth
+    frame.self.internal.class.methods[meth.internal.meth.name.to_key] = meth.internal.meth
   of GeneMixin:
-    frame.self.internal.mix.methods[meth.internal.meth.name] = meth.internal.meth
+    frame.self.internal.mix.methods[meth.internal.meth.name.to_key] = meth.internal.meth
   else:
     not_allowed()
   result = meth
@@ -1060,9 +1060,9 @@ EvaluatorMgr[ExInvokeMethod] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
 
 EvaluatorMgr[ExSuper] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var instance = frame.self
-  var meth = frame.scope["$method"].internal.meth
+  var meth = frame.scope[METHOD_OPTION_KEY].internal.meth
   var class = meth.class
-  result = self.call_method(frame, instance, class.parent, meth.name, expr.super_args)
+  result = self.call_method(frame, instance, class.parent, meth.name.to_key, expr.super_args)
 
 EvaluatorMgr[ExCall] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var target = self.eval(frame, expr.call_target)
@@ -1111,7 +1111,7 @@ proc unquote(self: VM, frame: Frame, expr: Expr, val: GeneValue): GeneValue {.in
 proc unquote(self: VM, frame: Frame, expr: Expr, val: seq[GeneValue]): seq[GeneValue] =
   for item in val:
     var r = self.unquote(frame, expr, item)
-    if item.kind == GeneGene and item.gene.type == Unquote and item.gene.props.get_or_default("discard", false):
+    if item.kind == GeneGene and item.gene.type == Unquote and item.gene.props.get_or_default(DISCARD_KEY, false):
       discard
     else:
       result.add(r)
@@ -1255,7 +1255,7 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       not_allowed()
 
     if second == nil:
-      var val = first.symbol
+      var val = first.symbol.to_key
       frame.scope.def_member(val, GeneNil)
       case for_in.kind:
       of GeneRange:
@@ -1277,8 +1277,8 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       else:
         todo()
     else:
-      var key = first.symbol
-      var val = second.symbol
+      var key = first.symbol.to_key
+      var val = second.symbol.to_key
       frame.scope.def_member(key, GeneNil)
       frame.scope.def_member(val, GeneNil)
       case for_in.kind:

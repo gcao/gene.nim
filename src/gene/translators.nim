@@ -635,162 +635,162 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
   else:
     return new_literal_expr(parent, node)
 
-# TranslatorMgr["enum"          ] = proc(parent: Expr, node: GeneValue): Expr =
-#   var e = new_enum(node.gene.data[0].symbol_or_str)
-#   var i = 1
-#   var value = 0
-#   while i < node.gene.data.len:
-#     var name = node.gene.data[i].symbol
-#     i += 1
-#     if i < node.gene.data.len and node.gene.data[i] == Equal:
-#       i += 1
-#       value = node.gene.data[i].int
-#       i += 1
-#     e.add_member(name, value)
-#     value += 1
-#   result = new_expr(parent, ExEnum)
-#   result.enum = e
+TranslatorMgr[ENUM_KEY          ] = proc(parent: Expr, node: GeneValue): Expr =
+  var e = new_enum(node.gene.data[0].symbol_or_str)
+  var i = 1
+  var value = 0
+  while i < node.gene.data.len:
+    var name = node.gene.data[i].symbol
+    i += 1
+    if i < node.gene.data.len and node.gene.data[i] == Equal:
+      i += 1
+      value = node.gene.data[i].int
+      i += 1
+    e.add_member(name, value)
+    value += 1
+  result = new_expr(parent, ExEnum)
+  result.enum = e
 
-# TranslatorMgr["range"         ] = new_range_expr
-# TranslatorMgr["do"            ] = new_do_expr
-# TranslatorMgr["loop"          ] = new_loop_expr
-# TranslatorMgr["while"         ] = new_while_expr
-# TranslatorMgr["for"           ] = new_for_expr
-# TranslatorMgr["break"         ] = new_break_expr
-# TranslatorMgr["continue"      ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExContinue)
-# TranslatorMgr["if"            ] = new_if_expr
-# TranslatorMgr["not"           ] = new_not_expr
-# TranslatorMgr["var"           ] = new_var_expr
-# TranslatorMgr["throw"         ] = new_throw_expr
-# TranslatorMgr["try"           ] = new_try_expr
-# TranslatorMgr["fn"            ] = new_fn_expr
-# TranslatorMgr["macro"         ] = new_macro_expr
-# TranslatorMgr["return"        ] = new_return_expr
-# TranslatorMgr["aspect"        ] = new_aspect_expr
-# TranslatorMgr["before"        ] = new_advice_expr
-# TranslatorMgr["after"         ] = new_advice_expr
-# TranslatorMgr["ns"            ] = new_ns_expr
-# TranslatorMgr["import"        ] = new_import_expr
-# TranslatorMgr["import_native" ] = new_import_expr
-# TranslatorMgr["$stop_inheritance"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExStopInheritance)
-# TranslatorMgr["class"         ] = new_class_expr
-# TranslatorMgr["method"        ] = new_method_expr
-# TranslatorMgr["native_method" ] = new_method_expr
-# TranslatorMgr["new"           ] = new_new_expr
-# TranslatorMgr["super"         ] = new_super_expr
-# TranslatorMgr["$invoke_method"] = new_invoke_expr
-# TranslatorMgr["mixin"         ] = new_mixin_expr
-# TranslatorMgr["include"       ] = new_include_expr
-# TranslatorMgr["$parse"        ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExParse)
-#   result.parse = new_expr(parent, node.gene.data[0])
-# TranslatorMgr["eval"          ] = new_eval_expr
-# TranslatorMgr["caller_eval"   ] = new_caller_eval_expr
-# TranslatorMgr["match"         ] = new_match_expr
-# TranslatorMgr["quote"         ] = new_quote_expr
-# TranslatorMgr["unquote"       ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExExit)
-#   result.unquote_val = node.gene.data[0]
-# # TranslatorMgr["..."           ] = new_explode_expr
-# TranslatorMgr["env"           ] = new_env_expr
-# TranslatorMgr["exit"          ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExExit)
-#   if node.gene.data.len > 0:
-#     result.exit = new_expr(parent, node.gene.data[0])
-# TranslatorMgr["print"         ] = new_print_expr
-# TranslatorMgr["println"       ] = new_print_expr
-# TranslatorMgr["="             ] = new_assignment_expr
+TranslatorMgr[RANGE_KEY         ] = new_range_expr
+TranslatorMgr[DO_KEY            ] = new_do_expr
+TranslatorMgr[LOOP_KEY          ] = new_loop_expr
+TranslatorMgr[WHILE_KEY         ] = new_while_expr
+TranslatorMgr[FOR_KEY           ] = new_for_expr
+TranslatorMgr[BREAK_KEY         ] = new_break_expr
+TranslatorMgr[CONTINUE_KEY      ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExContinue)
+TranslatorMgr[IF_KEY            ] = new_if_expr
+TranslatorMgr[NOT_KEY           ] = new_not_expr
+TranslatorMgr[VAR_KEY           ] = new_var_expr
+TranslatorMgr[THROW_KEY         ] = new_throw_expr
+TranslatorMgr[TRY_KEY           ] = new_try_expr
+TranslatorMgr[FN_KEY            ] = new_fn_expr
+TranslatorMgr[MACRO_KEY         ] = new_macro_expr
+TranslatorMgr[RETURN_KEY        ] = new_return_expr
+TranslatorMgr[ASPECT_KEY        ] = new_aspect_expr
+TranslatorMgr[BEFORE_KEY        ] = new_advice_expr
+TranslatorMgr[AFTER_KEY         ] = new_advice_expr
+TranslatorMgr[NS_KEY            ] = new_ns_expr
+TranslatorMgr[IMPORT_KEY        ] = new_import_expr
+TranslatorMgr[IMPORT_NATIVE_KEY ] = new_import_expr
+TranslatorMgr[STOP_INHERITANCE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExStopInheritance)
+TranslatorMgr[CLASS_KEY         ] = new_class_expr
+TranslatorMgr[METHOD_KEY        ] = new_method_expr
+TranslatorMgr[NATIVE_METHOD_KEY ] = new_method_expr
+TranslatorMgr[NEW_KEY           ] = new_new_expr
+TranslatorMgr[SUPER_KEY         ] = new_super_expr
+TranslatorMgr[INVOKE_METHOD_KEY ] = new_invoke_expr
+TranslatorMgr[MIXIN_KEY         ] = new_mixin_expr
+TranslatorMgr[INCLUDE_KEY       ] = new_include_expr
+TranslatorMgr[PARSE_KEY         ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExParse)
+  result.parse = new_expr(parent, node.gene.data[0])
+TranslatorMgr[EVAL_KEY          ] = new_eval_expr
+TranslatorMgr[CALLER_EVAL_KEY   ] = new_caller_eval_expr
+TranslatorMgr[MATCH_KEY         ] = new_match_expr
+TranslatorMgr[QUOTE_KEY         ] = new_quote_expr
+TranslatorMgr[UNQUOTE_KEY       ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExExit)
+  result.unquote_val = node.gene.data[0]
+# TranslatorMgr["..."           ] = new_explode_expr
+TranslatorMgr[ENV_KEY           ] = new_env_expr
+TranslatorMgr[EXIT_KEY          ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExExit)
+  if node.gene.data.len > 0:
+    result.exit = new_expr(parent, node.gene.data[0])
+TranslatorMgr[PRINT_KEY         ] = new_print_expr
+TranslatorMgr[PRINTLN_KEY       ] = new_print_expr
+TranslatorMgr[EQ_KEY            ] = new_assignment_expr
 
-# TranslatorMgr["call"          ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExCall)
-#   # for k, v in node.gene.props:
-#   #   result.call_props[k] = new_expr(parent, v)
-#   result.call_target = new_expr(result, node.gene.data[0])
-#   if node.gene.data.len > 2:
-#     not_allowed("Syntax error: too many parameters are passed to (call).")
-#   elif node.gene.data.len > 1:
-#     result.call_args = new_expr(result, node.gene.data[1])
+TranslatorMgr[CALL_KEY          ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExCall)
+  # for k, v in node.gene.props:
+  #   result.call_props[k] = new_expr(parent, v)
+  result.call_target = new_expr(result, node.gene.data[0])
+  if node.gene.data.len > 2:
+    not_allowed("Syntax error: too many parameters are passed to (call).")
+  elif node.gene.data.len > 1:
+    result.call_args = new_expr(result, node.gene.data[1])
 
-# TranslatorMgr["$get"          ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExGet)
-#   result.get_target = new_expr(result, node.gene.data[0])
-#   result.get_index = new_expr(result, node.gene.data[1])
+TranslatorMgr[GET_KEY           ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExGet)
+  result.get_target = new_expr(result, node.gene.data[0])
+  result.get_index = new_expr(result, node.gene.data[1])
 
-# TranslatorMgr["$set"          ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExGet)
-#   result = new_expr(parent, ExSet)
-#   result.set_target = new_expr(result, node.gene.data[0])
-#   result.set_index = new_expr(result, node.gene.data[1])
-#   result.set_value = new_expr(result, node.gene.data[2])
+TranslatorMgr[SET_KEY           ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExGet)
+  result = new_expr(parent, ExSet)
+  result.set_target = new_expr(result, node.gene.data[0])
+  result.set_index = new_expr(result, node.gene.data[1])
+  result.set_value = new_expr(result, node.gene.data[2])
 
-# TranslatorMgr["$def_member"   ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExDefMember)
-#   result.def_member_name = new_expr(result, node.gene.data[0])
-#   result.def_member_value = new_expr(result, node.gene.data[1])
+TranslatorMgr[DEF_MEMBER_KEY    ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExDefMember)
+  result.def_member_name = new_expr(result, node.gene.data[0])
+  result.def_member_value = new_expr(result, node.gene.data[1])
 
-# TranslatorMgr["$def_ns_member"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExDefNsMember)
-#   result.def_ns_member_name = new_expr(result, node.gene.data[0])
-#   result.def_ns_member_value = new_expr(result, node.gene.data[1])
+TranslatorMgr[DEF_NS_MEMBER_KEY ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExDefNsMember)
+  result.def_ns_member_name = new_expr(result, node.gene.data[0])
+  result.def_ns_member_value = new_expr(result, node.gene.data[1])
 
-# TranslatorMgr["$get_class"    ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExGetClass)
-#   result.get_class_val = new_expr(result, node.gene.data[0])
+TranslatorMgr[GET_CLASS_KEY     ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExGetClass)
+  result.get_class_val = new_expr(result, node.gene.data[0])
 
-# TranslatorMgr["->"            ] = proc(parent: Expr, node: GeneValue): Expr =
-#   return new_block_expr(parent, node)
+TranslatorMgr[BLOCK_KEY         ] = proc(parent: Expr, node: GeneValue): Expr =
+  return new_block_expr(parent, node)
 
-# TranslatorMgr["todo"          ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExTodo)
-#   if node.gene.data.len > 0:
-#     result.todo = new_expr(result, node.gene.data[0])
+TranslatorMgr[TODO_KEY          ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExTodo)
+  if node.gene.data.len > 0:
+    result.todo = new_expr(result, node.gene.data[0])
 
-# TranslatorMgr["not_allowed"   ] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExNotAllowed)
-#   if node.gene.data.len > 0:
-#     result.not_allowed = new_expr(result, node.gene.data[0])
+TranslatorMgr[NOT_ALLOWED_KEY   ] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExNotAllowed)
+  if node.gene.data.len > 0:
+    result.not_allowed = new_expr(result, node.gene.data[0])
 
-# TranslatorMgr["$parse_cmd_args"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExParseCmdArgs)
-#   var m = new_cmd_args_matcher()
-#   m.parse(node.gene.data[0])
-#   result.cmd_args_schema = m
-#   result.cmd_args = new_expr(result, node.gene.data[1])
+TranslatorMgr[PARSE_CMD_ARGS_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExParseCmdArgs)
+  var m = new_cmd_args_matcher()
+  m.parse(node.gene.data[0])
+  result.cmd_args_schema = m
+  result.cmd_args = new_expr(result, node.gene.data[1])
 
-# TranslatorMgr["repl"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExRepl)
+TranslatorMgr[REPL_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExRepl)
 
-# TranslatorMgr["async"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExAsync)
-#   result.async = new_expr(result, node.gene.data[0])
+TranslatorMgr[ASYNC_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAsync)
+  result.async = new_expr(result, node.gene.data[0])
 
-# TranslatorMgr["await"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExAwait)
-#   result.await = @[]
-#   for item in node.gene.data:
-#     result.await.add(new_expr(result, item))
+TranslatorMgr[AWAIT_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAwait)
+  result.await = @[]
+  for item in node.gene.data:
+    result.await.add(new_expr(result, item))
 
-# TranslatorMgr["$on_future_success"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExAsyncCallback)
-#   result.acb_success = true
-#   result.acb_self = new_expr(result, node.gene.data[0])
-#   result.acb_callback = new_expr(result, node.gene.data[1])
+TranslatorMgr[ON_FUTURE_SUCCESS_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAsyncCallback)
+  result.acb_success = true
+  result.acb_self = new_expr(result, node.gene.data[0])
+  result.acb_callback = new_expr(result, node.gene.data[1])
 
-# TranslatorMgr["$on_future_failure"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExAsyncCallback)
-#   result.acb_success = false
-#   result.acb_self = new_expr(result, node.gene.data[0])
-#   result.acb_callback = new_expr(result, node.gene.data[1])
+TranslatorMgr[ON_FUTURE_FAILURE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExAsyncCallback)
+  result.acb_success = false
+  result.acb_self = new_expr(result, node.gene.data[0])
+  result.acb_callback = new_expr(result, node.gene.data[1])
 
-# TranslatorMgr["@"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExSelector)
-#   for item in node.gene.data:
-#     result.selector.add(new_expr(result, item))
+TranslatorMgr[SELECTOR_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExSelector)
+  for item in node.gene.data:
+    result.selector.add(new_expr(result, item))
 
-# TranslatorMgr["@*"] = proc(parent: Expr, node: GeneValue): Expr =
-#   result = new_expr(parent, ExSelector)
-#   result.parallel_mode = true
-#   for item in node.gene.data:
-#     result.selector.add(new_expr(result, item))
+TranslatorMgr[SELECTOR_PARALLEL_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExSelector)
+  result.parallel_mode = true
+  for item in node.gene.data:
+    result.selector.add(new_expr(result, item))
