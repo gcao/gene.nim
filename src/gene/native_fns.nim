@@ -237,6 +237,10 @@ proc add_native_methods*() =
       var i = data[0].int
       result = self.str[i]
 
+  add_native_method "str_to_i",
+    proc(self: GeneValue, props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+      result = self.str.parse_int
+
   add_native_method "str_trim",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.str.strip
