@@ -1011,6 +1011,14 @@ converter key_to_gene*(v: MapKey): GeneValue = new_gene_int(cast[int](v))
 converter seq_to_gene*(v: seq[GeneValue]): GeneValue {.gcsafe.} = new_gene_vec(v)
 converter str_to_gene*(v: string): GeneValue {.gcsafe.} = new_gene_string(v)
 
+converter to_map*(self: OrderedTable[string, GeneValue]): OrderedTable[MapKey, GeneValue] {.inline.} =
+  for k, v in self:
+    result[k.to_key] = v
+
+converter to_string_map*(self: OrderedTable[MapKey, GeneValue]): OrderedTable[string, GeneValue] {.inline.} =
+  for k, v in self:
+    result[k.to_s] = v
+
 converter int_to_scope_index*(v: int): NameIndexScope = cast[NameIndexScope](v)
 converter scope_index_to_int*(v: NameIndexScope): int = cast[int](v)
 
@@ -1099,8 +1107,14 @@ proc `[]`*(self: Namespace, key: MapKey): GeneValue {.inline.} =
   else:
     raise new_exception(NotDefinedException, %key & " is not defined")
 
+proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
+  result = self[key.to_key]
+
 proc `[]=`*(self: var Namespace, key: MapKey, val: GeneValue) {.inline.} =
   self.members[key] = val
+
+proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
+  self.members[key.to_key] = val
 
 #################### Scope #######################
 
@@ -1539,6 +1553,12 @@ proc `%`*(self: GeneValue): JsonNode =
 proc to_json*(self: GeneValue): string =
   return $(%self)
 
+proc `[]`*(self: OrderedTable[MapKey, GeneValue], key: string): GeneValue =
+  self[key.to_key]
+
+proc `[]=`*(self: var OrderedTable[MapKey, GeneValue], key: string, value: GeneValue) =
+  self[key.to_key] = value
+
 #################### AOP #########################
 
 proc new_aspect*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Aspect =
@@ -1665,6 +1685,12 @@ proc new_gene_map*(): GeneValue =
   return GeneValue(
     kind: GeneMap,
     map: OrderedTable[MapKey, GeneValue](),
+  )
+
+converter new_gene_map*(self: OrderedTable[string, GeneValue]): GeneValue =
+  return GeneValue(
+    kind: GeneMap,
+    map: self,
   )
 
 proc new_gene_set*(items: varargs[GeneValue]): GeneValue =

@@ -1,5 +1,6 @@
 import unittest, tables
 
+import gene/map_key
 import gene/types
 import gene/interpreter
 
@@ -325,7 +326,7 @@ test_interpreter """
 """, 1
 
 test "Interpreter / eval: native function (test)":
-  proc test(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
+  proc test(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     1
   GLOBAL_NS.internal.ns["test"] = test.to_gene
   var code = cleanup """
@@ -335,7 +336,7 @@ test "Interpreter / eval: native function (test)":
   check interpreter.eval(code) == 1
 
 test "Interpreter / eval: native function (test 1 2)":
-  proc test(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
+  proc test(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     data[0].int + data[1].int
   GLOBAL_NS.internal.ns["test"] = test.to_gene
   var code = cleanup """
