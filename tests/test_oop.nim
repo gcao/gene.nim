@@ -1,6 +1,5 @@
 import unittest, tables
 
-import gene/map_key
 import gene/types
 import gene/interpreter
 
@@ -31,7 +30,7 @@ test_interpreter """
   )
   (new A)
 """, proc(r: GeneValue) =
-  check r.internal.instance.value.gene.props["description".to_key] == "Class A"
+  check r.internal.instance.value.gene.props["description"] == "Class A"
 
 test_interpreter """
   (class A
@@ -51,7 +50,7 @@ test_interpreter """
   )
   (new A "test")
 """, proc(r: GeneValue) =
-  check r.internal.instance.value.gene.props["description".to_key] == "test"
+  check r.internal.instance.value.gene.props["description"] == "test"
 
 test_interpreter """
   (class A
@@ -161,7 +160,7 @@ test_interpreter """
 test "Interpreter / eval: native method":
   proc test_meth(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     data[0].int + data[1].int
-  GLOBAL_NS.internal.ns["test_fn".to_key] = test_meth.to_gene
+  GLOBAL_NS.internal.ns["test_fn"] = test_meth.to_gene
   var code = cleanup """
     (class A
       (native_method test test_fn)

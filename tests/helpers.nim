@@ -1,5 +1,6 @@
-import unittest, strutils, dynlib
+import unittest, strutils, dynlib, tables
 
+import gene/map_key
 import gene/types
 import gene/parser
 import gene/normalizers
@@ -8,6 +9,16 @@ import gene/interpreter
 # Uncomment below lines to see logs
 # import logging
 # addHandler(newConsoleLogger())
+
+# This is added to make it easier to write tests
+converter str_to_key*(s: string): MapKey {.inline.} =
+  if KeyMapping.has_key(s):
+    result = KeyMapping[s]
+  else:
+    result = add_key(s)
+
+converter key_to_s*(self: MapKey): string {.inline.} =
+  result = Keys[cast[int](self)]
 
 proc cleanup*(code: string): string =
   result = code

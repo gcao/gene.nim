@@ -2,7 +2,6 @@
 
 import unittest, options, tables, unicode, times
 
-import gene/map_key
 import gene/types
 
 import ./helpers
@@ -124,7 +123,7 @@ test_parser "%foo", proc(r: GeneValue) = # -> (unquote foo)
 test_parser "%_foo", proc(r: GeneValue) = # -> (unquote foo)
   check r.kind == GeneGene
   check r.gene.type == new_gene_symbol("unquote")
-  check r.gene.props[DISCARD_KEY] == GeneTrue
+  check r.gene.props["discard"] == GeneTrue
   check r.gene.data == @[new_gene_symbol("foo")]
 
 # TODO: %_ is not allowed on gene type and property value
@@ -141,7 +140,7 @@ test_parser "1/2", proc(r: GeneValue) =
 
 test_parser "{^ratio -1/2}", proc(r: GeneValue) =
   check r.kind == GeneMap
-  check r.map["ratio".to_key] == new_gene_ratio(-1, 2)
+  check r.map["ratio"] == new_gene_ratio(-1, 2)
 
 test_parser_error "{^ratio 1/-2}"
 
@@ -218,13 +217,13 @@ test_parse_document """
   ^name "Test document"
   ^version "0.1.0"
 """, proc(r: GeneDocument) =
-  check r.props["name".to_key] == "Test document"
-  check r.props["version".to_key] == "0.1.0"
+  check r.props["name"] == "Test document"
+  check r.props["version"] == "0.1.0"
   check r.data.len == 0
 
 test_parse_document """
   ^name "Test document"
   1 2
 """, proc(r: GeneDocument) =
-  check r.props["name".to_key] == "Test document"
+  check r.props["name"] == "Test document"
   check r.data == @[new_gene_int(1), new_gene_int(2)]

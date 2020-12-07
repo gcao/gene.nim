@@ -2,6 +2,8 @@ import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch,
 
 import ./map_key
 
+export MapKey
+
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
   "+", "-", "*", "/",
