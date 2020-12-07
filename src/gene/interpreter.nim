@@ -1296,7 +1296,7 @@ EvaluatorMgr[ExFor] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       of GeneMap:
         for k, v in for_in.map:
           try:
-            frame.scope[key] = k
+            frame.scope[key] = k.to_s
             frame.scope[val] = v
             for e in expr.for_blk:
               discard self.eval(frame, e)

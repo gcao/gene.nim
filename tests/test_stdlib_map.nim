@@ -1,7 +1,4 @@
-import unittest, tables
-
 import gene/types
-import gene/interpreter
 
 import ./helpers
 
@@ -9,10 +6,9 @@ test_core """
   ({^a 1 ^b 2} .size)
 """, 2
 
-# TODO:
-# test_core """
-#   ({^a 1 ^b 2} .keys)
-# """, @[new_gene_string("a"), new_gene_string("b")]
+test_core """
+  ({^a 1 ^b 2} .keys)
+""", @[new_gene_string("a"), new_gene_string("b")]
 
 test_core """
   ({^a 1 ^b 2} .values)
