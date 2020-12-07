@@ -10,8 +10,8 @@ converter to_key*(i: int): MapKey {.inline.} =
   result = cast[MapKey](i)
 
 proc add_key*(s: string): MapKey {.inline.} =
-  Keys.add(s)
   result = Keys.len
+  Keys.add(s)
   KeyMapping[s] = result
 
 proc to_key*(s: string): MapKey {.inline.} =
@@ -34,8 +34,8 @@ converter to_keys*(self: seq[string]): seq[MapKey] {.inline.} =
   for item in self:
     result.add(item.to_key)
 
-# proc `==`*(this, that: MapKey): bool {.inline.} =
-#   result = cast[int](this) == cast[int](that)
+proc `==`*(this, that: MapKey): bool {.inline.} =
+  result = cast[int](this) == cast[int](that)
 
 proc hash*(self: MapKey): Hash {.inline.} =
   result = cast[int](self)
@@ -57,7 +57,6 @@ let MULTIPLE_KEY*             = add_key("multiple")
 let REQUIRED_KEY*             = add_key("required")
 let DEFAULT_KEY*              = add_key("default")
 let DISCARD_KEY*              = add_key("discard")
-let STDERR_KEY*               = add_key("stderr")
 let DECORATOR_KEY*            = add_key("decorator")
 let ENUM_KEY*                 = add_key("enum")
 let RANGE_KEY*                = add_key("range")
@@ -123,12 +122,16 @@ let METHOD_OPTION_KEY*        = add_key("$method")
 let TODO_KEY*                 = add_key("todo")
 let NOT_ALLOWED_KEY*          = add_key("not_allowed")
 let CORE_KEY*                 = add_key("core")
+let GLOBAL_KEY*               = add_key("global")
 let GENE_KEY*                 = add_key("gene")
 let GENEX_KEY*                = add_key("genex")
 let NATIVE_KEY*               = add_key("native")
 let FILE_KEY*                 = add_key("$file")
 let ADD_KEY*                  = add_key("+")
 let SUB_KEY*                  = add_key("-")
+let STDIN_KEY*                = add_key("stdin")
+let STDOUT_KEY*               = add_key("stdout")
+let STDERR_KEY*               = add_key("stderr")
 let OBJECT_CLASS_KEY*         = add_key("Object")
 let EXCEPTION_CLASS_KEY*      = add_key("Exception")
 let APPLICATION_CLASS_KEY*    = add_key("Application")
