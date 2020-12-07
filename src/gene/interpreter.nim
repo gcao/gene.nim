@@ -32,8 +32,8 @@ proc explode_and_add*(parent: GeneValue, value: GeneValue)
 
 proc eval_args*(self: VM, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
 
-proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue
-proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: GeneValue): GeneValue
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args_blk: seq[Expr]): GeneValue
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args: GeneValue): GeneValue
 proc call_fn*(self: VM, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: Table[FnOption, GeneValue]): GeneValue
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
@@ -47,18 +47,18 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
 
 proc new_app*(): Application =
   GLOBAL_NS = new_namespace("global")
-  GLOBAL_NS.internal.ns["global"] = GLOBAL_NS
+  GLOBAL_NS.internal.ns["global".to_key] = GLOBAL_NS
   result = Application(
     ns: GLOBAL_NS.internal.ns,
   )
-  GLOBAL_NS.internal.ns["stdin"]  = stdin
-  GLOBAL_NS.internal.ns["stdout"] = stdout
-  GLOBAL_NS.internal.ns["stderr"] = stderr
+  GLOBAL_NS.internal.ns["stdin".to_key]  = stdin
+  GLOBAL_NS.internal.ns["stdout".to_key] = stdout
+  GLOBAL_NS.internal.ns["stderr".to_key] = stderr
   var cmd_args = command_line_params().map(str_to_gene)
-  GLOBAL_NS.internal.ns["$cmd_args"] = cmd_args
+  GLOBAL_NS.internal.ns["$cmd_args".to_key] = cmd_args
 
 var APP* = new_app()
-GLOBAL_NS.internal.ns["$app"] = APP
+GLOBAL_NS.internal.ns["$app".to_key] = APP
 
 #################### Package #####################
 
@@ -66,7 +66,7 @@ proc parse_deps(deps: seq[GeneValue]): Table[string, Package] =
   for dep in deps:
     var name = dep.gene.data[0].str
     var version = dep.gene.data[1]
-    var location = dep.gene.props["location"]
+    var location = dep.gene.props["location".to_key]
     var pkg = Package(name: name, version: version)
     pkg.dir = location.str
     result[name] = pkg
@@ -78,12 +78,12 @@ proc new_package*(dir: string): Package =
     var package_file = d & "/package.gene"
     if file_exists(package_file):
       var doc = read_document(read_file(package_file))
-      result.name = doc.props["name"].str
-      result.version = doc.props["version"]
+      result.name = doc.props["name".to_key].str
+      result.version = doc.props["version".to_key]
       result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
       result.dir = d
-      result.dependencies = parse_deps(doc.props["deps"].vec)
-      result.ns["$pkg"] = result
+      result.dependencies = parse_deps(doc.props["deps".to_key].vec)
+      result.ns["$pkg".to_key] = result
       return result
     else:
       d = parent_dir(d)
@@ -91,7 +91,7 @@ proc new_package*(dir: string): Package =
   result.adhoc = true
   result.ns = new_namespace(GLOBAL_NS, "package:<adhoc>")
   result.dir = d
-  result.ns["$pkg"] = result
+  result.ns["$pkg".to_key] = result
 
 #################### VM ##########################
 
@@ -204,7 +204,7 @@ proc load_gene_module*(self: VM) =
 proc load_genex_module*(self: VM) =
   discard self.import_module("genex", readFile(GENE_HOME & "/src/genex.gene"))
 
-proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args: GeneValue): GeneValue =
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args: GeneValue): GeneValue =
   var meth = class.get_method(method_name)
   if meth != nil:
     var options = Table[FnOption, GeneValue]()
@@ -215,14 +215,14 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     else:
       result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
-    case method_name:
+    var s = method_name.to_s
+    case s:
     of "new": # No implementation is required for `new` method
       discard
     else:
-      todo("Method is missing: " & method_name)
+      todo("Method is missing: " & method_name.to_s)
 
-
-proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: string, args_blk: seq[Expr]): GeneValue =
+proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args_blk: seq[Expr]): GeneValue =
   var args = self.eval_args(frame, @[], args_blk)
   result = self.call_method(frame, instance, class, method_name, args)
 
@@ -249,7 +249,7 @@ proc process_args*(self: VM, frame: Frame, matcher: RootMatcher, args: GeneValue
         frame.scope.def_member(field.name, field.value)
   of MatchMissingFields:
     for field in match_result.missing:
-      not_allowed("Argument " & field & " is missing.")
+      not_allowed("Argument " & field.to_s & " is missing.")
   else:
     todo()
 
@@ -615,10 +615,9 @@ EvaluatorMgr[ExNotAllowed] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
     not_allowed()
 
 EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  case expr.symbol:
-  of "gene":
+  if expr.symbol == "gene":
     return GENE_NS
-  of "genex":
+  elif expr.symbol == "genex":
     return GENEX_NS
   else:
     result = frame[expr.symbol]
@@ -628,7 +627,9 @@ EvaluatorMgr[ExDo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   try:
     for e in expr.do_props:
       var val = self.eval(frame, e)
-      case e.map_key:
+      # case e.map_key:
+      var s = e.map_key.to_s
+      case s:
       of "self":
         frame.self = val
       else:
@@ -975,7 +976,7 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       todo()
     else:
       for m in expr.import_matcher.children:
-        var v = lib.sym_addr(m.name)
+        var v = lib.sym_addr(m.name.to_s)
         if v == nil:
           todo()
         else:

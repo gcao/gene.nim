@@ -35,8 +35,8 @@ Normalizers.add proc(self: GeneValue): bool =
       self.gene.data = @[new_gene_symbol("self")]
       return true
     elif `type`.symbol[0] == '.' and `type`.symbol != "...":  # (.method x y z)
-      self.gene.props["self"] = new_gene_symbol("self")
-      self.gene.props["method"] = new_gene_string_move(`type`.symbol.substr(1))
+      self.gene.props[SELF_KEY] = new_gene_symbol("self")
+      self.gene.props[METHOD_KEY] = new_gene_string_move(`type`.symbol.substr(1))
       self.gene.type = new_gene_symbol("$invoke_method")
   elif `type`.kind == GeneComplexSymbol and `type`.csymbol.first.startsWith(".@"):
     var new_type = new_gene_symbol("@")
@@ -74,9 +74,9 @@ Normalizers.add proc(self: GeneValue): bool =
       of "else":
         else_blk.add(item)
       i += 1
-    self.gene.props["cond"] = cond
-    self.gene.props["then"] = then_blk
-    self.gene.props["else"] = else_blk
+    self.gene.props[COND_KEY] = cond
+    self.gene.props[THEN_KEY] = then_blk
+    self.gene.props[ELSE_KEY] = else_blk
     self.gene.data.reset
 
 Normalizers.add proc(self: GeneValue): bool =
@@ -93,8 +93,8 @@ Normalizers.add proc(self: GeneValue): bool =
           expect_module = true
         else:
           names.add(val)
-      self.gene.props["names"] = new_gene_vec(names)
-      self.gene.props["module"] = module
+      self.gene.props[NAMES_KEY] = new_gene_vec(names)
+      self.gene.props[MODULE_KEY] = module
       return true
 
 Normalizers.add proc(self: GeneValue): bool =
@@ -175,8 +175,8 @@ Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
   var first = self.gene.data[0]
   if first.kind == GeneSymbol and first.symbol[0] == '.' and first.symbol != "...":
-    self.gene.props["self"] = `type`
-    self.gene.props["method"] = new_gene_string_move(first.symbol.substr(1))
+    self.gene.props[SELF_KEY] = `type`
+    self.gene.props[METHOD_KEY] = new_gene_string_move(first.symbol.substr(1))
     self.gene.data.delete 0
     self.gene.type = new_gene_symbol("$invoke_method")
     return true
@@ -186,7 +186,7 @@ Normalizers.add proc(self: GeneValue): bool =
     return false
   var first = self.gene.data[0]
   if first.kind == GeneSymbol and first.symbol == "->":
-    self.gene.props["args"] = self.gene.type
+    self.gene.props[ARGS_KEY] = self.gene.type
     self.gene.type = self.gene.data[0]
     self.gene.data.delete 0
     return true

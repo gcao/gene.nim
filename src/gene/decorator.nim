@@ -15,7 +15,7 @@ proc is_decorator(v: GeneValue): bool =
 
 proc decorate(target, with: GeneValue): GeneValue =
   result = new_gene_gene(Call)
-  result.gene.props["decorator"] = GeneTrue
+  result.gene.props[DECORATOR_KEY] = GeneTrue
   case with.kind:
   of GeneSymbol:
     result.gene.data.add(new_gene_symbol(with.symbol[1..^1]))

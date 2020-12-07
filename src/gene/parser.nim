@@ -211,7 +211,7 @@ proc read_quoted_internal(self: var Parser, quote_name: string): GeneValue =
   result.gene.type = new_gene_symbol(quote_name)
   result.gene.data = @[quoted]
   if unquote_discard:
-    result.gene.props["discard"] = true
+    result.gene.props[DISCARD_KEY] = true
 
 proc read_quoted(self: var Parser): GeneValue =
   return self.read_quoted_internal("quote")
@@ -408,11 +408,11 @@ proc read_map(self: var Parser, mode: MapKind): OrderedTable[MapKey, GeneValue] 
         if self.buf[self.bufPos] == '^':
           self.bufPos.inc()
           key = self.read_token(false)
-          result[key] = GeneTrue
+          result[key.to_key] = GeneTrue
         elif self.buf[self.bufPos] == '!':
           self.bufPos.inc()
           key = self.read_token(false)
-          result[key] = GeneFalse
+          result[key.to_key] = GeneFalse
         else:
           key = self.read_token(false)
           state = PropState.PropValue
@@ -435,7 +435,7 @@ proc read_map(self: var Parser, mode: MapKind): OrderedTable[MapKey, GeneValue] 
       elif ch == '}':
         raise new_exception(ParseError, "Expect value for " & key)
       state = PropState.PropKey
-      result[key] = self.read_internal()
+      result[key.to_key] = self.read_internal()
 
 proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.

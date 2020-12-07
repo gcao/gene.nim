@@ -5,10 +5,10 @@ import ./map_key
 import ./types
 
 proc add_native_fn*(name: string, fn: NativeFn) =
-  var native_fns = GENE_NS.internal.ns["native"]
-  if native_fns.has_key(name):
+  var native_fns = GENE_NS.internal.ns["native".to_key]
+  if native_fns.has_key(name.to_key):
     todo("Add another method to allow overwriting method")
-  native_fns.internal.ns[name] = fn
+  native_fns.internal.ns[name.to_key] = fn
 
 proc add_native_fns*() =
   add_native_fn "class_new",
@@ -74,7 +74,7 @@ proc add_native_fns*() =
       var url = data[0].str
       var headers = newHttpHeaders()
       for k, v in data[2].map:
-        headers.add(k, v.str)
+        headers.add(k.to_s, v.str)
       var client = newHttpClient()
       client.headers = headers
       result = client.get_content(url)
@@ -84,7 +84,7 @@ proc add_native_fns*() =
       var url = data[0].str
       var headers = newHttpHeaders()
       for k, v in data[2].map:
-        headers.add(k, v.str)
+        headers.add(k.to_s, v.str)
       var client = newAsyncHttpClient()
       client.headers = headers
       var f = client.get_content(url)
@@ -120,10 +120,10 @@ proc add_native_fns*() =
       result = new_gene_datetime(date)
 
 proc add_native_method*(name: string, fn: NativeMethod) =
-  var native_fns = GENE_NS.internal.ns["native"]
-  if native_fns.has_key(name):
+  var native_fns = GENE_NS.internal.ns["native".to_key]
+  if native_fns.has_key(name.to_key):
     todo("Add another method to allow overwriting method")
-  native_fns.internal.ns[name] = fn
+  native_fns.internal.ns[name.to_key] = fn
 
 proc add_native_methods*() =
   add_native_method "object_is",

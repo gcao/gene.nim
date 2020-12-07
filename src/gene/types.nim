@@ -56,8 +56,8 @@ type
     `from`*: GeneValue
 
   ImportMatcher* = ref object
-    name*: string
-    `as`*: string
+    name*: MapKey
+    `as`*: MapKey
     children*: seq[ImportMatcher]
     children_only*: bool # true if self should not be imported
 
@@ -363,7 +363,7 @@ type
     of SmIndex:
       index*: int
     of SmName:
-      name*: string
+      name*: MapKey
     else: discard
 
   SelectResultMode* = enum
@@ -572,7 +572,7 @@ type
     of ExString:
       str*: string
     of ExSymbol:
-      symbol*: string
+      symbol*: MapKey
     of ExComplexSymbol:
       csymbol*: ComplexSymbol
     of ExArray:
@@ -580,7 +580,7 @@ type
     of ExMap:
       map*: seq[Expr]
     of ExMapChild:
-      map_key*: string
+      map_key*: MapKey
       map_val*: Expr
     of ExEnum:
       `enum`*: Enum
@@ -682,7 +682,7 @@ type
       meth_fn_native*: Expr
     of ExInvokeMethod:
       invoke_self*: Expr
-      invoke_meth*: string
+      invoke_meth*: MapKey
       invoke_args*: seq[Expr]
     of ExSuper:
       super_args*: seq[Expr]
@@ -777,7 +777,7 @@ type
     of FrMethod:
       class*: Class
       meth*: Function
-      meth_name*: string
+      meth_name*: MapKey
       # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
     else:
       discard
@@ -836,7 +836,7 @@ type
   Matcher* = ref object
     root*: RootMatcher
     kind*: MatcherKind
-    name*: string
+    name*: MapKey
     # match_name*: bool # Match symbol to name - useful for (myif true then ... else ...)
     default_value*: GeneValue
     default_value_expr*: Expr
@@ -851,7 +851,7 @@ type
     MatchWrongType # E.g. map is passed but array or gene is expected
 
   MatchedField* = ref object
-    name*: string
+    name*: MapKey
     value*: GeneValue # Either value_expr or value must be given
     value_expr*: Expr # Expression for calculating default value
 
@@ -862,7 +862,7 @@ type
     fields*: seq[MatchedField]
     assign_only*: bool # If true, no new variables will be defined
     # If missing fields
-    missing*: seq[string]
+    missing*: seq[MapKey]
     # If wrong type
     expect_type*: string
     found_type*: string
@@ -870,7 +870,7 @@ type
   # Internal state when applying the matcher to an input
   # Limited to one level
   MatchState* = ref object
-    # prop_processed*: seq[string]
+    # prop_processed*: seq[MapKey]
     data_index*: int
 
   FrameManager* = ref object
@@ -884,7 +884,7 @@ type
 
   ArgMatcherRoot* = ref object
     include_program*: bool
-    options*: Table[MapKey, ArgMatcher]
+    options*: Table[string, ArgMatcher]
     args*: seq[ArgMatcher]
     # Extra is always returned if "-- ..." is found.
 
@@ -918,8 +918,8 @@ type
   ArgMatchingResult* = ref object
     kind*: ArgMatchingResultKind
     program*: string
-    options*: Table[MapKey, GeneValue]
-    args*: Table[MapKey, GeneValue]
+    options*: Table[string, GeneValue]
+    args*: Table[string, GeneValue]
     extra*: seq[string]
     failure*: string  # if kind == AmFailure
 
@@ -1088,18 +1088,18 @@ proc root*(self: Namespace): Namespace =
   else:
     return self.parent.root
 
-proc has_key*(self: Namespace, key: string): bool {.inline.} =
+proc has_key*(self: Namespace, key: MapKey): bool {.inline.} =
   return self.members.has_key(key)
 
-proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
+proc `[]`*(self: Namespace, key: MapKey): GeneValue {.inline.} =
   if self.has_key(key):
     return self.members[key]
   elif not self.stop_inheritance and self.parent != nil:
     return self.parent[key]
   else:
-    raise new_exception(NotDefinedException, key & " is not defined")
+    raise new_exception(NotDefinedException, %key & " is not defined")
 
-proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
+proc `[]=`*(self: var Namespace, key: MapKey, val: GeneValue) {.inline.} =
   self.members[key] = val
 
 #################### Scope #######################
@@ -1131,13 +1131,13 @@ proc has_key(self: Scope, key: MapKey, max: int): bool {.inline.} =
   if self.parent != nil:
     return self.parent.has_key(key, self.parent_index_max)
 
-proc has_key*(self: Scope, key: string): bool {.inline.} =
+proc has_key*(self: Scope, key: MapKey): bool {.inline.} =
   if self.mappings.has_key(key):
     return true
   elif self.parent != nil:
     return self.parent.has_key(key, self.parent_index_max)
 
-proc def_member*(self: var Scope, key: string, val: GeneValue) {.inline.} =
+proc def_member*(self: var Scope, key: MapKey, val: GeneValue) {.inline.} =
   var index = self.members.len
   self.members.add(val)
   if self.mappings.has_key(key):
@@ -1145,7 +1145,7 @@ proc def_member*(self: var Scope, key: string, val: GeneValue) {.inline.} =
   else:
     self.mappings[key] = @[cast[NameIndexScope](index)]
 
-proc `[]`(self: Scope, key: string, max: int): GeneValue {.inline.} =
+proc `[]`(self: Scope, key: MapKey, max: int): GeneValue {.inline.} =
   if self.mappings.has_key(key):
     var found = self.mappings[key]
     var i = found.len - 1
@@ -1158,14 +1158,14 @@ proc `[]`(self: Scope, key: string, max: int): GeneValue {.inline.} =
   if self.parent != nil:
     return self.parent[key, self.parent_index_max]
 
-proc `[]`*(self: Scope, key: string): GeneValue {.inline.} =
+proc `[]`*(self: Scope, key: MapKey): GeneValue {.inline.} =
   if self.mappings.has_key(key):
     var i: int = self.mappings[key][^1]
     return self.members[i]
   elif self.parent != nil:
     return self.parent[key, self.parent_index_max]
 
-proc `[]=`(self: var Scope, key: string, val: GeneValue, max: int) {.inline.} =
+proc `[]=`(self: var Scope, key: MapKey, val: GeneValue, max: int) {.inline.} =
   if self.mappings.has_key(key):
     var found = self.mappings[key]
     var i = found.len - 1
@@ -1181,7 +1181,7 @@ proc `[]=`(self: var Scope, key: string, val: GeneValue, max: int) {.inline.} =
   else:
     not_allowed()
 
-proc `[]=`*(self: var Scope, key: string, val: GeneValue) {.inline.} =
+proc `[]=`*(self: var Scope, key: MapKey, val: GeneValue) {.inline.} =
   if self.mappings.has_key(key):
     var i: int = self.mappings[key][^1]
     self.members[i] = val
@@ -1202,7 +1202,7 @@ proc reset*(self: var Frame) {.inline.} =
   self.scope = nil
   self.extra = nil
 
-proc `[]`*(self: Frame, name: string): GeneValue {.inline.} =
+proc `[]`*(self: Frame, name: MapKey): GeneValue {.inline.} =
   if self.scope.has_key(name):
     return self.scope[name]
   else:
@@ -1244,7 +1244,7 @@ proc new_class*(name: string): Class =
     ns: new_namespace(nil, name),
   )
 
-proc get_method*(self: Class, name: string): Method =
+proc get_method*(self: Class, name: MapKey): Method =
   if self.methods.has_key(name):
     return self.methods[name]
   elif self.parent != nil:
@@ -1310,9 +1310,9 @@ proc get_member*(self: GeneValue, name: string): GeneValue =
   of GeneInternal:
     case self.internal.kind:
     of GeneNamespace:
-      return self.internal.ns[name]
+      return self.internal.ns[name.to_key]
     of GeneClass:
-      return self.internal.class.ns[name]
+      return self.internal.class.ns[name.to_key]
     of GeneEnum:
       return self.internal.enum[name]
     of GeneEnumMember:
@@ -1532,7 +1532,7 @@ proc `%`*(self: GeneValue): JsonNode =
   of GeneMap:
     result = newJObject()
     for k, v in self.map:
-      result[k] = %v
+      result[k.to_s] = %v
   else:
     todo()
 
@@ -1932,7 +1932,7 @@ converter to_selector_item*(name: string): SelectorItem =
     var index = parse_int(name)
     result.matchers.add(SelectorMatcher(kind: SmIndex, index: index))
   except ValueError:
-    result.matchers.add(SelectorMatcher(kind: SmName, name: name))
+    result.matchers.add(SelectorMatcher(kind: SmName, name: name.to_key))
 
 converter to_selector*(s: string): Selector =
   assert(s[0] == '@')
@@ -1983,7 +1983,7 @@ converter to_function*(node: GeneValue): Function =
 
     body = wrap_with_try(body)
     result = new_fn(name, matcher, body)
-    result.async = node.gene.props.get_or_default("async", false)
+    result.async = node.gene.props.get_or_default(ASYNC_KEY, false)
   else:
     not_allowed()
 
@@ -2007,8 +2007,8 @@ converter to_macro*(node: GeneValue): Macro =
 
 converter to_block*(node: GeneValue): Block =
   var matcher = new_arg_matcher()
-  if node.gene.props.has_key("args"):
-    matcher.parse(node.gene.props["args"])
+  if node.gene.props.has_key(ARGS_KEY):
+    matcher.parse(node.gene.props[ARGS_KEY])
   var body: seq[GeneValue] = @[]
   for i in 0..<node.gene.data.len:
     body.add node.gene.data[i]
@@ -2031,7 +2031,7 @@ converter json_to_gene*(node: JsonNode): GeneValue =
   of JObject:
     result = new_gene_map()
     for k, v in node.fields:
-      result.map[k] = v.json_to_gene
+      result.map[k.to_key] = v.json_to_gene
   of JArray:
     result = new_gene_vec()
     for elem in node.elems:
@@ -2042,17 +2042,17 @@ proc get_class*(val: GeneValue): Class =
   of GeneInternal:
     case val.internal.kind:
     of GeneApplication:
-      return GENE_NS.internal.ns["Application"].internal.class
+      return GENE_NS.internal.ns[APPLICATION_CLASS_KEY].internal.class
     of GenePackage:
-      return GENE_NS.internal.ns["Package"].internal.class
+      return GENE_NS.internal.ns[PACKAGE_CLASS_KEY].internal.class
     of GeneInstance:
       return val.internal.instance.class
     of GeneClass:
-      return GENE_NS.internal.ns["Class"].internal.class
+      return GENE_NS.internal.ns[CLASS_CLASS_KEY].internal.class
     of GeneFuture:
-      return GENE_NS.internal.ns["Future"].internal.class
+      return GENE_NS.internal.ns[FUTURE_CLASS_KEY].internal.class
     of GeneFile:
-      return GENE_NS.internal.ns["File"].internal.class
+      return GENE_NS.internal.ns[FILE_CLASS_KEY].internal.class
     of GeneExceptionKind:
       var ex = val.internal.exception
       if ex is GeneException:
@@ -2069,39 +2069,39 @@ proc get_class*(val: GeneValue): Class =
     else:
       todo()
   of GeneNilKind:
-    return GENE_NS.internal.ns["Nil"].internal.class
+    return GENE_NS.internal.ns[NIL_CLASS_KEY].internal.class
   of GeneBool:
-    return GENE_NS.internal.ns["Bool"].internal.class
+    return GENE_NS.internal.ns[BOOL_CLASS_KEY].internal.class
   of GeneInt:
-    return GENE_NS.internal.ns["Int"].internal.class
+    return GENE_NS.internal.ns[INT_CLASS_KEY].internal.class
   of GeneChar:
-    return GENE_NS.internal.ns["Char"].internal.class
+    return GENE_NS.internal.ns[CHAR_CLASS_KEY].internal.class
   of GeneString:
-    return GENE_NS.internal.ns["String"].internal.class
+    return GENE_NS.internal.ns[STRING_CLASS_KEY].internal.class
   of GeneSymbol:
-    return GENE_NS.internal.ns["Symbol"].internal.class
+    return GENE_NS.internal.ns[SYMBOL_CLASS_KEY].internal.class
   of GeneComplexSymbol:
-    return GENE_NS.internal.ns["ComplexSymbol"].internal.class
+    return GENE_NS.internal.ns[COMPLEX_SYMBOL_CLASS_KEY].internal.class
   of GeneVector:
-    return GENE_NS.internal.ns["Array"].internal.class
+    return GENE_NS.internal.ns[ARRAY_CLASS_KEY].internal.class
   of GeneMap:
-    return GENE_NS.internal.ns["Map"].internal.class
+    return GENE_NS.internal.ns[MAP_CLASS_KEY].internal.class
   of GeneSet:
-    return GENE_NS.internal.ns["Set"].internal.class
+    return GENE_NS.internal.ns[SET_CLASS_KEY].internal.class
   of GeneGene:
-    return GENE_NS.internal.ns["Gene"].internal.class
+    return GENE_NS.internal.ns[GENE_CLASS_KEY].internal.class
   of GeneRegex:
-    return GENE_NS.internal.ns["Regex"].internal.class
+    return GENE_NS.internal.ns[REGEX_CLASS_KEY].internal.class
   of GeneRange:
-    return GENE_NS.internal.ns["Range"].internal.class
+    return GENE_NS.internal.ns[RANGE_CLASS_KEY].internal.class
   of GeneDate:
-    return GENE_NS.internal.ns["Date"].internal.class
+    return GENE_NS.internal.ns[DATE_CLASS_KEY].internal.class
   of GeneDateTime:
-    return GENE_NS.internal.ns["DateTime"].internal.class
+    return GENE_NS.internal.ns[DATETIME_CLASS_KEY].internal.class
   of GeneTimeKind:
-    return GENE_NS.internal.ns["Time"].internal.class
+    return GENE_NS.internal.ns[TIME_CLASS_KEY].internal.class
   of GeneTimezone:
-    return GENE_NS.internal.ns["Timezone"].internal.class
+    return GENE_NS.internal.ns[TIMEZONE_CLASS_KEY].internal.class
   else:
     todo()
 
@@ -2133,7 +2133,7 @@ proc new_matcher(root: RootMatcher, kind: MatcherKind): Matcher =
     kind: kind,
   )
 
-proc new_matched_field(name: string, value: GeneValue): MatchedField =
+proc new_matched_field(name: MapKey, value: GeneValue): MatchedField =
   result = MatchedField(
     name: name,
     value: value,
@@ -2142,12 +2142,12 @@ proc new_matched_field(name: string, value: GeneValue): MatchedField =
 proc required(self: Matcher): bool =
   return self.default_value == nil and not self.splat
 
-proc props(self: seq[Matcher]): HashSet[string] =
+proc props(self: seq[Matcher]): HashSet[MapKey] =
   for m in self:
     if m.kind == MatchProp and not m.splat:
       result.incl(m.name)
 
-proc prop_splat(self: seq[Matcher]): string =
+proc prop_splat(self: seq[Matcher]): MapKey =
   for m in self:
     if m.kind == MatchProp and m.splat:
       return m.name
@@ -2181,20 +2181,20 @@ proc parse(self: var RootMatcher, group: var seq[Matcher], v: GeneValue) =
     if v.symbol[0] == '^':
       var m = new_matcher(self, MatchProp)
       if v.symbol.ends_with("..."):
-        m.name = v.symbol[1..^4]
+        m.name = v.symbol[1..^4].to_key
         m.splat = true
       else:
-        m.name = v.symbol[1..^1]
+        m.name = v.symbol[1..^1].to_key
       group.add(m)
     else:
       var m = new_matcher(self, MatchData)
       group.add(m)
       if v.symbol != "_":
         if v.symbol.endsWith("..."):
-          m.name = v.symbol[0..^4]
+          m.name = v.symbol[0..^4].to_key
           m.splat = true
         else:
-          m.name = v.symbol
+          m.name = v.symbol.to_key
   of GeneVector:
     var i = 0
     while i < v.vec.len:
@@ -2344,7 +2344,7 @@ proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatc
         self.from = data[i]
         i += 1
       else:
-        group[].add(ImportMatcher(name: item.symbol))
+        group[].add(ImportMatcher(name: item.symbol.to_key))
     of GeneComplexSymbol:
       var names: seq[string] = @[]
       names.add(item.csymbol.first)
@@ -2361,7 +2361,7 @@ proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatc
           self.parse(data[i], matcher.children.addr)
           i += 1
         else:
-          matcher = ImportMatcher(name: name)
+          matcher = ImportMatcher(name: name.to_key)
           matcher.children_only = j < names.len
           my_group[].add(matcher)
           my_group = matcher.children.addr
@@ -2423,7 +2423,7 @@ proc load_dynamic*(path:string, names: seq[string]): OrderedTable[MapKey, Native
   for name in names:
     var s = name
     let fn = lib.symAddr(s)
-    result[s] = cast[NativeFn](fn)
+    result[s.to_key] = cast[NativeFn](fn)
 
 #################### Selector ####################
 
@@ -2445,7 +2445,7 @@ proc gene_to_selector_item*(v: GeneValue): SelectorItem =
     result.matchers.add(SelectorMatcher(kind: SmIndex, index: v.int))
   of GeneString:
     result = SelectorItem()
-    result.matchers.add(SelectorMatcher(kind: SmName, name: v.str))
+    result.matchers.add(SelectorMatcher(kind: SmName, name: v.str.to_key))
   of GeneVector:
     result = SelectorItem()
     for item in v.vec:
@@ -2453,7 +2453,7 @@ proc gene_to_selector_item*(v: GeneValue): SelectorItem =
       of GeneInt:
         result.matchers.add(SelectorMatcher(kind: SmIndex, index: item.int))
       of GeneString:
-        result.matchers.add(SelectorMatcher(kind: SmName, name: item.str))
+        result.matchers.add(SelectorMatcher(kind: SmName, name: item.str.to_key))
       else:
         todo()
   else:
@@ -2489,7 +2489,7 @@ proc is_last*(self: SelectorItem): bool =
 
 proc new_cmd_args_matcher*(): ArgMatcherRoot =
   return ArgMatcherRoot(
-    options: Table[MapKey, ArgMatcher](),
+    options: Table[string, ArgMatcher](),
   )
 
 proc name*(self: ArgMatcher): string =
@@ -2529,14 +2529,14 @@ proc default_value*(self: ArgMatcher): GeneValue =
     else:
       return self.default
 
-proc fields*(self: ArgMatchingResult): Table[MapKey, GeneValue] =
+proc fields*(self: ArgMatchingResult): Table[string, GeneValue] =
   for k, v in self.options:
     result[k] = v
   for k, v in self.args:
     result[k] = v
 
 proc parse_data_type(self: var ArgMatcher, input: GeneValue) =
-  var value = input.gene.props.get_or_default("type", nil)
+  var value = input.gene.props.get_or_default(TYPE_KEY, nil)
   if value == new_gene_symbol("int"):
     self.data_type = ArgInt
   elif value == new_gene_symbol("bool"):
@@ -2559,14 +2559,14 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
     of "option":
       var option = ArgMatcher(kind: ArgOption)
       option.parse_data_type(item)
-      option.toggle = item.gene.props.get_or_default("toggle", false)
+      option.toggle = item.gene.props.get_or_default(TOGGLE_KEY, false)
       if option.toggle:
         option.data_type = ArgBool
       else:
-        option.multiple = item.gene.props.get_or_default("multiple", false)
-        option.required = item.gene.props.get_or_default("required", false)
-      if item.gene.props.has_key("default"):
-        option.default = item.gene.props["default"]
+        option.multiple = item.gene.props.get_or_default(MULTIPLE_KEY, false)
+        option.required = item.gene.props.get_or_default(REQUIRED_KEY, false)
+      if item.gene.props.has_key(DEFAULT_KEY):
+        option.default = item.gene.props[DEFAULT_KEY]
         option.required = false
       for item in item.gene.data:
         if item.symbol[0] == '-':
@@ -2585,14 +2585,14 @@ proc parse*(self: var ArgMatcherRoot, schema: GeneValue) =
     of "argument":
       var arg = ArgMatcher(kind: ArgPositional)
       arg.arg_name = item.gene.data[0].symbol
-      if item.gene.props.has_key("default"):
-        arg.default = item.gene.props["default"]
+      if item.gene.props.has_key(DEFAULT_KEY):
+        arg.default = item.gene.props[DEFAULT_KEY]
         arg.required = false
       arg.parse_data_type(item)
       var is_last = i == schema.vec.len - 1
       if is_last:
-        arg.multiple = item.gene.props.get_or_default("multiple", false)
-        arg.required = item.gene.props.get_or_default("required", false)
+        arg.multiple = item.gene.props.get_or_default(MULTIPLE_KEY, false)
+        arg.required = item.gene.props.get_or_default(REQUIRED_KEY, false)
       else:
         arg.required = true
       self.args.add(arg)
