@@ -6,4 +6,9 @@
     ((fib (n - 1)) + (fib (n - 2)))
   )
 )
-(fib (($cmd_args .@0).to_i))
+(if (($cmd_args .size) > 1)
+  (var i (($cmd_args .@1).to_i))
+  (println "fib(" i ") = " (fib i))
+else
+  (println "Usage:\nfib.gene <n>")
+)

@@ -83,6 +83,7 @@
 (class gene/String
   (native_method size gene/native/str_size)
 
+  (native_method to_i gene/native/str_to_i)
   (native_method append gene/native/str_append)
   (native_method size gene/native/str_size)
   (native_method substr gene/native/str_substr)

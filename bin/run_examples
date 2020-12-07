@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+for file in examples/*; do
+  echo '$' $file
+  if [ -f "$file" ] && [ -x "$file" ]; then
+    "$file"
+  else
+    echo "NOT EXECUTABLE!"
+  fi
+  echo
+  echo
+done
