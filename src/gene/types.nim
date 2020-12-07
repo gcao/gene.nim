@@ -2088,8 +2088,8 @@ proc get_class*(val: GeneValue): Class =
         else:
           return GeneExceptionClass.internal.class
       # elif ex is CatchableError:
-      #   var nim = GLOBAL_NS.internal.ns["nim"]
-      #   return nim.internal.ns["CatchableError"].internal.class
+      #   var nim = GLOBAL_NS.internal.ns[NIM_KEY]
+      #   return nim.internal.ns[CATCHABLE_ERROR_KEY].internal.class
       else:
         return GeneExceptionClass.internal.class
     else:

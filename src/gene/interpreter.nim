@@ -47,18 +47,18 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
 
 proc new_app*(): Application =
   GLOBAL_NS = new_namespace("global")
-  GLOBAL_NS.internal.ns["global".to_key] = GLOBAL_NS
+  GLOBAL_NS.internal.ns[GLOBAL_KEY] = GLOBAL_NS
   result = Application(
     ns: GLOBAL_NS.internal.ns,
   )
-  GLOBAL_NS.internal.ns["stdin".to_key]  = stdin
-  GLOBAL_NS.internal.ns["stdout".to_key] = stdout
-  GLOBAL_NS.internal.ns["stderr".to_key] = stderr
+  GLOBAL_NS.internal.ns[STDIN_KEY]  = stdin
+  GLOBAL_NS.internal.ns[STDOUT_KEY] = stdout
+  GLOBAL_NS.internal.ns[STDERR_KEY] = stderr
   var cmd_args = command_line_params().map(str_to_gene)
-  GLOBAL_NS.internal.ns["$cmd_args".to_key] = cmd_args
+  GLOBAL_NS.internal.ns[CMD_ARGS_KEY] = cmd_args
 
 var APP* = new_app()
-GLOBAL_NS.internal.ns["$app".to_key] = APP
+GLOBAL_NS.internal.ns[APP_KEY] = APP
 
 #################### Package #####################
 
@@ -83,7 +83,7 @@ proc new_package*(dir: string): Package =
       result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
       result.dir = d
       result.dependencies = parse_deps(doc.props["deps".to_key].vec)
-      result.ns["$pkg".to_key] = result
+      result.ns[CUR_PKG_KEY] = result
       return result
     else:
       d = parent_dir(d)
@@ -91,7 +91,7 @@ proc new_package*(dir: string): Package =
   result.adhoc = true
   result.ns = new_namespace(GLOBAL_NS, "package:<adhoc>")
   result.dir = d
-  result.ns["$pkg".to_key] = result
+  result.ns[CUR_PKG_KEY] = result
 
 #################### VM ##########################
 
@@ -1073,7 +1073,7 @@ EvaluatorMgr[ExCall] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var target = self.eval(frame, expr.call_target)
   var call_self = GeneNil
   # if expr.call_props.has_key("self"):
-  #   call_self = self.eval(frame, expr.call_props["self"])
+  #   call_self = self.eval(frame, expr.call_props[SELF_KEY])
   var args: GeneValue
   if expr.call_args != nil:
     args = self.eval(frame, expr.call_args)
