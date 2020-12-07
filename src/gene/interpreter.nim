@@ -79,8 +79,8 @@ proc new_package*(dir: string): Package =
     var package_file = d & "/package.gene"
     if file_exists(package_file):
       var doc = read_document(read_file(package_file))
-      result.name = doc.props["name".to_key].str
-      result.version = doc.props["version".to_key]
+      result.name = doc.props[NAME_KEY].str
+      result.version = doc.props[VERSION_KEY]
       result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
       result.dir = d
       result.dependencies = parse_deps(doc.props[DEPS_KEY].vec)
