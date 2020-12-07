@@ -467,6 +467,11 @@ proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, ex
 
 proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
   case name.kind:
+  of GeneInt:
+    if in_ns:
+      frame.ns[cast[MapKey](name.int)] = value
+    else:
+      frame.scope.def_member(cast[MapKey](name.int), value)
   of GeneString:
     if in_ns:
       frame.ns[name.str.to_key] = value
