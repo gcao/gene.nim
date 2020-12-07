@@ -2310,7 +2310,7 @@ proc match(self: Matcher, input: GeneValue, state: MatchState, r: MatchResult) =
         value_expr = self.default_value_expr
       else:
         value = self.default_value # Default value
-    if self.name != "":
+    if self.name != EMPTY_STRING_KEY:
       var matched_field = new_matched_field(self.name, value)
       matched_field.value_expr = value_expr
       r.fields.add(matched_field)
