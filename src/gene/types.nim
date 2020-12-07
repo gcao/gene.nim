@@ -1008,7 +1008,6 @@ proc new_gene_exception*(): ref Exception =
 converter int_to_gene*(v: int): GeneValue = new_gene_int(v)
 converter int_to_gene*(v: int64): GeneValue = new_gene_int(v)
 converter biggest_to_int*(v: BiggestInt): int = cast[int](v)
-converter key_to_gene*(v: MapKey): GeneValue = new_gene_int(cast[int](v))
 
 converter seq_to_gene*(v: seq[GeneValue]): GeneValue {.gcsafe.} = new_gene_vec(v)
 converter str_to_gene*(v: string): GeneValue {.gcsafe.} = new_gene_string(v)
@@ -1504,7 +1503,7 @@ proc `$`*(node: GeneValue): string =
     result = "(" & $node.gene.type
     if node.gene.props.len > 0:
       for k, v in node.gene.props:
-        result &= " ^" & $k & " " & $v
+        result &= " ^" & k.to_s & " " & $v
     if node.gene.data.len > 0:
       result &= " " & node.gene.data.join(" ")
     result &= ")"

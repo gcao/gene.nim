@@ -23,6 +23,7 @@ proc import_module*(self: VM, name: MapKey, code: string): Namespace
 proc load_core_module*(self: VM)
 proc load_gene_module*(self: VM)
 proc load_genex_module*(self: VM)
+proc def_member*(self: VM, frame: Frame, name: MapKey, value: GeneValue, in_ns: bool)
 proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool)
 proc get_member*(self: VM, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue)
@@ -66,7 +67,7 @@ proc parse_deps(deps: seq[GeneValue]): Table[string, Package] =
   for dep in deps:
     var name = dep.gene.data[0].str
     var version = dep.gene.data[1]
-    var location = dep.gene.props["location".to_key]
+    var location = dep.gene.props[LOCATION_KEY]
     var pkg = Package(name: name, version: version)
     pkg.dir = location.str
     result[name] = pkg
@@ -82,7 +83,7 @@ proc new_package*(dir: string): Package =
       result.version = doc.props["version".to_key]
       result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
       result.dir = d
-      result.dependencies = parse_deps(doc.props["deps".to_key].vec)
+      result.dependencies = parse_deps(doc.props[DEPS_KEY].vec)
       result.ns[CUR_PKG_KEY] = result
       return result
     else:
@@ -180,7 +181,7 @@ proc import_module*(self: VM, name: MapKey, code: string): Namespace =
     return self.modules[name]
   var module = new_module(name.to_s)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
-  self.def_member(frame, FILE_KEY, name, true)
+  self.def_member(frame, FILE_KEY, name.to_s, true)
   discard self.eval(frame, self.prepare(code))
   result = module.root_ns
   self.modules[name] = result
@@ -215,9 +216,7 @@ proc call_method*(self: VM, frame: Frame, instance: GeneValue, class: Class, met
     else:
       result = self.call_fn(frame, instance, meth.fn, args, options)
   else:
-    var s = method_name.to_s
-    case s:
-    of "new": # No implementation is required for `new` method
+    if method_name == NEW_KEY: # No implementation is required for `new` method
       discard
     else:
       todo("Method is missing: " & method_name.to_s)
@@ -258,7 +257,7 @@ proc repl_on_error(self: VM, frame: Frame, e: ref CatchableError): GeneValue =
   echo "Opening debug console..."
   echo "Note: the exception can be accessed as $ex"
   var ex = error_to_gene(e)
-  self.def_member(frame, "$ex", ex, false)
+  self.def_member(frame, CUR_EXCEPTION_KEY, ex, false)
   result = repl(self, frame, eval_only, true)
 
 proc call_fn_internal*(
@@ -465,13 +464,14 @@ proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, ex
   else:
     todo()
 
+proc def_member*(self: VM, frame: Frame, name: MapKey, value: GeneValue, in_ns: bool) =
+  if in_ns:
+    frame.ns[name] = value
+  else:
+    frame.scope.def_member(name, value)
+
 proc def_member*(self: VM, frame: Frame, name: GeneValue, value: GeneValue, in_ns: bool) =
   case name.kind:
-  of GeneInt:
-    if in_ns:
-      frame.ns[cast[MapKey](name.int)] = value
-    else:
-      frame.scope.def_member(cast[MapKey](name.int), value)
   of GeneString:
     if in_ns:
       frame.ns[name.str.to_key] = value
@@ -844,7 +844,7 @@ EvaluatorMgr[ExTry] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     for e in expr.try_body:
       result = self.eval(frame, e)
   except GeneException as ex:
-    self.def_member(frame, "$ex", error_to_gene(ex), false)
+    self.def_member(frame, CUR_EXCEPTION_KEY, error_to_gene(ex), false)
     var handled = false
     if expr.try_catches.len > 0:
       for catch in expr.try_catches:
