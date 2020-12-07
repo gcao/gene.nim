@@ -1,5 +1,6 @@
 import unittest, tables
 
+import gene/map_key
 import gene/types
 
 import ./helpers
@@ -96,7 +97,7 @@ test_interpreter """
 test_arg_matching "a", "[1]", proc(r: MatchResult) =
   check r.kind == MatchSuccess
   check r.fields.len == 1
-  check r.fields[0].name == "a"
+  check r.fields[0].name.to_s == "a"
   check r.fields[0].value == 1
 
 test_arg_matching "_", "[]", proc(r: MatchResult) =
@@ -105,7 +106,7 @@ test_arg_matching "_", "[]", proc(r: MatchResult) =
 
 test_arg_matching "a", "[]", proc(r: MatchResult) =
   check r.kind == MatchMissingFields
-  check r.missing[0] == "a"
+  check r.missing[0].to_s == "a"
 
 test_arg_matching "a", "(_ 1)", proc(r: MatchResult) =
   check r.kind == MatchSuccess

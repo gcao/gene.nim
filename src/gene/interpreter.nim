@@ -568,7 +568,7 @@ proc match*(self: VM, frame: Frame, pattern: GeneValue, val: GeneValue, mode: Ma
 
 proc import_from_ns*(self: VM, frame: Frame, source: GeneValue, group: seq[ImportMatcher]) =
   for m in group:
-    if m.name == "*":
+    if m.name == "*".to_key:
       for k, v in source.internal.ns.members:
         self.def_member(frame, k, v, true)
     else:
@@ -992,8 +992,8 @@ EvaluatorMgr[ExImport] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       ns = frame.ns.root.parent
     else:
       var `from` = self.eval(frame, `from`).str
-      if self.modules.has_key(FROM_KEY):
-        ns = self.modules[FROM_KEY]
+      if self.modules.has_key(`from`.to_key):
+        ns = self.modules[`from`.to_key]
       else:
         var code = read_file(dir & `from` & ".gene")
         ns = self.import_module(`from`.to_key, code)

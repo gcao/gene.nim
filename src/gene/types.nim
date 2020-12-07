@@ -2270,7 +2270,7 @@ proc `len`(self: GeneValue): int =
     not_allowed()
 
 proc match_prop_splat*(self: seq[Matcher], input: GeneValue, r: MatchResult) =
-  if self.prop_splat == "":
+  if input == nil or self.prop_splat == "":
     return
 
   var map: OrderedTable[MapKey, GeneValue]
