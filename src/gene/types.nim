@@ -484,6 +484,13 @@ type
     data: seq[GeneValue],
   ): GeneValue {.nimcall.}
 
+  SymbolKind* = enum
+    SkUnknown
+    SkGene
+    SkGenex
+    SkNamespace
+    SkScope
+
   ExprKind* = enum
     ExCustom
     ExTodo
@@ -577,6 +584,11 @@ type
       str*: string
     of ExSymbol:
       symbol*: MapKey
+      case symbol_kind*: SymbolKind
+      of SkNamespace:
+        symbol_ns*: Namespace
+      else:
+        discard
     of ExComplexSymbol:
       csymbol*: ComplexSymbol
     of ExArray:
@@ -1115,6 +1127,14 @@ proc `[]`*(self: Namespace, key: MapKey): GeneValue {.inline.} =
     return self.parent[key]
   else:
     raise new_exception(NotDefinedException, %key & " is not defined")
+
+proc locate*(self: Namespace, key: MapKey): (GeneValue, Namespace) {.inline.} =
+  if self.has_key(key):
+    result = (self.members[key], self)
+  elif not self.stop_inheritance and self.parent != nil:
+    result = self.parent.locate(key)
+  else:
+    result = (nil, nil)
 
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
   result = self[key.to_key]

@@ -620,12 +620,32 @@ EvaluatorMgr[ExNotAllowed] = proc(self: VM, frame: Frame, expr: Expr): GeneValue
     not_allowed()
 
 EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
-  if expr.symbol == GENE_KEY:
-    return GENE_NS
-  elif expr.symbol == GENEX_KEY:
-    return GENEX_NS
-  else:
-    result = frame[expr.symbol]
+  case expr.symbol_kind:
+  of SkUnknown:
+    var e = expr
+    if expr.symbol == GENE_KEY:
+      e.symbol_kind = SkGene
+      return GENE_NS
+    elif expr.symbol == GENEX_KEY:
+      e.symbol_kind = SkGenex
+      return GENEX_NS
+    else:
+      var pair = frame.ns.locate(expr.symbol)
+      if pair[0] != nil:
+        e.symbol_kind = SkNamespace
+        e.symbol_ns = pair[1]
+        result = pair[0]
+      else:
+        e.symbol_kind = SkScope
+        result = frame.scope[expr.symbol]
+  of SkGene:
+    result = GENE_NS
+  of SkGenex:
+    result = GENEX_NS
+  of SkNamespace:
+    result = expr.symbol_ns[expr.symbol]
+  of SkScope:
+    result = frame.scope[expr.symbol]
 
 EvaluatorMgr[ExDo] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var old_self = frame.self
