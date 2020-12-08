@@ -6,11 +6,13 @@ export MapKey
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
-  "+", "-", "*", "/",
-  "=", "+=", "-=", "*=", "/=",
+  "+", "-", "*", "/", "**",
+  "=", "+=", "-=", "*=", "/=", "**=",
   "==", "!=", "<", "<=", ">", ">=",
   "&&", "||", # TODO: xor
+  "&&=", "||=",
   "&",  "|",  # TODO: xor for bit operation
+  "&=", "|=",
 ]
 
 type
@@ -506,7 +508,7 @@ type
     ExNot
     ExBinary
     ExBinImmediate
-    # ExBinImmediate2
+    ExBinAssignment
     ExIf
     # ExIfElseIf
     ExLoop
@@ -621,6 +623,10 @@ type
       bini_op*: BinOps
       bini_first*: Expr
       bini_second*: GeneValue
+    of ExBinAssignment:
+      bina_op*: BinOps
+      bina_first*: GeneValue
+      bina_second*: Expr
     of ExIf:
       if_cond*: Expr
       if_then*: Expr
@@ -964,6 +970,7 @@ var ScopeMgr* = ScopeManager()
 
 converter new_gene_internal*(e: Enum): GeneValue
 converter new_gene_internal*(m: EnumMember): GeneValue
+converter new_gene_internal*(ns: Namespace): GeneValue
 
 proc new_gene_int*(val: BiggestInt): GeneValue
 proc new_gene_string*(s: string): GeneValue {.gcsafe.}
@@ -973,6 +980,7 @@ proc new_namespace*(): Namespace
 proc new_namespace*(parent: Namespace): Namespace
 proc new_match_matcher*(): RootMatcher
 proc new_arg_matcher*(): RootMatcher
+proc get_member*(self: GeneValue, name: string): GeneValue
 proc parse*(self: var RootMatcher, v: GeneValue)
 
 ##################################################
@@ -1222,6 +1230,27 @@ proc `[]`*(self: Frame, name: MapKey): GeneValue {.inline.} =
     return self.scope[name]
   else:
     return self.ns[name]
+
+proc `[]`*(self: Frame, name: GeneValue): GeneValue {.inline.} =
+  case name.kind:
+  of GeneSymbol:
+    result = self[name.symbol.to_key]
+  of GeneComplexSymbol:
+    var csymbol = name.csymbol
+    if csymbol.first == "global":
+      result = GLOBAL_NS
+    elif csymbol.first == "gene":
+      result = GENE_NS
+    elif csymbol.first == "genex":
+      result = GENEX_NS
+    elif csymbol.first == "":
+      result = self.ns
+    else:
+      result = self[csymbol.first.to_key]
+    for csymbol in csymbol.rest:
+      result = result.get_member(csymbol)
+  else:
+    todo()
 
 #################### Function ####################
 

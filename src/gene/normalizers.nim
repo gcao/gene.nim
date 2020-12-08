@@ -3,14 +3,6 @@ import strutils, tables
 import ./map_key
 import ./types
 
-const SIMPLE_BINARY_OPS* = [
-  "+", "-", "*", "/",
-  "=",
-  "==", "!=", "<", "<=", ">", ">=",
-  "&&", "||", # TODO: xor
-  "&",  "|",  # TODO: xor for bit operation
-]
-
 type
   Normalizer* = proc(self: GeneValue): bool
 
@@ -115,13 +107,7 @@ Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
   var first = self.gene.data[0]
   if first.kind == GeneSymbol:
-    if first.symbol == "+=":
-      self.gene.type = new_gene_symbol("=")
-      var second = self.gene.data[1]
-      self.gene.data[0] = type
-      self.gene.data[1] = new_gene_gene(new_gene_symbol("+"), `type`, second)
-      return true
-    elif first.symbol == "=" and `type`.kind == GeneSymbol and `type`.symbol.startsWith("@"):
+    if first.symbol == "=" and `type`.kind == GeneSymbol and `type`.symbol.startsWith("@"):
       # (@prop = val)
       self.gene.type = new_gene_symbol("$set")
       self.gene.data[0] = `type`
@@ -132,7 +118,7 @@ Normalizers.add proc(self: GeneValue): bool =
   if self.gene.data.len < 1:
     return false
   var first = self.gene.data[0]
-  if first.kind != GeneSymbol or first.symbol notin SIMPLE_BINARY_OPS:
+  if first.kind != GeneSymbol or first.symbol notin BINARY_OPS:
     return false
 
   self.gene.data.delete 0

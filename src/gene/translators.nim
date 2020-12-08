@@ -5,6 +5,19 @@ import ./types
 import ./normalizers
 import ./decorator
 
+const SIMPLE_BINARY_OPS* = [
+  "+", "-", "*", "/", "**",
+  "==", "!=", "<", "<=", ">", ">=",
+  "&&", "||", # TODO: xor
+  "&",  "|",  # TODO: xor for bit operation
+]
+
+const COMPLEX_BINARY_OPS* = [
+  "+=", "-=", "*=", "/=", "**=",
+  "&&=", "||=", # TODO: xor
+  "&=",  "|=",  # TODO: xor for bit operation
+]
+
 type
   Translator* = proc(parent: Expr, val: GeneValue): Expr
 
@@ -560,6 +573,20 @@ proc new_binary_expr*(parent: Expr, `type`: string, val: GeneValue): Expr =
     of "||": result.bin_op = BinOr
     else: not_allowed()
 
+proc new_bin_assignment_expr*(parent: Expr, `type`: string, val: GeneValue): Expr =
+  result = Expr(
+    kind: ExBinAssignment,
+    parent: parent,
+  )
+  result.bina_first = val.gene.data[0]
+  result.bina_second = new_expr(result, val.gene.data[1])
+  case `type`:
+  of "+=":  result.bina_op = BinAdd
+  of "-=":  result.bina_op = BinSub
+  of "*=":  result.bina_op = BinMul
+  of "/=":  result.bina_op = BinDiv
+  else: not_allowed()
+
 proc new_expr*(parent: Expr, kind: ExprKind): Expr =
   result = Expr(
     kind: kind,
@@ -613,8 +640,10 @@ proc new_expr*(parent: Expr, node: GeneValue): Expr =
   of GeneGene:
     node.normalize()
     if node.gene.type.kind == GeneSymbol:
-      if node.gene.type.symbol in ["+", "-", "==", "!=", "<", "<=", ">", ">=", "&&", "||"]:
+      if node.gene.type.symbol in SIMPLE_BINARY_OPS:
         return new_binary_expr(parent, node.gene.type.symbol, node)
+      elif node.gene.type.symbol in COMPLEX_BINARY_OPS:
+        return new_bin_assignment_expr(parent, node.gene.type.symbol, node)
       elif node.gene.type.symbol == "...":
         return new_explode_expr(parent, node.gene.data[0])
       var translator = TranslatorMgr[node.gene.type.symbol.to_key]

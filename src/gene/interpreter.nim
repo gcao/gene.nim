@@ -758,6 +758,17 @@ EvaluatorMgr[ExBinImmediate] = proc(self: VM, frame: Frame, expr: Expr): GeneVal
   of BinAnd: result = new_gene_bool(first.bool and second.bool)
   of BinOr:  result = new_gene_bool(first.bool or second.bool)
 
+EvaluatorMgr[ExBinAssignment] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
+  var first = frame[expr.bina_first]
+  var second = self.eval(frame, expr.bina_second)
+  case expr.bina_op:
+  of BinAdd: result = bin_add(self, frame, first, second)
+  of BinSub: result = bin_sub(self, frame, first, second)
+  of BinMul: result = new_gene_int(first.int * second.int)
+  of BinDiv: result = new_gene_float(first.int / second.int)
+  else: todo()
+  self.set_member(frame, expr.bina_first, result)
+
 EvaluatorMgr[ExVar] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
   var val = self.eval(frame, expr.var_val)
   self.def_member(frame, expr.var_name, val, false)
