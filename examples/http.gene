@@ -4,21 +4,10 @@
 examples/http.gene | json_pp
 #>#
 
-(var base_url "https://jira.vonage.com/rest/api/2")
-(var user "gcao")
-(var pass ((gene/File/read ((env "HOME") "/temp/1")).trim))
-(var headers {
-  ^Authorization ("Basic " (gene/base64 (user ":" pass)))
-})
+# See https://mediastack.com/quickstart
+(var base_url "http://api.mediastack.com/v1")
+(var token ((gene/File/read ((env "HOME") "/temp/mediastack.txt")).trim))
 
 (println
   (genex/http/get
-    (base_url "/issue/ZEUS-5427?fields=status,summary,assignee,customfield_10005,customfield_100020")
-    {}
-    headers))
-
-# (println
-#   ((genex/http/get_json
-#     (base_url "/issue/ZEUS-5427?fields=status,summary,assignee,customfield_10005,customfield_100020")
-#     {}
-#     headers) .size))
+    (base_url "/news?symbols=AAPL&access_key=" token)))
