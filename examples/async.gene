@@ -19,11 +19,11 @@
 (gene/sleep 1000)
 (println 3)
 
-#< Output should look like
+#< Output should look like below, because futures are not checked after every expression.
 first
 0
 1
 2
-second
 3
+second
 #>#

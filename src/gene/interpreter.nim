@@ -172,9 +172,9 @@ proc run_file*(self: VM, file: string): GeneValue =
       var args = GLOBAL_NS.internal.ns[CMD_ARGS_KEY]
       var options = Table[FnOption, GeneValue]()
       result = self.call_fn(frame, GeneNil, main.internal.fn, args, options)
-      self.wait_for_futures()
     else:
       raise new_exception(CatchableError, "main is not a function.")
+  self.wait_for_futures()
 
 proc import_module*(self: VM, name: MapKey, code: string): Namespace =
   if self.modules.has_key(name):
