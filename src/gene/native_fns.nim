@@ -39,18 +39,17 @@ proc add_native_fns*() =
 
   add_native_fn "file_read_async",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
-      todo()
-      # var file = data[0]
-      # case file.kind:
-      # of GeneString:
-      #   var f = open_async(file.str)
-      #   var future = f.read_all()
-      #   var future2 = new_future[GeneValue]()
-      #   future.add_callback proc() {.gcsafe.} =
-      #     future2.complete(future.read())
-      #   return future_to_gene(future2)
-      # else:
-      #   todo()
+      var file = data[0]
+      case file.kind:
+      of GeneString:
+        var f = open_async(file.str)
+        var future = f.read_all()
+        var future2 = new_future[GeneValue]()
+        future.add_callback proc() {.gcsafe.} =
+          future2.complete(future.read())
+        return future_to_gene(future2)
+      else:
+        todo()
 
   add_native_fn "file_write",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =

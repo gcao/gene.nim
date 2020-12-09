@@ -269,7 +269,7 @@ proc call_fn_internal*(
   options: Table[FnOption, GeneValue]
 ): GeneValue =
   var ns: Namespace = fn.ns
-  var fn_scope = ScopeMgr.get()
+  var fn_scope = new_scope()
   if fn.expr.kind == ExFn:
     fn_scope.set_parent(fn.parent_scope, fn.parent_scope_max)
   var new_frame: Frame
@@ -304,8 +304,6 @@ proc call_fn_internal*(
     else:
       raise
 
-  ScopeMgr.free(fn_scope)
-
 proc call_fn*(
   self: VM,
   frame: Frame,
@@ -330,7 +328,7 @@ proc call_fn*(
     return self.call_fn_internal(frame, target, fn, args, options)
 
 proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue =
-  var mac_scope = ScopeMgr.get()
+  var mac_scope = new_scope()
   var new_frame = FrameMgr.get(FrFunction, mac.ns, mac_scope)
   new_frame.parent = frame
   new_frame.self = target
@@ -352,10 +350,8 @@ proc call_macro*(self: VM, frame: Frame, target: GeneValue, mac: Macro, expr: Ex
     else:
       raise
 
-  ScopeMgr.free(mac_scope)
-
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, args: GeneValue): GeneValue =
-  var blk_scope = ScopeMgr.get()
+  var blk_scope = new_scope()
   blk_scope.set_parent(blk.frame.scope, blk.parent_scope_max)
   var new_frame = blk.frame
   self.process_args(new_frame, blk.matcher, args)
@@ -373,8 +369,6 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, args: Ge
       result = repl_on_error(self, frame, e)
     else:
       raise
-
-  ScopeMgr.free(blk_scope)
 
 proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue =
   var args_blk: seq[Expr]
@@ -395,7 +389,7 @@ proc call_block*(self: VM, frame: Frame, target: GeneValue, blk: Block, expr: Ex
   result = self.call_block(frame, target, blk, args)
 
 proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue =
-  var new_scope = ScopeMgr.get()
+  var new_scope = new_scope()
   var new_frame = FrameMgr.get(FrBody, aspect.ns, new_scope)
   new_frame.parent = frame
 
@@ -421,11 +415,9 @@ proc call_aspect*(self: VM, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
   except Return:
     discard
 
-  ScopeMgr.free(new_scope)
-
 proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue =
   var aspect = instance.aspect
-  var new_scope = ScopeMgr.get()
+  var new_scope = new_scope()
   var new_frame = FrameMgr.get(FrBody, aspect.ns, new_scope)
   new_frame.parent = frame
   new_frame.args = args
@@ -447,8 +439,6 @@ proc call_aspect_instance*(self: VM, frame: Frame, instance: AspectInstance, arg
   # invoke after advices
   for advice in instance.after_advices:
     discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
-
-  ScopeMgr.free(new_scope)
 
 proc call_target*(self: VM, frame: Frame, target: GeneValue, args: GeneValue, expr: Expr): GeneValue =
   case target.kind:

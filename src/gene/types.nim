@@ -76,7 +76,6 @@ type
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
     mappings*: Table[MapKey, seq[NameIndexScope]]
-    usage*: int
 
   Class* = ref object
     parent*: Class
@@ -896,9 +895,6 @@ type
   FrameManager* = ref object
     cache*: seq[Frame]
 
-  ScopeManager* = ref object
-    cache*: seq[Scope]
-
   # Types related to command line argument parsing
   ArgumentError* = object of CatchableError
 
@@ -976,7 +972,6 @@ var GeneExceptionClass*: GeneValue
 
 var EvaluatorMgr* = EvaluatorManager()
 var FrameMgr* = FrameManager()
-var ScopeMgr* = ScopeManager()
 
 #################### Definitions #################
 
@@ -1150,14 +1145,12 @@ proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
 proc new_scope*(): Scope = Scope(
   members: @[],
   mappings: Table[MapKey, seq[NameIndexScope]](),
-  usage: 1,
 )
 
 proc max*(self: Scope): NameIndexScope {.inline.} =
   return self.members.len
 
 proc set_parent*(self: var Scope, parent: Scope, max: NameIndexScope) {.inline.} =
-  parent.usage += 1
   self.parent = parent
   self.parent_index_max = max
 
@@ -2446,24 +2439,6 @@ proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatc
 proc new_import_matcher*(v: GeneValue): ImportMatcherRoot =
   result = ImportMatcherRoot()
   result.parse(v, result.children.addr)
-
-#################### ScopeManager ################
-
-proc get*(self: var ScopeManager): Scope {.inline.} =
-  if self.cache.len > 0:
-    result = self.cache.pop()
-    result.usage = 1
-  else:
-    return new_scope()
-
-proc free*(self: var ScopeManager, scope: var Scope) {.inline.} =
-  discard
-  # scope.usage -= 1
-  # if scope.usage == 0:
-  #   if scope.parent != nil:
-  #     self.free(scope.parent)
-  #   scope.reset()
-  #   self.cache.add(scope)
 
 #################### FrameManager ################
 
