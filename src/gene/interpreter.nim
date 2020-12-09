@@ -630,14 +630,14 @@ EvaluatorMgr[ExSymbol] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       e.symbol_kind = SkGenex
       return GENEX_NS
     else:
-      var pair = frame.ns.locate(expr.symbol)
-      if pair[0] != nil:
+      result = frame.scope[expr.symbol]
+      if result != nil:
+        e.symbol_kind = SkScope
+      else:
+        var pair = frame.ns.locate(expr.symbol)
         e.symbol_kind = SkNamespace
         e.symbol_ns = pair[1]
         result = pair[0]
-      else:
-        e.symbol_kind = SkScope
-        result = frame.scope[expr.symbol]
   of SkGene:
     result = GENE_NS
   of SkGenex:

@@ -1134,7 +1134,7 @@ proc locate*(self: Namespace, key: MapKey): (GeneValue, Namespace) {.inline.} =
   elif not self.stop_inheritance and self.parent != nil:
     result = self.parent.locate(key)
   else:
-    result = (nil, nil)
+    not_allowed()
 
 proc `[]`*(self: Namespace, key: string): GeneValue {.inline.} =
   result = self[key.to_key]
@@ -1246,9 +1246,8 @@ proc reset*(self: var Frame) {.inline.} =
   self.extra = nil
 
 proc `[]`*(self: Frame, name: MapKey): GeneValue {.inline.} =
-  if self.scope.has_key(name):
-    return self.scope[name]
-  else:
+  result = self.scope[name]
+  if result == nil:
     return self.ns[name]
 
 proc `[]`*(self: Frame, name: GeneValue): GeneValue {.inline.} =
