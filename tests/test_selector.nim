@@ -24,10 +24,11 @@ import ./helpers
 #   * Property name pattern: /^test/
 #   * Gene type: :$type
 #   * Gene properties: :$props
-#   * Gene property names: :$names
+#   * Gene property names: :$keys
 #   * Gene property values: :$values
 #   * Gene data: :$data
 #   * Descendants: :$descendants - how does match work for this? self.gene.data and their descendants?
+#   * Self and descendants: _
 #   * Predicate (fnx it ...)
 #   * Composite: [0 1 (range 3 5)]
 #
@@ -179,3 +180,9 @@ test_interpreter """
 test_interpreter """
   ((@* 0 1) [1 2])
 """, @[new_gene_int(1), new_gene_int(2)]
+
+test_interpreter """
+  ((@ :TEST 0)
+    (_ (:TEST 1))
+  )
+""", @[new_gene_int(1)]

@@ -17,6 +17,8 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
     case target.kind:
     of GeneVector:
       return target.vec[self.index]
+    of GeneGene:
+      return target.gene.data[self.index]
     else:
       todo()
   of SmName:
@@ -31,6 +33,14 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
         return target.internal.instance.value.gene.props[self.name]
       else:
         todo()
+    else:
+      todo()
+  of SmType:
+    case target.kind:
+    of GeneVector:
+      for item in target.vec:
+        if item.kind == GeneGene and item.gene.type == self.type:
+          return item
     else:
       todo()
   else:
@@ -48,6 +58,18 @@ proc search(self: SelectorMatcher, target: GeneValue): seq[GeneValue] =
     case target.kind:
     of GeneMap:
       result.add(target.map[self.name])
+    else:
+      todo()
+  of SmType:
+    case target.kind:
+    of GeneVector:
+      for item in target.vec:
+        if item.kind == GeneGene and item.gene.type == self.type:
+          result.add(item)
+    of GeneGene:
+      for item in target.gene.data:
+        if item.kind == GeneGene and item.gene.type == self.type:
+          result.add(item)
     else:
       todo()
   else:

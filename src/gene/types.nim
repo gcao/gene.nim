@@ -359,6 +359,14 @@ type
     SmName
     SmNameList
     SmNamePattern
+    SmType
+    SmRetType
+    SmRetProps
+    SmRetKeys
+    SmRetValues
+    SmRetData
+    SmRetSelfAndDescendants
+    SmRetDescendants
 
   SelectorMatcher* = ref object
     root*: Selector
@@ -367,6 +375,8 @@ type
       index*: int
     of SmName:
       name*: MapKey
+    of SmType:
+      `type`*: GeneValue
     else: discard
 
   SelectResultMode* = enum
@@ -2496,6 +2506,9 @@ proc gene_to_selector_item*(v: GeneValue): SelectorItem =
   of GeneString:
     result = SelectorItem()
     result.matchers.add(SelectorMatcher(kind: SmName, name: v.str.to_key))
+  of GeneSymbol:
+    result = SelectorItem()
+    result.matchers.add(SelectorMatcher(kind: SmType, `type`: v))
   of GeneVector:
     result = SelectorItem()
     for item in v.vec:
@@ -2504,10 +2517,12 @@ proc gene_to_selector_item*(v: GeneValue): SelectorItem =
         result.matchers.add(SelectorMatcher(kind: SmIndex, index: item.int))
       of GeneString:
         result.matchers.add(SelectorMatcher(kind: SmName, name: item.str.to_key))
+      of GeneSymbol:
+        result.matchers.add(SelectorMatcher(kind: SmType, `type`: item))
       else:
         todo()
   else:
-    todo()
+    todo($v.kind)
 
 # Definition
 proc is_singular*(self: Selector): bool
