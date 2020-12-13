@@ -186,3 +186,12 @@ test_interpreter """
     (_ (:TEST 1))
   )
 """, @[new_gene_int(1)]
+
+test_core """
+  (((@ _)
+    (_ (:TEST 1))
+    # Matches
+    # self: (_ (:TEST 1))
+    # descendants: (:TEST 1), 1
+  ).size)
+""", 3

@@ -353,30 +353,31 @@ type
       selector*: Selector
 
   SelectorMatcherKind* = enum
-    SmIndex
-    SmIndexList
-    SmIndexRange
-    SmName
-    SmNameList
-    SmNamePattern
+    SmByIndex
+    SmByIndexList
+    SmByIndexRange
+    SmByName
+    SmByNameList
+    SmByNamePattern
+    SmSymbol
+    SmByType
     SmType
-    SmRetType
-    SmRetProps
-    SmRetKeys
-    SmRetValues
-    SmRetData
-    SmRetSelfAndDescendants
-    SmRetDescendants
+    SmProps
+    SmKeys
+    SmValues
+    SmData
+    SmSelfAndDescendants
+    SmDescendants
 
   SelectorMatcher* = ref object
     root*: Selector
     case kind*: SelectorMatcherKind
-    of SmIndex:
+    of SmByIndex:
       index*: int
-    of SmName:
+    of SmByName:
       name*: MapKey
-    of SmType:
-      `type`*: GeneValue
+    of SmByType:
+      by_type*: GeneValue
     else: discard
 
   SelectResultMode* = enum
@@ -2008,9 +2009,9 @@ converter to_selector_item*(name: string): SelectorItem =
   result = SelectorItem()
   try:
     var index = parse_int(name)
-    result.matchers.add(SelectorMatcher(kind: SmIndex, index: index))
+    result.matchers.add(SelectorMatcher(kind: SmByIndex, index: index))
   except ValueError:
-    result.matchers.add(SelectorMatcher(kind: SmName, name: name.to_key))
+    result.matchers.add(SelectorMatcher(kind: SmByName, name: name.to_key))
 
 converter to_selector*(s: string): Selector =
   assert(s[0] == '@')
@@ -2502,23 +2503,26 @@ proc gene_to_selector_item*(v: GeneValue): SelectorItem =
       todo()
   of GeneInt:
     result = SelectorItem()
-    result.matchers.add(SelectorMatcher(kind: SmIndex, index: v.int))
+    result.matchers.add(SelectorMatcher(kind: SmByIndex, index: v.int))
   of GeneString:
     result = SelectorItem()
-    result.matchers.add(SelectorMatcher(kind: SmName, name: v.str.to_key))
+    result.matchers.add(SelectorMatcher(kind: SmByName, name: v.str.to_key))
   of GeneSymbol:
     result = SelectorItem()
-    result.matchers.add(SelectorMatcher(kind: SmType, `type`: v))
+    result.matchers.add(SelectorMatcher(kind: SmByType, by_type: v))
+  of GenePlaceholderKind:
+    result = SelectorItem()
+    result.matchers.add(SelectorMatcher(kind: SmSelfAndDescendants))
   of GeneVector:
     result = SelectorItem()
     for item in v.vec:
       case item.kind:
       of GeneInt:
-        result.matchers.add(SelectorMatcher(kind: SmIndex, index: item.int))
+        result.matchers.add(SelectorMatcher(kind: SmByIndex, index: item.int))
       of GeneString:
-        result.matchers.add(SelectorMatcher(kind: SmName, name: item.str.to_key))
+        result.matchers.add(SelectorMatcher(kind: SmByName, name: item.str.to_key))
       of GeneSymbol:
-        result.matchers.add(SelectorMatcher(kind: SmType, `type`: item))
+        result.matchers.add(SelectorMatcher(kind: SmByType, by_type: item))
       else:
         todo()
   else:
@@ -2532,7 +2536,7 @@ proc is_singular*(self: SelectorItem): bool =
   of SiDefault:
     if self.matchers.len > 1:
       return false
-    if self.matchers[0].kind notin [SmIndex, SmName]:
+    if self.matchers[0].kind notin [SmByIndex, SmByName]:
       return false
     case self.children.len:
     of 0:

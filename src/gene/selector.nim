@@ -13,7 +13,7 @@ proc search*(self: Selector, target: GeneValue, r: SelectorResult)
 
 proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
   case self.kind:
-  of SmIndex:
+  of SmByIndex:
     case target.kind:
     of GeneVector:
       return target.vec[self.index]
@@ -21,7 +21,7 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
       return target.gene.data[self.index]
     else:
       todo()
-  of SmName:
+  of SmByName:
     case target.kind:
     of GeneMap:
       return target.map[self.name]
@@ -35,43 +35,59 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
         todo()
     else:
       todo()
-  of SmType:
+  of SmByType:
     case target.kind:
     of GeneVector:
       for item in target.vec:
-        if item.kind == GeneGene and item.gene.type == self.type:
+        if item.kind == GeneGene and item.gene.type == self.by_type:
           return item
     else:
       todo()
   else:
     todo()
 
+proc add_self_and_descendants(self: var seq[GeneValue], v: GeneValue) =
+  self.add(v)
+  case v.kind:
+  of GeneVector:
+    for child in v.vec:
+      self.add_self_and_descendants(child)
+  of GeneGene:
+    for child in v.gene.data:
+      self.add_self_and_descendants(child)
+  else:
+    discard
+
 proc search(self: SelectorMatcher, target: GeneValue): seq[GeneValue] =
   case self.kind:
-  of SmIndex:
+  of SmByIndex:
     case target.kind:
     of GeneVector:
       result.add(target.vec[self.index])
+    of GeneGene:
+      result.add(target.gene.data[self.index])
     else:
       todo()
-  of SmName:
+  of SmByName:
     case target.kind:
     of GeneMap:
       result.add(target.map[self.name])
     else:
       todo()
-  of SmType:
+  of SmByType:
     case target.kind:
     of GeneVector:
       for item in target.vec:
-        if item.kind == GeneGene and item.gene.type == self.type:
+        if item.kind == GeneGene and item.gene.type == self.by_type:
           result.add(item)
     of GeneGene:
       for item in target.gene.data:
-        if item.kind == GeneGene and item.gene.type == self.type:
+        if item.kind == GeneGene and item.gene.type == self.by_type:
           result.add(item)
     else:
       todo()
+  of SmSelfAndDescendants:
+    result.add_self_and_descendants(target)
   else:
     todo()
 
@@ -89,9 +105,7 @@ proc search(self: SelectorItem, target: GeneValue, r: SelectorResult) =
             break
       of SrAll:
         for m in self.matchers:
-          var v = m.search_first(target)
-          if v != NO_RESULT:
-            r.all.add(v)
+          r.all.add(m.search(target))
     else:
       var items: seq[GeneValue] = @[]
       for m in self.matchers:
@@ -132,7 +146,7 @@ proc search*(self: Selector, target: GeneValue): GeneValue =
 proc update(self: SelectorItem, target: GeneValue, value: GeneValue): bool =
   for m in self.matchers:
     case m.kind:
-    of SmIndex:
+    of SmByIndex:
       case target.kind:
       of GeneVector:
         if self.is_last:
@@ -143,7 +157,7 @@ proc update(self: SelectorItem, target: GeneValue, value: GeneValue): bool =
             result = result or child.update(target.vec[m.index], value)
       else:
         todo()
-    of SmName:
+    of SmByName:
       case target.kind:
       of GeneMap:
         if self.is_last:
