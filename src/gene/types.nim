@@ -783,12 +783,17 @@ type
       callbacks*: seq[Expr]
       parallel_mode*: bool
 
-  VM* = ref object
+  VirtualMachine* = ref object
     app*: Application
     modules*: OrderedTable[MapKey, Namespace]
     repl_on_error*: bool
+    gene_ns*: GeneValue
+    genex_ns*: GeneValue
+    object_class*: GeneValue
+    class_class*: GeneValue
+    exception_class*: GeneValue
 
-  Evaluator* = proc(self: VM, frame: Frame, expr: Expr): GeneValue
+  Evaluator* = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue
 
   EvaluatorManager* = ref object
     mappings*: Table[ExprKind, Evaluator]

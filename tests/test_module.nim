@@ -13,47 +13,47 @@ import ./helpers
 # import from "module" a/[b c], d: my_d
 
 test "Interpreter / eval: import":
-  var vm = new_vm()
-  discard vm.import_module("file1", """
+  init_app_and_vm()
+  discard VM.import_module("file1", """
     (ns n
       (fn f a a)
     )
   """)
-  var result = vm.eval """
+  var result = VM.eval """
     (import n from "file1")
     n/f
   """
   check result.internal.fn.name == "f"
 
 test "Interpreter / eval: import":
-  var vm = new_vm()
-  discard vm.import_module("file1", """
+  init_app_and_vm()
+  discard VM.import_module("file1", """
     (ns n
       (fn f a a)
     )
   """)
-  var result = vm.eval """
+  var result = VM.eval """
     (import n/f from "file1")
     f
   """
   check result.internal.fn.name == "f"
 
 # test "Interpreter / eval: import":
-#   var vm = new_vm()
-#   discard vm.import_module("file1", """
+#   init_app_and_vm()
+#   discard VM.import_module("file1", """
 #     (ns n
 #       (fn f a a)
 #     )
 #   """)
-#   var result = vm.eval """
+#   var result = VM.eval """
 #     (import _ as x from "file1")  # Import root namespace
 #     x/f
 #   """
 #   check result.internal.fn.name == "f"
 
 # test "Interpreter / eval: import":
-#   var vm = new_vm()
-#   var result = vm.eval """
+#   init_app_and_vm()
+#   var result = VM.eval """
 #     (import gene/Object)  # Import from parent namespace
 #     Object
 #   """

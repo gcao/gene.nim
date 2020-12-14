@@ -12,7 +12,7 @@ import ./parser
 type
   KeyboardInterrupt = object of CatchableError
 
-  Eval = proc(self: VM, frame: Frame, code: string): GeneValue
+  Eval = proc(self: VirtualMachine, frame: Frame, code: string): GeneValue
 
 # https://rosettacode.org/wiki/Handle_a_signal#Nim
 proc handler() {.noconv.} =
@@ -36,7 +36,7 @@ proc show_result(v: GeneValue) =
   if v.kind != GenePlaceholderKind:
     stdout.write_line(v)
 
-proc repl*(self: VM, frame: Frame, eval: Eval, return_value: bool): GeneValue =
+proc repl*(self: VirtualMachine, frame: Frame, eval: Eval, return_value: bool): GeneValue =
   echo "Welcome to interactive Gene!"
   echo "Note: press Ctrl-D to exit."
 

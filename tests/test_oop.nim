@@ -158,17 +158,16 @@ test_interpreter """
 # """, 3
 
 test "Interpreter / eval: native method":
-  proc test_meth(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
+  init_app_and_vm()
+  VM.app.ns["test_fn"] = proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     data[0].int + data[1].int
-  GLOBAL_NS.internal.ns["test_fn"] = test_meth.to_gene
   var code = cleanup """
     (class A
       (native_method test test_fn)
     )
     ((new A) .test 1 2)
   """
-  var interpreter = new_vm()
-  check interpreter.eval(code) == 3
+  check VM.eval(code) == 3
 
 test_core """
   (macro my_class [name rest...]

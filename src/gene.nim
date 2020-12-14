@@ -24,26 +24,26 @@ proc quit_with*(errorcode: int, newline = false) =
   echo "Good bye!"
   quit(errorcode)
 
-proc init_vm(): VM =
-  result = new_vm()
-  result.load_core_module()
-  result.load_gene_module()
-  result.load_genex_module()
+proc init_vm() =
+  init_app_and_vm()
+  VM.load_core_module()
+  VM.load_gene_module()
+  VM.load_genex_module()
 
 proc main() =
   var options = parse_options()
   setup_logger(options.debugging)
 
-  var vm = init_vm()
-  vm.repl_on_error = options.repl_on_error
+  init_vm()
+  VM.repl_on_error = options.repl_on_error
   if options.repl:
-    var frame = vm.eval_prepare()
-    discard repl(vm, frame, eval_only, false)
+    var frame = VM.eval_prepare()
+    discard repl(VM, frame, eval_only, false)
   else:
     var file = options.file
-    vm.init_package(parent_dir(file))
+    VM.init_package(parent_dir(file))
     let start = cpu_time()
-    let result = vm.run_file(file)
+    let result = VM.run_file(file)
     if options.print_result:
       echo result
     if options.benchmark:

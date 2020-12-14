@@ -32,10 +32,10 @@ import ./helpers
 #     (throw "test")
 #   """.cleanup
 #   test "Interpreter / eval: " & code:
-#     var interpreter = new_vm()
-#     discard interpreter.eval(code)
+#     init_app_and_vm()
+#     discard VM.eval(code)
 #     # try:
-#     #   discard interpreter.eval(code)
+#     #   discard VM.eval(code)
 #     #   check false
 #     # except:
 #     #   discard
