@@ -1376,6 +1376,9 @@ EvaluatorMgr[ExSelector] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
     for item in expr.selector:
       var v = self.eval(frame, item)
       selector.children.add(gene_to_selector_item(v))
+    for item in expr.callbacks:
+      var v = self.eval(frame, item)
+      selector.callbacks.add(v)
   else:
     var first = self.eval(frame, expr.selector[0])
     var selector_item = gene_to_selector_item(first)
@@ -1385,6 +1388,9 @@ EvaluatorMgr[ExSelector] = proc(self: VM, frame: Frame, expr: Expr): GeneValue =
       var new_selector_item = gene_to_selector_item(item)
       selector_item.children.add(new_selector_item)
       selector_item = new_selector_item
+    for item in expr.callbacks:
+      var v = self.eval(frame, item)
+      selector.callbacks.add(v)
   result = selector
 
 when isMainModule:

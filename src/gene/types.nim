@@ -339,6 +339,7 @@ type
 
   Selector* {.acyclic.} = ref object
     children*: seq[SelectorItem]  # Each child represents a branch
+    callbacks*: seq[GeneValue]
 
   SelectorItemKind* = enum
     SiDefault
@@ -779,6 +780,7 @@ type
       acb_callback*: Expr
     of ExSelector:
       selector*: seq[Expr]
+      callbacks*: seq[Expr]
       parallel_mode*: bool
 
   VM* = ref object
@@ -968,6 +970,7 @@ let
   Catch*     = GeneValue(kind: GeneSymbol, symbol: "catch")
   Finally*   = GeneValue(kind: GeneSymbol, symbol: "finally")
   Call*      = GeneValue(kind: GeneSymbol, symbol: "call")
+  Do*        = GeneValue(kind: GeneSymbol, symbol: "do")
 
 var GeneInts: array[111, GeneValue]
 for i in 0..110:

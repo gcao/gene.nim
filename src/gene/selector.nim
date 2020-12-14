@@ -136,12 +136,14 @@ proc search*(self: Selector, target: GeneValue): GeneValue =
     self.search(target, r)
     if r.done:
       result = r.first
+      # TODO: invoke callbacks
     else:
       raise new_exception(SelectorNoResult, "No result is found for the selector.")
   else:
     var r = SelectorResult(mode: SrAll)
     self.search(target, r)
     result = new_gene_vec(r.all)
+    # TODO: invoke callbacks
 
 proc update(self: SelectorItem, target: GeneValue, value: GeneValue): bool =
   for m in self.matchers:

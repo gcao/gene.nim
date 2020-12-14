@@ -195,3 +195,10 @@ test_core """
     # descendants: (:TEST 1), 1
   ).size)
 """, 3
+
+# test_interpreter """
+#   (var a)
+#   (fn f v (a = v))
+#   ((@ 0 do f) [123])
+#   a
+# """, 123
