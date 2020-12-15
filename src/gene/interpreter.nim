@@ -189,8 +189,7 @@ proc load_core_module*(self: VirtualMachine) =
   VM.genex_ns = new_namespace("genex")
   VM.app.ns[GENEX_KEY] = VM.genex_ns
   VM.gene_ns.internal.ns[NATIVE_KEY] = new_namespace("native")
-  add_native_fns()
-  add_native_methods()
+  init_native()
   discard self.import_module(CORE_KEY, readFile(GENE_HOME & "/src/core.gene"))
 
 proc load_gene_module*(self: VirtualMachine) =
