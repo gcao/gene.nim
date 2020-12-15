@@ -320,16 +320,16 @@ proc init_native*() =
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.gene.data
 
-  add_to_native "props_iterator",
-    to_gene proc(args: varargs[GeneValue]): iterator(): tuple[k, v: GeneValue] =
-      var self = args[0]
-      result = iterator(): tuple[k, v: GeneValue] =
-        case self.kind:
-        of GeneGene:
-          for k, v in self.gene.props:
-            yield (k.to_s.str_to_gene, v)
-        of GeneMap:
-          for k, v in self.map:
-            yield (k.to_s.str_to_gene, v)
-        else:
-          not_allowed()
+  # add_to_native "props_iterator",
+  #   to_gene proc(args: varargs[GeneValue]): iterator(): tuple[k, v: GeneValue] =
+  #     var self = args[0]
+  #     result = iterator(): tuple[k, v: GeneValue] =
+  #       case self.kind:
+  #       of GeneGene:
+  #         for k, v in self.gene.props:
+  #           yield (k.to_s.str_to_gene, v)
+  #       of GeneMap:
+  #         for k, v in self.map:
+  #           yield (k.to_s.str_to_gene, v)
+  #       else:
+  #         not_allowed()

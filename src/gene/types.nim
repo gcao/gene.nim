@@ -241,8 +241,8 @@ type
     name*: string
     value*: int
 
-  Iterator* = iterator(): tuple[k, v: GeneValue] {.closure.}
-  IteratorWrapper* = proc(args: varargs[GeneValue]): Iterator
+  # Iterator* = iterator(): tuple[k, v: GeneValue] {.closure.}
+  # IteratorWrapper* = proc(args: varargs[GeneValue]): Iterator
 
   GeneInternalKind* = enum
     GeneApplication
@@ -268,8 +268,8 @@ type
     GeneSelector
     GeneNativeFn
     GeneNativeMethod
-    GeneIterator
-    GeneIteratorWrapper
+    # GeneIterator
+    # GeneIteratorWrapper
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -319,10 +319,10 @@ type
       native_fn*: NativeFn
     of GeneNativeMethod:
       native_meth*: NativeMethod
-    of GeneIterator:
-      `iterator`*: Iterator
-    of GeneIteratorWrapper:
-      `iterator_wrapper`*: IteratorWrapper
+    # of GeneIterator:
+    #   `iterator`*: Iterator
+    # of GeneIteratorWrapper:
+    #   `iterator_wrapper`*: IteratorWrapper
 
   ComplexSymbol* = ref object
     first*: string
@@ -1084,23 +1084,23 @@ converter to_gene*(v: NativeMethod): GeneValue =
     ),
   )
 
-converter to_gene*(v: Iterator): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(
-      kind: GeneIterator,
-      `iterator`: v,
-    ),
-  )
+# converter to_gene*(v: Iterator): GeneValue =
+#   return GeneValue(
+#     kind: GeneInternal,
+#     internal: Internal(
+#       kind: GeneIterator,
+#       `iterator`: v,
+#     ),
+#   )
 
-converter to_gene*(v: IteratorWrapper): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(
-      kind: GeneIteratorWrapper,
-      `iterator_wrapper`: v,
-    ),
-  )
+# converter to_gene*(v: IteratorWrapper): GeneValue =
+#   return GeneValue(
+#     kind: GeneInternal,
+#     internal: Internal(
+#       kind: GeneIteratorWrapper,
+#       `iterator_wrapper`: v,
+#     ),
+#   )
 
 #################### Module ######################
 
