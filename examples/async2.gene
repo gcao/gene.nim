@@ -11,6 +11,11 @@
 (future .on_success
   (s -> (content = s)))
 (await future)
+(if (not content)
+  # TODO: how do we make sure callbacks can be registered after the future ends?
+  (println "WARNING: async finished before callback is registered.")
+  (exit 1)
+)
 (println "Content read:\n" content)
 (assert ((content .trim) == "line1\nline2"))
 (println "Done.")
