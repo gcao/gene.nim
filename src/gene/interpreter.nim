@@ -1242,6 +1242,10 @@ EvaluatorMgr[ExGene] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Gen
       var val = self.eval(frame, expr.gene_data[0])
       var selector = target.internal.selector
       result = selector.search(val)
+    of GeneIteratorWrapper:
+      var p = target.internal.iterator_wrapper
+      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+      result = p(args.gene.data)
     else:
       todo($target.internal.kind)
   of GeneString:
@@ -1293,8 +1297,20 @@ EvaluatorMgr[ExFor] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Gene
               discard self.eval(frame, e)
           except Continue:
             discard
+      of GeneInternal:
+        case for_in.internal.kind:
+        of GeneIterator:
+          for _, v in for_in.internal.iterator():
+            try:
+              frame.scope[val] = v
+              for e in expr.for_blk:
+                discard self.eval(frame, e)
+            except Continue:
+              discard
+        else:
+          todo($for_in.internal.kind)
       else:
-        todo()
+        todo($for_in.kind)
     else:
       var key = first.symbol.to_key
       var val = second.symbol.to_key

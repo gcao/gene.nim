@@ -321,5 +321,15 @@ proc init_native*() =
       result = self.gene.data
 
   add_to_native "props",
-    iterator(v: GeneValue): tuple[k, v: GeneValue] =
-      todo()
+    to_gene proc(args: varargs[GeneValue]): iterator(): tuple[k, v: GeneValue] =
+      var self = args[0]
+      result = iterator(): tuple[k, v: GeneValue] =
+        case self.kind:
+        of GeneGene:
+          for k, v in self.gene.props:
+            yield (k.to_s.str_to_gene, v)
+        of GeneMap:
+          for k, v in self.map:
+            yield (k.to_s.str_to_gene, v)
+        else:
+          not_allowed()

@@ -241,7 +241,8 @@ type
     name*: string
     value*: int
 
-  Iterator* = iterator(v: GeneValue): tuple[k, v: GeneValue]
+  Iterator* = iterator(): tuple[k, v: GeneValue] {.closure.}
+  IteratorWrapper* = proc(args: varargs[GeneValue]): Iterator
 
   GeneInternalKind* = enum
     GeneApplication
@@ -268,6 +269,7 @@ type
     GeneNativeFn
     GeneNativeMethod
     GeneIterator
+    GeneIteratorWrapper
 
   Internal* = ref object
     case kind*: GeneInternalKind
@@ -319,6 +321,8 @@ type
       native_meth*: NativeMethod
     of GeneIterator:
       `iterator`*: Iterator
+    of GeneIteratorWrapper:
+      `iterator_wrapper`*: IteratorWrapper
 
   ComplexSymbol* = ref object
     first*: string
@@ -1086,6 +1090,15 @@ converter to_gene*(v: Iterator): GeneValue =
     internal: Internal(
       kind: GeneIterator,
       `iterator`: v,
+    ),
+  )
+
+converter to_gene*(v: IteratorWrapper): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(
+      kind: GeneIteratorWrapper,
+      `iterator_wrapper`: v,
     ),
   )
 

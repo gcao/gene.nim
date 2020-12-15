@@ -6,7 +6,7 @@ import gene/interpreter
 import ./helpers
 
 test_core """
-  (var sum)
+  (var sum 0)
   (for v in (gene/native/props {^a 1 ^b 2})
     (sum += v)
   )
