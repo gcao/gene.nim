@@ -348,7 +348,6 @@ type
 
   Selector* {.acyclic.} = ref object
     children*: seq[SelectorItem]  # Each child represents a branch
-    callbacks*: seq[GeneValue]
 
   SelectorItemKind* = enum
     SiDefault
@@ -378,6 +377,7 @@ type
     SmData
     SmSelfAndDescendants
     SmDescendants
+    SmCallback
 
   SelectorMatcher* = ref object
     root*: Selector
@@ -388,6 +388,8 @@ type
       name*: MapKey
     of SmByType:
       by_type*: GeneValue
+    of SmCallback:
+      callback*: GeneValue
     else: discard
 
   SelectResultMode* = enum
@@ -789,7 +791,6 @@ type
       acb_callback*: Expr
     of ExSelector:
       selector*: seq[Expr]
-      callbacks*: seq[Expr]
       parallel_mode*: bool
 
   VirtualMachine* = ref object

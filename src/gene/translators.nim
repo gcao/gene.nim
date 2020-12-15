@@ -815,14 +815,8 @@ TranslatorMgr[ON_FUTURE_FAILURE_KEY] = proc(parent: Expr, node: GeneValue): Expr
 
 TranslatorMgr[SELECTOR_KEY] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExSelector)
-  var in_callbacks = false
   for item in node.gene.data:
-    if item == Do:
-      in_callbacks = true
-    elif in_callbacks:
-      result.callbacks.add(new_expr(result, item))
-    else:
-      result.selector.add(new_expr(result, item))
+    result.selector.add(new_expr(result, item))
 
 TranslatorMgr[SELECTOR_PARALLEL_KEY] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExSelector)

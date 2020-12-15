@@ -50,6 +50,10 @@ import ./helpers
 #   * Copy value matched by selector to output
 #   * Call callback with value, add result to output
 #
+# Distinguish predicates, transformers and callbacks etc:
+# * Predicates return special list of path=value or value
+# * Callbacks' does not return special list, thus discarded
+#
 # (@ "test")             # target["test"]
 # @test                  # target["test"]
 # (@ 0 "test")           # target[0]["test"]
@@ -199,6 +203,6 @@ test_core """
 # test_interpreter """
 #   (var a)
 #   (fn f v (a = v))
-#   ((@ 0 do f) [123])
+#   ((@ 0 f) [123])
 #   a
 # """, 123
