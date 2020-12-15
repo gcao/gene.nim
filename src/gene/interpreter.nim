@@ -1359,13 +1359,21 @@ EvaluatorMgr[ExAsyncCallback] = proc(self: VirtualMachine, frame: Frame, expr: E
   # Register callback to future
   var acb_self = self.eval(frame, expr.acb_self).internal.future
   var acb_callback = self.eval(frame, expr.acb_callback)
-  acb_self.add_callback proc() {.gcsafe.} =
+  if acb_self.finished:
     if expr.acb_success and not acb_self.failed:
       discard self.call_target(frame, acb_callback, @[acb_self.read()], expr)
     elif not expr.acb_success and acb_self.failed:
       # TODO: handle exceptions that are not CatchableError
       var ex = error_to_gene(cast[ref CatchableError](acb_self.read_error()))
       discard self.call_target(frame, acb_callback, @[ex], expr)
+  else:
+    acb_self.add_callback proc() {.gcsafe.} =
+      if expr.acb_success and not acb_self.failed:
+        discard self.call_target(frame, acb_callback, @[acb_self.read()], expr)
+      elif not expr.acb_success and acb_self.failed:
+        # TODO: handle exceptions that are not CatchableError
+        var ex = error_to_gene(cast[ref CatchableError](acb_self.read_error()))
+        discard self.call_target(frame, acb_callback, @[ex], expr)
 
 EvaluatorMgr[ExSelector] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   var selector = new_selector()

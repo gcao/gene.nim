@@ -12,7 +12,8 @@
   (s -> (content = s)))
 (await future)
 (if (not content)
-  # TODO: how do we make sure callbacks can be registered after the future ends?
+  # Q: how do we make sure callbacks can be registered after the future ends?
+  # A: invoke callbacks when they are registered.
   (println "WARNING: async finished before callback is registered.")
   (exit 1)
 )
