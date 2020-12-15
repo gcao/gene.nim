@@ -5,7 +5,7 @@ import ./map_key
 import ./types
 
 proc add_native_fn*(name: string, fn: NativeFn) =
-  var native_fns = GENE_NS.internal.ns["native".to_key]
+  var native_fns = VM.gene_ns.internal.ns["native".to_key]
   if native_fns.has_key(name.to_key):
     todo("Add another method to allow overwriting method")
   native_fns.internal.ns[name.to_key] = fn
@@ -119,7 +119,7 @@ proc add_native_fns*() =
       result = new_gene_datetime(date)
 
 proc add_native_method*(name: string, fn: NativeMethod) =
-  var native_fns = GENE_NS.internal.ns["native".to_key]
+  var native_fns = VM.gene_ns.internal.ns["native".to_key]
   if native_fns.has_key(name.to_key):
     todo("Add another method to allow overwriting method")
   native_fns.internal.ns[name.to_key] = fn
@@ -136,6 +136,13 @@ proc add_native_methods*() =
   add_native_method "object_to_json",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.to_json()
+
+  add_native_method "ns_name",
+    proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      if self.kind == GeneInternal and self.internal.kind == GeneNamespace:
+        result = self.internal.ns.name
+      else:
+        not_allowed($self & " is not a Namespace.")
 
   add_native_method "class_name",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =

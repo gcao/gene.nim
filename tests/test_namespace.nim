@@ -31,7 +31,7 @@ test_interpreter """
 """, proc(r: GeneValue) =
   check r.internal.ns.name == "n"
 
-test_interpreter "global", new_gene_internal(VM.app.ns)
+test_core "(global .name)", "global"
 
 test_interpreter """
   (class global/A)

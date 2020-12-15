@@ -981,9 +981,7 @@ var GeneInts: array[111, GeneValue]
 for i in 0..110:
   GeneInts[i] = GeneValue(kind: GeneInt, int: i - 10)
 
-var GLOBAL_NS*: GeneValue
-var GENE_NS*:   GeneValue
-var GENEX_NS*:  GeneValue
+var VM*: VirtualMachine   # The current virtual machine
 
 var GeneObjectClass*   : GeneValue
 var GeneClassClass*    : GeneValue
@@ -1082,7 +1080,7 @@ converter to_gene*(v: NativeMethod): GeneValue =
 proc new_module*(name: string): Module =
   result = Module(
     name: name,
-    root_ns: new_namespace(GLOBAL_NS),
+    root_ns: new_namespace(VM.app.ns),
   )
 
 proc new_module*(): Module =
@@ -1269,11 +1267,11 @@ proc `[]`*(self: Frame, name: GeneValue): GeneValue {.inline.} =
   of GeneComplexSymbol:
     var csymbol = name.csymbol
     if csymbol.first == "global":
-      result = GLOBAL_NS
+      result = VM.app.ns
     elif csymbol.first == "gene":
-      result = GENE_NS
+      result = VM.gene_ns
     elif csymbol.first == "genex":
-      result = GENEX_NS
+      result = VM.genex_ns
     elif csymbol.first == "":
       result = self.ns
     else:
@@ -2129,17 +2127,19 @@ proc get_class*(val: GeneValue): Class =
   of GeneInternal:
     case val.internal.kind:
     of GeneApplication:
-      return GENE_NS.internal.ns[APPLICATION_CLASS_KEY].internal.class
+      return VM.gene_ns.internal.ns[APPLICATION_CLASS_KEY].internal.class
     of GenePackage:
-      return GENE_NS.internal.ns[PACKAGE_CLASS_KEY].internal.class
+      return VM.gene_ns.internal.ns[PACKAGE_CLASS_KEY].internal.class
     of GeneInstance:
       return val.internal.instance.class
     of GeneClass:
-      return GENE_NS.internal.ns[CLASS_CLASS_KEY].internal.class
+      return VM.gene_ns.internal.ns[CLASS_CLASS_KEY].internal.class
+    of GeneNamespace:
+      return VM.gene_ns.internal.ns[NAMESPACE_CLASS_KEY].internal.class
     of GeneFuture:
-      return GENE_NS.internal.ns[FUTURE_CLASS_KEY].internal.class
+      return VM.gene_ns.internal.ns[FUTURE_CLASS_KEY].internal.class
     of GeneFile:
-      return GENE_NS.internal.ns[FILE_CLASS_KEY].internal.class
+      return VM.gene_ns.internal.ns[FILE_CLASS_KEY].internal.class
     of GeneExceptionKind:
       var ex = val.internal.exception
       if ex is GeneException:
@@ -2149,46 +2149,46 @@ proc get_class*(val: GeneValue): Class =
         else:
           return GeneExceptionClass.internal.class
       # elif ex is CatchableError:
-      #   var nim = GLOBAL_NS.internal.ns[NIM_KEY]
+      #   var nim = VM.app.ns[NIM_KEY]
       #   return nim.internal.ns[CATCHABLE_ERROR_KEY].internal.class
       else:
         return GeneExceptionClass.internal.class
     else:
       todo()
   of GeneNilKind:
-    return GENE_NS.internal.ns[NIL_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[NIL_CLASS_KEY].internal.class
   of GeneBool:
-    return GENE_NS.internal.ns[BOOL_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[BOOL_CLASS_KEY].internal.class
   of GeneInt:
-    return GENE_NS.internal.ns[INT_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[INT_CLASS_KEY].internal.class
   of GeneChar:
-    return GENE_NS.internal.ns[CHAR_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[CHAR_CLASS_KEY].internal.class
   of GeneString:
-    return GENE_NS.internal.ns[STRING_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[STRING_CLASS_KEY].internal.class
   of GeneSymbol:
-    return GENE_NS.internal.ns[SYMBOL_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[SYMBOL_CLASS_KEY].internal.class
   of GeneComplexSymbol:
-    return GENE_NS.internal.ns[COMPLEX_SYMBOL_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[COMPLEX_SYMBOL_CLASS_KEY].internal.class
   of GeneVector:
-    return GENE_NS.internal.ns[ARRAY_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[ARRAY_CLASS_KEY].internal.class
   of GeneMap:
-    return GENE_NS.internal.ns[MAP_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[MAP_CLASS_KEY].internal.class
   of GeneSet:
-    return GENE_NS.internal.ns[SET_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[SET_CLASS_KEY].internal.class
   of GeneGene:
-    return GENE_NS.internal.ns[GENE_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[GENE_CLASS_KEY].internal.class
   of GeneRegex:
-    return GENE_NS.internal.ns[REGEX_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[REGEX_CLASS_KEY].internal.class
   of GeneRange:
-    return GENE_NS.internal.ns[RANGE_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[RANGE_CLASS_KEY].internal.class
   of GeneDate:
-    return GENE_NS.internal.ns[DATE_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[DATE_CLASS_KEY].internal.class
   of GeneDateTime:
-    return GENE_NS.internal.ns[DATETIME_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[DATETIME_CLASS_KEY].internal.class
   of GeneTimeKind:
-    return GENE_NS.internal.ns[TIME_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[TIME_CLASS_KEY].internal.class
   of GeneTimezone:
-    return GENE_NS.internal.ns[TIMEZONE_CLASS_KEY].internal.class
+    return VM.gene_ns.internal.ns[TIMEZONE_CLASS_KEY].internal.class
   else:
     todo()
 

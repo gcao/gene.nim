@@ -85,7 +85,7 @@ test_core """
   a
 """, 1
 
-test_interpreter """
+test_core """
   (var a "")
   (var f1 (gene/sleep_async 50))
   (f1 .on_success (-> (a = (a "1"))))

@@ -17,8 +17,6 @@ let GENE_RUNTIME* = Runtime(
   version: read_file(GENE_HOME & "/VERSION").strip(),
 )
 
-var VM*: VirtualMachine   # The current virtual machine
-
 #################### Definitions #################
 
 proc import_module*(self: VirtualMachine, name: MapKey, code: string): Namespace
@@ -49,17 +47,15 @@ proc call_aspect_instance*(self: VirtualMachine, frame: Frame, instance: AspectI
 #################### Application #################
 
 proc new_app*(): Application =
-  GLOBAL_NS = new_namespace("global")
-  GLOBAL_NS.internal.ns[GLOBAL_KEY] = GLOBAL_NS
-  result = Application(
-    ns: GLOBAL_NS.internal.ns,
-  )
-  GLOBAL_NS.internal.ns[APP_KEY] = result
-  GLOBAL_NS.internal.ns[STDIN_KEY]  = stdin
-  GLOBAL_NS.internal.ns[STDOUT_KEY] = stdout
-  GLOBAL_NS.internal.ns[STDERR_KEY] = stderr
+  result = Application()
+  var global = new_namespace("global")
+  result.ns = global
+  global[APP_KEY] = result
+  global[STDIN_KEY]  = stdin
+  global[STDOUT_KEY] = stdout
+  global[STDERR_KEY] = stderr
   var cmd_args = command_line_params().map(str_to_gene)
-  GLOBAL_NS.internal.ns[CMD_ARGS_KEY] = cmd_args
+  global[CMD_ARGS_KEY] = cmd_args
 
 #################### Package #####################
 
@@ -81,7 +77,7 @@ proc new_package*(dir: string): Package =
       var doc = read_document(read_file(package_file))
       result.name = doc.props[NAME_KEY].str
       result.version = doc.props[VERSION_KEY]
-      result.ns = new_namespace(GLOBAL_NS, "package:" & result.name)
+      result.ns = new_namespace(VM.app.ns, "package:" & result.name)
       result.dir = d
       result.dependencies = parse_deps(doc.props[DEPS_KEY].vec)
       result.ns[CUR_PKG_KEY] = result
@@ -90,7 +86,7 @@ proc new_package*(dir: string): Package =
       d = parent_dir(d)
 
   result.adhoc = true
-  result.ns = new_namespace(GLOBAL_NS, "package:<adhoc>")
+  result.ns = new_namespace(VM.app.ns, "package:<adhoc>")
   result.dir = d
   result.ns[CUR_PKG_KEY] = result
 
@@ -170,7 +166,7 @@ proc run_file*(self: VirtualMachine, file: string): GeneValue =
   if frame.ns.has_key(MAIN_KEY):
     var main = frame[MAIN_KEY]
     if main.kind == GeneInternal and main.internal.kind == GeneFunction:
-      var args = GLOBAL_NS.internal.ns[CMD_ARGS_KEY]
+      var args = VM.app.ns[CMD_ARGS_KEY]
       var options = Table[FnOption, GeneValue]()
       result = self.call_fn(frame, GeneNil, main.internal.fn, args, options)
     else:
@@ -188,20 +184,20 @@ proc import_module*(self: VirtualMachine, name: MapKey, code: string): Namespace
   self.modules[name] = result
 
 proc load_core_module*(self: VirtualMachine) =
-  GENE_NS  = new_namespace("gene")
-  GLOBAL_NS.internal.ns[GENE_KEY] = GENE_NS
-  GENEX_NS = new_namespace("genex")
-  GLOBAL_NS.internal.ns[GENEX_KEY] = GENEX_NS
-  GENE_NS.internal.ns[NATIVE_KEY] = new_namespace("native")
+  VM.gene_ns  = new_namespace("gene")
+  VM.app.ns[GENE_KEY] = VM.gene_ns
+  VM.genex_ns = new_namespace("genex")
+  VM.app.ns[GENEX_KEY] = VM.genex_ns
+  VM.gene_ns.internal.ns[NATIVE_KEY] = new_namespace("native")
   add_native_fns()
   add_native_methods()
   discard self.import_module(CORE_KEY, readFile(GENE_HOME & "/src/core.gene"))
 
 proc load_gene_module*(self: VirtualMachine) =
   discard self.import_module(GENE_KEY, readFile(GENE_HOME & "/src/gene.gene"))
-  GeneObjectClass    = GENE_NS[OBJECT_CLASS_KEY]
-  GeneClassClass     = GENE_NS[CLASS_CLASS_KEY]
-  GeneExceptionClass = GENE_NS[EXCEPTION_CLASS_KEY]
+  GeneObjectClass    = VM.gene_ns[OBJECT_CLASS_KEY]
+  GeneClassClass     = VM.gene_ns[CLASS_CLASS_KEY]
+  GeneExceptionClass = VM.gene_ns[EXCEPTION_CLASS_KEY]
 
 proc load_genex_module*(self: VirtualMachine) =
   discard self.import_module(GENEX_KEY, readFile(GENE_HOME & "/src/genex.gene"))
@@ -477,11 +473,11 @@ proc def_member*(self: VirtualMachine, frame: Frame, name: GeneValue, value: Gen
     var ns: Namespace
     case name.csymbol.first:
     of "global":
-      ns = GLOBAL_NS.internal.ns
+      ns = VM.app.ns
     of "gene":
-      ns = GENE_NS.internal.ns
+      ns = VM.gene_ns.internal.ns
     of "genex":
-      ns = GENEX_NS.internal.ns
+      ns = VM.genex_ns.internal.ns
     of "":
       ns = frame.ns
     else:
@@ -497,11 +493,11 @@ proc def_member*(self: VirtualMachine, frame: Frame, name: GeneValue, value: Gen
 
 proc get_member*(self: VirtualMachine, frame: Frame, name: ComplexSymbol): GeneValue =
   if name.first == "global":
-    result = GLOBAL_NS
+    result = VM.app.ns
   elif name.first == "gene":
-    result = GENE_NS
+    result = VM.gene_ns
   elif name.first == "genex":
-    result = GENEX_NS
+    result = VM.genex_ns
   elif name.first == "":
     result = frame.ns
   else:
@@ -520,11 +516,11 @@ proc set_member*(self: VirtualMachine, frame: Frame, name: GeneValue, value: Gen
     var ns: Namespace
     case name.csymbol.first:
     of "global":
-      ns = GLOBAL_NS.internal.ns
+      ns = VM.app.ns
     of "gene":
-      ns = GENE_NS.internal.ns
+      ns = VM.gene_ns.internal.ns
     of "genex":
-      ns = GENEX_NS.internal.ns
+      ns = VM.genex_ns.internal.ns
     of "":
       ns = frame.ns
     else:
@@ -616,10 +612,10 @@ EvaluatorMgr[ExSymbol] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
     var e = expr
     if expr.symbol == GENE_KEY:
       e.symbol_kind = SkGene
-      return GENE_NS
+      return VM.gene_ns
     elif expr.symbol == GENEX_KEY:
       e.symbol_kind = SkGenex
-      return GENEX_NS
+      return VM.genex_ns
     else:
       result = frame.scope[expr.symbol]
       if result != nil:
@@ -630,9 +626,9 @@ EvaluatorMgr[ExSymbol] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
         e.symbol_ns = pair[1]
         result = pair[0]
   of SkGene:
-    result = GENE_NS
+    result = VM.gene_ns
   of SkGenex:
-    result = GENEX_NS
+    result = VM.genex_ns
   of SkNamespace:
     result = expr.symbol_ns[expr.symbol]
   of SkScope:
@@ -1026,8 +1022,8 @@ EvaluatorMgr[ExClass] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Ge
   expr.class.internal.class.ns.parent = frame.ns
   var super_class: Class
   if expr.super_class == nil:
-    if GENE_NS != nil and GENE_NS.internal.ns.has_key(OBJECT_CLASS_KEY):
-      super_class = GENE_NS.internal.ns[OBJECT_CLASS_KEY].internal.class
+    if VM.gene_ns != nil and VM.gene_ns.internal.ns.has_key(OBJECT_CLASS_KEY):
+      super_class = VM.gene_ns.internal.ns[OBJECT_CLASS_KEY].internal.class
   else:
     super_class = self.eval(frame, expr.super_class).internal.class
   expr.class.internal.class.parent = super_class

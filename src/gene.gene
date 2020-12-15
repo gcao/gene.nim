@@ -42,6 +42,10 @@
   (native_method to_json gene/native/object_to_json)
 )
 
+(class gene/Namespace
+  (native_method name gene/native/ns_name)
+)
+
 (class gene/Class
   (var /new gene/native/class_new)
 
