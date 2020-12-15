@@ -2530,13 +2530,17 @@ proc new_selector*(): Selector =
 proc gene_to_selector_item*(v: GeneValue): SelectorItem =
   case v.kind:
   of GeneInternal:
-    if v.internal.kind == GeneSelector:
+    case v.internal.kind:
+    of GeneSelector:
       result = SelectorItem(
         kind: SiSelector,
         selector: v.internal.selector,
       )
+    of GeneFunction:
+      result = SelectorItem()
+      result.matchers.add(SelectorMatcher(kind: SmCallback, callback: v.internal.fn))
     else:
-      todo()
+      todo($v.internal.kind)
   of GeneInt:
     result = SelectorItem()
     result.matchers.add(SelectorMatcher(kind: SmByIndex, index: v.int))

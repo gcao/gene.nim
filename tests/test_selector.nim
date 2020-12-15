@@ -200,9 +200,9 @@ test_core """
   ).size)
 """, 3
 
-# test_interpreter """
-#   (var a)
-#   (fn f v (a = v))
-#   ((@ 0 f) [123])
-#   a
-# """, 123
+test_interpreter """
+  (var a)
+  (fn f v (a = v))
+  ((@ 0 f) [123])
+  a
+""", 123
