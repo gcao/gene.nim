@@ -7,7 +7,15 @@ import ./helpers
 
 test_core """
   (var sum 0)
-  (for v in (gene/native/props {^a 1 ^b 2})
+  (for v in (gene/native/props_iterator {^a 1 ^b 2})
+    (sum += v)
+  )
+  sum
+""", 3
+
+test_core """
+  (var sum 0)
+  (for v in ({^a 1 ^b 2}.to_iterator)
     (sum += v)
   )
   sum

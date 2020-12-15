@@ -320,7 +320,7 @@ proc init_native*() =
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.gene.data
 
-  add_to_native "props",
+  add_to_native "props_iterator",
     to_gene proc(args: varargs[GeneValue]): iterator(): tuple[k, v: GeneValue] =
       var self = args[0]
       result = iterator(): tuple[k, v: GeneValue] =

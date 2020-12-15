@@ -211,6 +211,10 @@
 (class gene/Map
   (native_method size gene/native/map_size)
 
+  (method to_iterator _
+    (gene/native/props_iterator self)
+  )
+
   (method keys _
     (var result [])
     (for [k _] in self
@@ -246,6 +250,10 @@
   (native_method type gene/native/gene_type)
 
   (native_method props gene/native/gene_props)
+
+  (method props_iterator _
+    (gene/native/props_iterator self)
+  )
 
   (method prop name
   )
