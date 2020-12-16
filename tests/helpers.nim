@@ -20,6 +20,10 @@ converter str_to_key*(s: string): MapKey {.inline.} =
 converter key_to_s*(self: MapKey): string {.inline.} =
   result = Keys[cast[int](self)]
 
+converter seq_to_gene*(self: seq[int]): seq[GeneValue] =
+  for item in self:
+    result.add(item)
+
 proc cleanup*(code: string): string =
   result = code
   result.stripLineEnd

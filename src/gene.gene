@@ -337,3 +337,8 @@
 (class nim/CatchableError   # Base class for Nim exception classes
   (native_method message gene/native/exception_message)
 )
+
+# Some utility methods
+(fn gene/id v v)
+(fn gene/inc v (v + 1))
+(fn gene/dec v (v - 1))

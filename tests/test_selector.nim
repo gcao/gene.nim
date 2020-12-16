@@ -202,7 +202,14 @@ test_core """
 
 test_interpreter """
   (var a)
-  (fn f v (a = v))
+  (fn f v
+    (a = v)
+    (:void)
+  )
   ((@ 0 f) [123])
   a
 """, 123
+
+test_core """
+  ((@ gene/inc) 1)
+""", @[new_gene_int(2)]

@@ -176,7 +176,15 @@ proc search(self: SelectorMatcher, target: GeneValue): seq[GeneValue] =
   of SmCallback:
     var args = new_gene_gene(GeneNil)
     args.gene.data.add(target)
-    let r = VM.call_fn(GeneNil, self.callback.internal.fn, args)
+    var v = VM.call_fn(GeneNil, self.callback.internal.fn, args)
+    if v.kind == GeneGene and v.gene.type.kind == GeneSymbol:
+      case v.gene.type.symbol:
+      of "void":
+        discard
+      else:
+        result.add(v)
+    else:
+      result.add(v)
   else:
     todo()
 
