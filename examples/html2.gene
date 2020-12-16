@@ -16,9 +16,22 @@
   )
 ))
 
+(fn style [^props...]
+  (fnx node
+    (if (node .contain "style")
+      ((node .@style).merge props)
+    else
+      ($set node @style props)
+    )
+    (:void)
+  )
+)
+
 (var css (@*
-  (@ _ :BODY do (style ^line-height 1.5))
+  (@ _ :BODY (style ^line-height 1.5))
 ))
 
-# Apply css to doc: (css doc)
-(println ((eval (css doc)).to_s))
+# Apply css to doc
+(css doc)
+
+(println ((eval doc).to_s))

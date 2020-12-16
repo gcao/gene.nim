@@ -308,6 +308,17 @@ proc init_native*() =
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.map.len
 
+  add_to_native "map_contain",
+    proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      var s = data[0].str
+      result = self.map.has_key(s.to_key)
+
+  add_to_native "map_merge",
+    proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      result = self
+      for k, v in data[0].map:
+        self.map[k] = v
+
   add_to_native "gene_type",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.gene.type
@@ -315,6 +326,11 @@ proc init_native*() =
   add_to_native "gene_props",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.gene.props
+
+  add_to_native "gene_contain",
+    proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      var s = data[0].str
+      result = self.gene.props.has_key(s.to_key)
 
   add_to_native "gene_data",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =

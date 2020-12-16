@@ -109,13 +109,19 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
   of SmByName:
     case target.kind:
     of GeneMap:
-      return target.map[self.name]
+      if target.map.has_key(self.name):
+        return target.map[self.name]
+      else:
+        return NO_RESULT
     of GeneGene:
-      return target.gene.props[self.name]
+      if target.gene.props.has_key(self.name):
+        return target.gene.props[self.name]
+      else:
+        return NO_RESULT
     of GeneInternal:
       case target.internal.kind:
       of GeneInstance:
-        return target.internal.instance.value.gene.props[self.name]
+        return target.internal.instance.value.gene.props.get_or_default(self.name, GeneNil)
       else:
         todo()
     else:
@@ -170,7 +176,7 @@ proc search(self: SelectorMatcher, target: GeneValue): seq[GeneValue] =
         if item.kind == GeneGene and item.gene.type == self.by_type:
           result.add(item)
     else:
-      todo()
+      todo($target.kind)
   of SmSelfAndDescendants:
     result.add_self_and_descendants(target)
   of SmCallback:
@@ -265,6 +271,13 @@ proc update(self: SelectorItem, target: GeneValue, value: GeneValue): bool =
         else:
           for child in self.children:
             result = result or child.update(target.map[m.name], value)
+      of GeneGene:
+        if self.is_last:
+          target.gene.props[m.name] = value
+          result = true
+        else:
+          for child in self.children:
+            result = result or child.update(target.gene.props[m.name], value)
       of GeneInternal:
         case target.internal.kind:
         of GeneInstance:
@@ -278,7 +291,7 @@ proc update(self: SelectorItem, target: GeneValue, value: GeneValue): bool =
         else:
           todo()
       else:
-        todo()
+        todo($target.kind)
     else:
       todo()
 

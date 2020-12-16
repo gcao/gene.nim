@@ -210,6 +210,8 @@
 
 (class gene/Map
   (native_method size gene/native/map_size)
+  (native_method contain gene/native/map_contain)
+  (native_method merge gene/native/map_merge)
 
   # (method to_iterator _
   #   (gene/native/props_iterator self)
@@ -248,8 +250,8 @@
 
 (class gene/Gene
   (native_method type gene/native/gene_type)
-
   (native_method props gene/native/gene_props)
+  (native_method contain gene/native/gene_contain)
 
   # (method props_iterator _
   #   (gene/native/props_iterator self)
