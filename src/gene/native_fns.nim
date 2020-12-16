@@ -174,9 +174,9 @@ proc init_native*() =
 
   add_to_native "str_append",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
-      for i in 1..<data.len:
-        self.str.add(data[i].to_s)
       result = self
+      for i in 0..<data.len:
+        self.str.add(data[i].to_s)
 
   add_to_native "str_substr",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =

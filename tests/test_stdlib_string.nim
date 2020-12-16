@@ -39,3 +39,10 @@ test_core "(\"ABC\" .to_lower_case)", "abc"
 test_core "(\"abc\" .char_at 1)", 'b'
 
 test_core "(\"a\" nil true 1 :symbol)", "atrue1symbol"
+
+test_core """
+  (var s "a")
+  (s .append "b")
+  (s .append "c")
+  s
+""", "abc"
