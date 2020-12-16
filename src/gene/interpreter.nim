@@ -176,7 +176,7 @@ proc search(self: SelectorMatcher, target: GeneValue): seq[GeneValue] =
         if item.kind == GeneGene and item.gene.type == self.by_type:
           result.add(item)
     else:
-      todo($target.kind)
+      discard
   of SmSelfAndDescendants:
     result.add_self_and_descendants(target)
   of SmCallback:

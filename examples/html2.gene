@@ -7,28 +7,17 @@
     (TITLE "Test HTML")
   )
   (BODY
-    (HEADER ^style {^font-size 22}
+    (HEADER ^style {^font-size "22px"}
       "This is the header section"
     )
-    (DIV ^style {^font-size 10}
+    (DIV ^style {^font-size "10px"}
       "First section"
     )
   )
 ))
 
-(fn style [^props...]
-  (fnx node
-    (if (node .contain "style")
-      ((node .@style).merge props)
-    else
-      ($set node @style props)
-    )
-    (:void)
-  )
-)
-
 (var css (@*
-  (@ _ :BODY (style ^line-height 1.5))
+  (@ _ :BODY (genex/html/style ^line-height 1.5))
 ))
 
 # Apply css to doc

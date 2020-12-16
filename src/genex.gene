@@ -154,7 +154,17 @@
 
     (method to_s _
       ("<" (.@name)
-        (((.@attrs).map ([k v] -> (" " k "=" (v .to_s)))).join)
+        (((.@attrs).map
+          ([k v] ->
+            (" " k "=\""
+              (if (k == "style")
+                ((v .map ([name value] -> ("" name ":" value ";"))).join)
+              else
+                v
+              )
+              "\""
+            )
+          )).join)
        ">\n"
         (((.@children).join "\n").trim)
        "\n</" (.@name) ">")
@@ -169,9 +179,20 @@
     (for tag in tags
       (tag = (tag .to_s))
       (eval
-        :(fn %tag children...
-          (new Tag %tag {} children)
+        :(fn %tag [^attrs... children...]
+          (new Tag %tag attrs children)
         ))
+    )
+  )
+
+  (fn /style [^props...]
+    (fnx node
+      (if (node .contain "style")
+        ((node .@style).merge props)
+      else
+        ($set node @style props)
+      )
+      (:void)
     )
   )
 )
