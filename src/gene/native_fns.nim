@@ -11,6 +11,10 @@ proc add_to_native*(name: string, fn: GeneValue) =
   native.internal.ns[name.to_key] = fn
 
 proc init_native*() =
+  add_to_native "run_forever",
+    proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      run_forever()
+
   add_to_native "class_new",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       var name = data[0].symbol_or_str

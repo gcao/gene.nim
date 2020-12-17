@@ -37,6 +37,9 @@
       ((gene/json/parse @body) .to_json)
     )
   )
+
+  (class Server
+  )
 )
 
 # https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html
