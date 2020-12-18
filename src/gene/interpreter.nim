@@ -6,6 +6,7 @@ import ./types
 import ./parser
 import ./decorator
 import ./translators
+import ./dynlib_mapping
 import ./native_fns
 import ./repl
 
@@ -1213,7 +1214,7 @@ EvaluatorMgr[ExImport] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
   var `from` = expr.import_from
   if expr.import_native:
     var path = self.eval(frame, `from`).str
-    let lib = load_lib(dir & path & ".dylib")
+    let lib = load_dynlib(dir & path)
     if lib == nil:
       todo()
     else:

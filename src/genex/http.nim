@@ -12,6 +12,8 @@ proc start_http_server(port: int, handler: proc(req: Request) {.async gcsafe.}) 
   var server = new_async_http_server()
   async_check server.serve(Port(port), handler)
 
+{.push dynlib exportc.}
+
 proc start_http_server*(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
   var port = if data[0].kind == GeneString:
     data[0].str.parse_int
@@ -26,10 +28,12 @@ proc start_http_server*(props: OrderedTable[MapKey, GeneValue], data: seq[GeneVa
 
   start_http_server port, handler
 
-when isMainModule:
-  proc handler(req: Request) {.async.} =
-    let headers = {"Content-type": "text/plain; charset=utf-8"}
-    await req.respond(Http200, "Hello World", headers.new_http_headers())
+{.pop.}
 
-  start_http_server(2080, handler)
-  run_forever()
+# when isMainModule:
+#   proc handler(req: Request) {.async.} =
+#     let headers = {"Content-type": "text/plain; charset=utf-8"}
+#     await req.respond(Http200, "Hello World", headers.new_http_headers())
+
+#   start_http_server(2080, handler)
+#   run_forever()

@@ -1,4 +1,4 @@
-import os, strutils, tables, dynlib, unicode, hashes, sets, json, asyncdispatch, times, strformat
+import os, strutils, tables, unicode, hashes, sets, json, asyncdispatch, times, strformat
 
 import ./map_key
 
@@ -2512,15 +2512,15 @@ proc `[]`*(self: EvaluatorManager, key: ExprKind): Evaluator =
 proc `[]=`*(self: EvaluatorManager, key: ExprKind, e: Evaluator) =
   self.mappings[key] = e
 
-#################### Dynamic #####################
+# #################### Dynamic #####################
 
-proc load_dynamic*(path:string, names: seq[string]): OrderedTable[MapKey, NativeFn] =
-  result = OrderedTable[MapKey, NativeFn]()
-  let lib = loadLib(path)
-  for name in names:
-    var s = name
-    let fn = lib.symAddr(s)
-    result[s.to_key] = cast[NativeFn](fn)
+# proc load_dynamic*(path:string, names: seq[string]): OrderedTable[MapKey, NativeFn] =
+#   result = OrderedTable[MapKey, NativeFn]()
+#   let lib = loadLib(path)
+#   for name in names:
+#     var s = name
+#     let fn = lib.symAddr(s)
+#     result[s.to_key] = cast[NativeFn](fn)
 
 #################### Selector ####################
 

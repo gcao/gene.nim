@@ -9,11 +9,11 @@ proc test*(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneVa
   var second = data[1].int
   return new_gene_int(first + second)
 
-proc test_call_gene_fn*(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
-  var fn   = data[0]
-  var args = new_gene_gene(GeneNil)
-  args.gene.props = data[1].map
-  args.gene.data  = data[2].vec
-  # cur_vm.call(fn, args)
+# proc test_call_gene_fn*(props: OrderedTable[string, GeneValue], data: seq[GeneValue]): GeneValue =
+#   var fn   = data[0]
+#   var args = new_gene_gene(GeneNil)
+#   args.gene.props = data[1].map
+#   args.gene.data  = data[2].vec
+#   VM.call_fn(GeneNil, fn, args)
 
 {.pop.}
