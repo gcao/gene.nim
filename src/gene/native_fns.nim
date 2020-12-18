@@ -96,6 +96,10 @@ proc init_native*() =
         future.complete(f.read())
       result = future_to_gene(future)
 
+  add_to_native "http_start_server",
+    proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      todo()
+
   add_to_native "base64",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = encode(data[0].str)

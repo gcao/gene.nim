@@ -344,3 +344,5 @@
 (fn gene/id v v)
 (fn gene/inc v (v + 1))
 (fn gene/dec v (v - 1))
+
+(var gene/run_forever gene/native/run_forever)

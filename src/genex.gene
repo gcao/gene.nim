@@ -38,8 +38,7 @@
     )
   )
 
-  (class Server
-  )
+  (var /start_server gene/native/http_start_server)
 )
 
 # https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html

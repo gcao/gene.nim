@@ -1,0 +1,8 @@
+#!/usr/bin/env gene
+
+(fn handler req
+  "Hello world!"
+)
+
+(genex/http/start_server 2080 handler)
+(gene/run_forever)
