@@ -13,7 +13,7 @@ import ./helpers
 # import from "module" a/[b c], d: my_d
 
 test "Interpreter / eval: import":
-  init_app_and_vm()
+  init_all()
   discard VM.import_module("file1", """
     (ns n
       (fn f a a)
@@ -26,7 +26,7 @@ test "Interpreter / eval: import":
   check result.internal.fn.name == "f"
 
 test "Interpreter / eval: import":
-  init_app_and_vm()
+  init_all()
   discard VM.import_module("file1", """
     (ns n
       (fn f a a)
@@ -39,7 +39,7 @@ test "Interpreter / eval: import":
   check result.internal.fn.name == "f"
 
 # test "Interpreter / eval: import":
-#   init_app_and_vm()
+#   init_all()
 #   discard VM.import_module("file1", """
 #     (ns n
 #       (fn f a a)
@@ -52,7 +52,7 @@ test "Interpreter / eval: import":
 #   check result.internal.fn.name == "f"
 
 # test "Interpreter / eval: import":
-#   init_app_and_vm()
+#   init_all()
 #   var result = VM.eval """
 #     (import gene/Object)  # Import from parent namespace
 #     Object

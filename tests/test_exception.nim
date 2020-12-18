@@ -32,7 +32,7 @@ import ./helpers
 #     (throw "test")
 #   """.cleanup
 #   test "Interpreter / eval: " & code:
-#     init_app_and_vm()
+#     init_all()
 #     discard VM.eval(code)
 #     # try:
 #     #   discard VM.eval(code)

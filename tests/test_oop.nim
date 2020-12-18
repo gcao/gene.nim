@@ -158,7 +158,7 @@ test_interpreter """
 # """, 3
 
 test "Interpreter / eval: native method":
-  init_app_and_vm()
+  init_all()
   VM.app.ns["test_fn"] = proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     data[0].int + data[1].int
   var code = cleanup """

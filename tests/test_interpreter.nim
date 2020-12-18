@@ -325,7 +325,7 @@ test_interpreter """
 """, 1
 
 test "Interpreter / eval: native function (test)":
-  init_app_and_vm()
+  init_all()
   VM.app.ns["test"] = proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     1
   var code = cleanup """
@@ -334,7 +334,7 @@ test "Interpreter / eval: native function (test)":
   check VM.eval(code) == 1
 
 test "Interpreter / eval: native function (test 1 2)":
-  init_app_and_vm()
+  init_all()
   VM.app.ns["test"] = proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue {.nimcall.} =
     data[0].int + data[1].int
   var code = cleanup """

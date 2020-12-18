@@ -8,6 +8,7 @@ import times, logging, os
 
 import gene/types
 import gene/interpreter
+import gene/interpreter_extras
 import gene/repl
 import cmdline/option_parser
 
@@ -26,6 +27,7 @@ proc quit_with*(errorcode: int, newline = false) =
 
 proc init_vm() =
   init_app_and_vm()
+  VM.init_extras()
   VM.load_core_module()
   VM.load_gene_module()
   VM.load_genex_module()

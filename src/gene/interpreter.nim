@@ -54,8 +54,9 @@ proc new_app*(): Application =
   global[STDIN_KEY]  = stdin
   global[STDOUT_KEY] = stdout
   global[STDERR_KEY] = stderr
-  var cmd_args = command_line_params().map(str_to_gene)
-  global[CMD_ARGS_KEY] = cmd_args
+  # Moved to interpreter_extras.nim
+  # var cmd_args = command_line_params().map(str_to_gene)
+  # global[CMD_ARGS_KEY] = cmd_args
 
 #################### Package #####################
 

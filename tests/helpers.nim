@@ -5,10 +5,15 @@ import gene/types
 import gene/parser
 import gene/normalizers
 import gene/interpreter
+import gene/interpreter_extras
 
 # Uncomment below lines to see logs
 # import logging
 # addHandler(newConsoleLogger())
+
+proc init_all*() =
+  init_app_and_vm()
+  VM.init_extras()
 
 # This is added to make it easier to write tests
 converter str_to_key*(s: string): MapKey {.inline.} =
@@ -71,13 +76,13 @@ proc test_normalize*(code: string, r: string) =
 proc test_interpreter*(code: string, result: GeneValue) =
   var code = cleanup(code)
   test "Interpreter / eval: " & code:
-    init_app_and_vm()
+    init_all()
     check VM.eval(code) == result
 
 proc test_interpreter*(code: string, callback: proc(result: GeneValue)) =
   var code = cleanup(code)
   test "Interpreter / eval: " & code:
-    init_app_and_vm()
+    init_all()
     callback VM.eval(code)
 
 proc test_parse_document*(code: string, callback: proc(result: GeneDocument)) =
@@ -88,7 +93,7 @@ proc test_parse_document*(code: string, callback: proc(result: GeneDocument)) =
 proc test_core*(code: string) =
   var code = cleanup(code)
   test "Interpreter / eval: " & code:
-    init_app_and_vm()
+    init_all()
     VM.load_core_module()
     VM.load_gene_module()
     VM.load_genex_module()
@@ -97,7 +102,7 @@ proc test_core*(code: string) =
 proc test_core*(code: string, result: GeneValue) =
   var code = cleanup(code)
   test "Interpreter / eval: " & code:
-    init_app_and_vm()
+    init_all()
     VM.load_core_module()
     VM.load_gene_module()
     VM.load_genex_module()
@@ -106,7 +111,7 @@ proc test_core*(code: string, result: GeneValue) =
 proc test_core*(code: string, callback: proc(result: GeneValue)) =
   var code = cleanup(code)
   test "Interpreter / eval: " & code:
-    init_app_and_vm()
+    init_all()
     VM.load_core_module()
     VM.load_gene_module()
     VM.load_genex_module()
@@ -152,7 +157,7 @@ proc test_args*(schema, input: string, callback: proc(r: ArgMatchingResult)) =
 
 proc test_file*(file: string) =
   test "Tests " & file & ":":
-    init_app_and_vm()
+    init_all()
     VM.load_core_module()
     VM.load_gene_module()
     VM.load_genex_module()

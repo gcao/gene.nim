@@ -13,6 +13,7 @@ bin           = @["gene"]
 requires "nim >= 1.0.0"
 
 task buildext, "Build the Nim extension":
+  exec "nim c --app:lib --outdir:build src/genex/http.nim"
   exec "nim c --app:lib --outdir:tests tests/extension.nim"
 
 before test:

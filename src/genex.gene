@@ -1,3 +1,5 @@
+# (import_native start_http_server from "build/libhttp")
+
 (ns genex/http
   # Support:
   # HTTP
@@ -38,7 +40,7 @@
     )
   )
 
-  (var /start_server gene/native/http_start_server)
+  # (var /start_server start_http_server)
 )
 
 # https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html
