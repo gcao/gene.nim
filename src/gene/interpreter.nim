@@ -1735,10 +1735,6 @@ proc init_native*() =
         var pair = p.split('=', 2)
         result.map[pair[0].to_key] = pair[1]
 
-  proc start_http_server(port: int, handler: proc(req: Request) {.async gcsafe.}) =
-    var server = new_async_http_server()
-    async_check server.serve(Port(port), handler)
-
   add_to_native "http_start_server",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       var port: int
@@ -1747,11 +1743,15 @@ proc init_native*() =
       else:
         port = data[0].int
       proc handler(req: Request) {.async gcsafe.} =
-        var args = new_gene_gene(GeneNil)
-        args.gene.data.add(new_gene_any(req.unsafe_addr, HTTP_REQUEST_KEY))
-        var body = VM.call_fn(GeneNil, data[1].internal.fn, args).str
-        await req.respond(Http200, body, new_http_headers())
-      start_http_server port, handler
+        try:
+          var args = new_gene_gene(GeneNil)
+          args.gene.data.add(new_gene_any(req.unsafe_addr, HTTP_REQUEST_KEY))
+          var body = VM.call_fn(GeneNil, data[1].internal.fn, args).str
+          await req.respond(Http200, body, new_http_headers())
+        except CatchableError as e:
+          discard req.respond(Http500, e.msg, new_http_headers())
+      var server = new_async_http_server()
+      async_check server.serve(Port(port), handler)
 
   add_to_native "base64",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
