@@ -29,6 +29,10 @@
     (gene/json/parse (get url params headers))
   )
 
+  (class Request
+    (native_method params gene/native/http_req_params)
+  )
+
   (class Response
     (method new [code body]
       (@code = code)
@@ -41,6 +45,7 @@
   )
 
   # (var /start_server start_http_server)
+  (var /start_server gene/native/http_start_server)
 )
 
 # https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html
@@ -189,7 +194,7 @@
     )
   )
 
-  (fn /style [^props...]
+  (fn style [^props...]
     (fnx node
       (if (node .contain "style")
         ((node .@style).merge props)

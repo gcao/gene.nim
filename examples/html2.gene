@@ -1,6 +1,7 @@
 #!/usr/bin/env gene
 
 (import genex/html/tags/*)
+(import genex/html/style)
 
 (var doc :(HTML
   (HEAD
@@ -17,7 +18,7 @@
 ))
 
 (var css (@*
-  (@ _ :BODY (genex/html/style ^line-height 1.5))
+  (@ _ :BODY (style ^line-height 1.5))
 ))
 
 # Apply css to doc

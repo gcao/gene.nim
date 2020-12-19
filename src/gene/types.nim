@@ -485,6 +485,7 @@ type
     of GeneInternal:
       internal*: Internal
     of GeneAny:
+      any_type*: MapKey   # Optional type info
       any*: pointer
     # line*: int
     # column*: int
@@ -1669,6 +1670,15 @@ proc new_advice*(kind: AdviceKind, logic: Function): Advice =
 
 #################### Constructors ################
 
+proc new_gene_any*(v: pointer): GeneValue =
+  return GeneValue(kind: GeneAny, any: v)
+
+proc new_gene_any*(v: pointer, `type`: MapKey): GeneValue =
+  return GeneValue(kind: GeneAny, any: v, any_type: `type`)
+
+proc new_gene_any*(v: pointer, `type`: string): GeneValue =
+  return GeneValue(kind: GeneAny, any: v, any_type: `type`.to_key)
+
 proc new_gene_string*(s: string): GeneValue {.gcsafe.} =
   return GeneValue(kind: GeneString, str: s)
 
@@ -2217,6 +2227,11 @@ proc get_class*(val: GeneValue): Class =
     return VM.gene_ns.internal.ns[TIME_CLASS_KEY].internal.class
   of GeneTimezone:
     return VM.gene_ns.internal.ns[TIMEZONE_CLASS_KEY].internal.class
+  of GeneAny:
+    if val.any_type == HTTP_REQUEST_KEY:
+      return VM.genex_ns.internal.ns[HTTP_KEY].internal.ns[REQUEST_CLASS_KEY].internal.class
+    else:
+      todo()
   else:
     todo()
 

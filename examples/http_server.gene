@@ -1,7 +1,12 @@
 #!/usr/bin/env gene
 
 (fn handler req
-  "Hello world!"
+  (var name ((req .params).@name))
+  (if name
+    ("Hello " name)
+  else
+    "Hello world!"
+  )
 )
 
 (genex/http/start_server 2080 handler)
