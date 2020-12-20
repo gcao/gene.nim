@@ -1069,6 +1069,8 @@ EvaluatorMgr[ExThrow] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Ge
     elif class.kind == GeneInternal and class.internal.kind == GeneClass:
       var instance = new_instance(class.internal.class)
       raise new_gene_exception(instance)
+    elif class.kind == GeneInternal and class.internal.kind == GeneExceptionKind:
+      raise class.internal.exception
     elif class.kind == GeneString:
       var instance = new_instance(GeneExceptionClass.internal.class)
       raise new_gene_exception(class.str, instance)
@@ -1093,7 +1095,11 @@ EvaluatorMgr[ExTry] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Gene
         # check whether the thrown exception matches exception in catch statement
         var class = self.eval(frame, catch[0])
         if class == GenePlaceholder:
-          class = GeneExceptionClass
+          # class = GeneExceptionClass
+          handled = true
+          for e in catch[1]:
+            result = self.eval(frame, e)
+          break
         if ex.instance == nil:
           raise
         if ex.instance.is_a(class.internal.class):

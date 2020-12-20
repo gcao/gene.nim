@@ -8,7 +8,7 @@
             "name": "(gdb) wip_test",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/tests/wip_test",
+            "program": "${workspaceRoot}/bin/wip_test",
             "args": [],
             "preLaunchTask": "nimbuild - wip_test",
             "stopAtEntry": false,

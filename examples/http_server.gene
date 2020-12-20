@@ -13,7 +13,7 @@
   result
 catch _
   (println "500 " (req .method) " " (req .url))
-  (throw)
+  (throw $ex)
 )
 
 (var port 2080)
