@@ -227,3 +227,11 @@ test_parse_document """
 """, proc(r: GeneDocument) =
   check r.props["name"] == "Test document"
   check r.data == @[new_gene_int(1), new_gene_int(2)]
+
+test_parser "\"\"\"a\"\"\"", "a"
+# Trim whitespaces and new line after opening """
+# E.g. """  \na""" => "a"
+test_parser "\"\"\"  \na\"\"\"", "a"
+# Trim whitespaces before closing """
+# E.g. """a\n   """ => "a\n"
+test_parser "\"\"\"a\n   \"\"\"", "a\n"

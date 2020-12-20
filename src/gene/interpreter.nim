@@ -126,9 +126,9 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
       of GeneInstance:
         return target.internal.instance.value.gene.props.get_or_default(self.name, GeneNil)
       else:
-        todo()
+        todo($target.internal.kind)
     else:
-      todo()
+      todo($target.kind)
   of SmByType:
     case target.kind:
     of GeneVector:
@@ -136,7 +136,7 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
         if item.kind == GeneGene and item.gene.type == self.by_type:
           return item
     else:
-      todo()
+      todo($target.kind)
   else:
     todo()
 
