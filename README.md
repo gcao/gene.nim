@@ -1,9 +1,13 @@
-# Gene - a general purpose language written in Nim
+# Gene - a general purpose language (written in Nim)
 
-## Credit
+## Features
 
-The parser and basic data types are built on top of [EDN Parser](https://github.com/rosado/edn.nim) that is
-created by Roland Sadowski.
+* FP (Functional Programming)
+* OOP (Object Oriented Programming)
+* AOP (Aspect Oriented Programming) - WIP
+* Macros
+* Pattern matching
+* Homoiconic (like Lisp)
 
 ## Notes
 
@@ -16,7 +20,13 @@ nimble build
 * Run interactive Gene interpreter (after building the executable)
 
 ```
-./gene
+bin/gene
+```
+
+* Run all examples
+
+```
+bin/run_examples
 ```
 
 * Run all tests
@@ -36,3 +46,8 @@ nim c -r tests/test_parser.nim
 ```
 while 1; do fswatch -v -r src tests/*.nim Cargo.toml | nim c --out:bin/gene src/gene.nim && nimble test; sleep 0.2; done
 ```
+
+## Credit
+
+The parser and basic data types are built on top of [EDN Parser](https://github.com/rosado/edn.nim) that is
+created by Roland Sadowski.
