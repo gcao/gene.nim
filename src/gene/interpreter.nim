@@ -1,5 +1,5 @@
 import strutils, sequtils, tables, strutils
-import os, osproc, json, httpclient, base64, times, dynlib
+import os, osproc, json, httpclient, base64, times, dynlib, uri
 import asyncdispatch, asyncfile, asynchttpserver
 
 import ./map_key
@@ -1723,6 +1723,16 @@ proc init_native*() =
       f.add_callback proc() {.gcsafe.} =
         future.complete(f.read())
       result = future_to_gene(future)
+
+  add_to_native "http_req_url",
+    proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      var req = cast[ptr Request](self.any)[]
+      result = $req.url
+
+  add_to_native "http_req_method",
+    proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      var req = cast[ptr Request](self.any)[]
+      result = $req.req_method
 
   add_to_native "http_req_params",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =

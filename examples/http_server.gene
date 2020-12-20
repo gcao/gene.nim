@@ -2,12 +2,25 @@
 
 (fn handler req
   (var name ((req .params).@name))
-  (if name
-    ("Hello " name)
-  else
-    "Hello world!"
+  (var result
+    (if name
+      ("Hello " name)
+    else
+      "Hello world!"
+    )
   )
+  (println "200 " (req .method) " " (req .url))
+  result
+catch _
+  (println "500 " (req .method) " " (req .url))
+  (throw)
 )
 
-(genex/http/start_server 2080 handler)
+(var port 2080)
+(if (($cmd_args .size) > 1)
+  (port = (($cmd_args .get 1).to_i))
+)
+(println "Starting HTTP server at port " port " ...")
+
+(genex/http/start_server port handler)
 (gene/run_forever)

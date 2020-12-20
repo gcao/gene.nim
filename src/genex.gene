@@ -30,6 +30,8 @@
   )
 
   (class Request
+    (native_method method gene/native/http_req_method)
+    (native_method url gene/native/http_req_url)
     (native_method params gene/native/http_req_params)
   )
 
