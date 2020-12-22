@@ -1914,6 +1914,11 @@ proc init_native*() =
       else:
         not_allowed("split expects 1 or 2 arguments")
 
+  add_to_native "str_contains",
+    proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      var substr = data[0].str
+      result = self.str.find(substr) >= 0
+
   add_to_native "str_index",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       var substr = data[0].str

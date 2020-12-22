@@ -117,20 +117,14 @@
     (self .split "\n")
   )
 
+  (native_method contains gene/native/str_contains)
   (native_method index gene/native/str_index)
-
   (native_method rindex gene/native/str_rindex)
-
   (native_method char_at gene/native/str_char_at)
-
   (native_method trim gene/native/str_trim)
-
   (native_method starts_with gene/native/str_starts_with)
-
   (native_method ends_with gene/native/str_ends_with)
-
   (native_method to_upper_case gene/native/str_to_upper_case)
-
   (native_method to_lower_case gene/native/str_to_lower_case)
 )
 
