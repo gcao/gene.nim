@@ -29,6 +29,10 @@ converter seq_to_gene*(self: seq[int]): seq[GeneValue] =
   for item in self:
     result.add(item)
 
+converter seq_to_gene*(self: seq[string]): seq[GeneValue] =
+  for item in self:
+    result.add(item)
+
 proc cleanup*(code: string): string =
   result = code
   result.stripLineEnd

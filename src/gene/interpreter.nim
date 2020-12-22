@@ -1,4 +1,4 @@
-import strutils, sequtils, tables, strutils
+import strutils, sequtils, tables, strutils, parsecsv, streams
 import os, osproc, json, httpclient, base64, times, dynlib, uri
 import asyncdispatch, asyncfile, asynchttpserver
 
@@ -1705,6 +1705,22 @@ proc init_native*() =
   add_to_native "json_parse",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = data[0].str.parse_json
+
+  add_to_native "csv_parse",
+    proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      var parser = CsvParser()
+      var sep = ','
+      # Detect whether it's a tsv (Tab Separated Values)
+      if data[0].str.contains('\t'):
+        sep = '\t'
+      parser.open(new_string_stream(data[0].str), "unknown.csv", sep)
+      if not props.get_or_default("skip_headers".to_key, false):
+        parser.read_header_row()
+      result = new_gene_vec()
+      while parser.read_row():
+        var row: seq[GeneValue]
+        row.add(parser.row.map(proc(s: string): GeneValue = new_gene_string(s)))
+        result.vec.add(new_gene_vec(row))
 
   add_to_native "http_get",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =

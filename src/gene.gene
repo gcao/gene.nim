@@ -346,3 +346,7 @@
 (fn gene/dec v (v - 1))
 
 (var gene/run_forever gene/native/run_forever)
+
+(ns gene/csv
+  (var /parse_string gene/native/csv_parse)
+)
