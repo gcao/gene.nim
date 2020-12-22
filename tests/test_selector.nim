@@ -213,3 +213,15 @@ test_interpreter """
 test_core """
   ((@ 0 gene/inc) [1])
 """, @[new_gene_int(2)]
+
+test_interpreter """
+  ([] .@ 0 ^default 123)
+""", 123
+
+test_interpreter """
+  ([] .@0 ^default 123)
+""", 123
+
+test_interpreter """
+  (@0 [] ^default 123)
+""", 123

@@ -348,6 +348,7 @@ type
 
   Selector* {.acyclic.} = ref object
     children*: seq[SelectorItem]  # Each child represents a branch
+    default*: GeneValue
 
   SelectorItemKind* = enum
     SiDefault

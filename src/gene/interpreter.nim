@@ -104,9 +104,15 @@ proc search_first(self: SelectorMatcher, target: GeneValue): GeneValue =
   of SmByIndex:
     case target.kind:
     of GeneVector:
-      return target.vec[self.index]
+      if self.index >= target.vec.len:
+        return NO_RESULT
+      else:
+        return target.vec[self.index]
     of GeneGene:
-      return target.gene.data[self.index]
+      if self.index >= target.gene.data.len:
+        return NO_RESULT
+      else:
+        return target.gene.data[self.index]
     else:
       todo()
   of SmByName:
@@ -1472,7 +1478,19 @@ EvaluatorMgr[ExGene] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Gen
     of GeneSelector:
       var val = self.eval(frame, expr.gene_data[0])
       var selector = target.internal.selector
-      result = selector.search(val)
+      try:
+        result = selector.search(val)
+      except SelectorNoResult:
+        var default_expr: Expr
+        for e in expr.gene_props:
+          if e.map_key == DEFAULT_KEY:
+            default_expr = e.map_val
+            break
+        if default_expr != nil:
+          result = self.eval(frame, default_expr)
+        else:
+          raise
+
     # of GeneIteratorWrapper:
     #   var p = target.internal.iterator_wrapper
     #   var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
@@ -1788,6 +1806,14 @@ proc init_native*() =
   add_to_native "base64",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = encode(data[0].str)
+
+  add_to_native "url_encode",
+    proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      result = encode_url(data[0].str)
+
+  add_to_native "url_decode",
+    proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+      result = decode_url(data[0].str)
 
   add_to_native "sleep",
     proc(props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =

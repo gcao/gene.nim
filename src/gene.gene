@@ -344,3 +344,6 @@
 (ns gene/csv
   (var /parse_string gene/native/csv_parse)
 )
+
+(var gene/url_encode gene/native/url_encode)
+(var gene/url_decode gene/native/url_decode)
