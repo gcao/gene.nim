@@ -361,17 +361,6 @@ test_interpreter """
 """, proc(r: GeneValue) =
   check r.internal.app.ns.name == "global"
 
-# case...when...else statement
-# `when` accepts integers, strings, chars, symbols, enum values, and functions
-# (case input
-# when 1
-#   ...
-# when [2 3]
-#   ...
-# else
-#   ...
-# )
-
 # HOT RELOAD
 # Module must be marked as reloadable first
 # We need symbol table per module

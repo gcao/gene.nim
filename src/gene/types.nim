@@ -541,7 +541,7 @@ type
     ExBinImmediate
     ExBinAssignment
     ExIf
-    # ExIfElseIf
+    ExIfElif
     ExLoop
     ExBreak
     ExContinue
@@ -667,6 +667,11 @@ type
       if_cond*: Expr
       if_then*: Expr
       if_else*: Expr
+    of ExIfElif:
+      if2_cond*: Expr
+      if2_then*: Expr
+      if2_elifs*: seq[(Expr, Expr)]
+      if2_else*: Expr
     of ExLoop:
       loop_blk*: seq[Expr]
     of ExBreak:

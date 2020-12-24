@@ -6,6 +6,12 @@ import ./types
 type
   Normalizer* = proc(self: GeneValue): bool
 
+  IfState = enum
+    IsIf, IsIfCond, IsIfLogic,
+    IsElif, IsElifCond, IsElifLogic,
+    IsIfNot, IsElifNot,
+    IsElse,
+
 var Normalizers: seq[Normalizer]
 
 # Important: order of normalizers matters. normalize() should be tested as a whole
@@ -45,31 +51,62 @@ Normalizers.add proc(self: GeneValue): bool =
 Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
   if `type` == If:
-    var i = 1  # start index after condition
-    var cond = self.gene.data[0]
-    if cond == Not:
-      cond = new_gene_gene(Not, self.gene.data[1])
-      i += 1
-    var then_blk: seq[GeneValue] = @[]
-    var else_blk: seq[GeneValue] = @[]
-    var state = "cond"
-    while i < self.gene.data.len:
-      var item = self.gene.data[i]
+    # Store if/elif/else block
+    var logic: seq[GeneValue]
+    var elifs: seq[GeneValue]
+
+    var state = IsIf
+    proc handler(input: GeneValue) =
       case state:
-      of "cond":
-        if item == Then:
-          discard
-        elif item == Else:
-          state = "else"
+      of IsIf:
+        if input == nil:
+          not_allowed()
+        elif input == Not:
+          state = IsIfNot
         else:
-          then_blk.add(item)
-      of "else":
-        else_blk.add(item)
-      i += 1
-    self.gene.props[COND_KEY] = cond
-    self.gene.props[THEN_KEY] = then_blk
-    self.gene.props[ELSE_KEY] = else_blk
-    self.gene.data.reset
+          self.gene.props[COND_KEY] = input
+          state = IsIfCond
+      of IsIfNot:
+        self.gene.props[COND_KEY] = new_gene_gene(Not, input)
+        state = IsIfCond
+      of IsIfCond:
+        state = IsIfLogic
+        logic = @[]
+        if input == nil:
+          not_allowed()
+        elif input != Then:
+          logic.add(input)
+      of IsIfLogic:
+        if input == nil:
+          self.gene.props[THEN_KEY] = logic
+        elif input == Elif:
+          self.gene.props[THEN_KEY] = logic
+          state = IsElif
+        elif input == Else:
+          self.gene.props[THEN_KEY] = logic
+          state = IsElse
+          logic = @[]
+        else:
+          logic.add(input)
+      of IsElse:
+        if input == nil:
+          self.gene.props[ELSE_KEY] = logic
+        else:
+          logic.add(input)
+      else:
+        todo($state)
+
+    for item in self.gene.data:
+      handler(item)
+    handler(nil)
+
+    # Add empty blocks when they are missing
+    if not self.gene.props.has_key(THEN_KEY):
+      self.gene.props[THEN_KEY] = @[]
+    if not self.gene.props.has_key(ELSE_KEY):
+      self.gene.props[ELSE_KEY] = @[]
+
+    self.gene.data.reset  # Clear our gene.data as it's not needed any more
 
 Normalizers.add proc(self: GeneValue): bool =
   var `type` = self.gene.type
