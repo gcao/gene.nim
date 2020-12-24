@@ -10,6 +10,13 @@ import ./translators
 import ./dynlib_mapping
 import ./repl
 
+type
+  TailCall* = ref object of CatchableError
+    fn*: Function
+    target*: GeneValue
+    args*: GeneValue
+    options*: Table[FnOption, GeneValue]
+
 let GENE_HOME*    = get_env("GENE_HOME", parent_dir(get_app_dir()))
 let GENE_RUNTIME* = Runtime(
   home: GENE_HOME,
@@ -345,6 +352,20 @@ proc drain() {.inline.} =
     if hasPendingOperations():
       drain(0)
 
+proc set_last*(self: Expr) =
+  self.is_last = true
+  case self.kind:
+  of ExIf:
+    # Set both if_then and if_else to true as only one of them will be invoked
+    self.if_then.set_last()
+    self.if_else.set_last()
+  of ExGroup:
+    self.group[^1].set_last()
+  of ExDo:
+    self.do_body[^1].set_last()
+  else:
+    discard
+
 proc eval*(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   if expr.evaluator != nil:
     result = expr.evaluator(self, frame, expr)
@@ -503,6 +524,7 @@ proc call_fn_internal*(
   if fn.body_blk.len == 0:  # Translate on demand
     for item in fn.body:
       fn.body_blk.add(new_expr(fn.expr, item))
+    fn.body_blk[^1].set_last()
   try:
     for e in fn.body_blk:
       result = self.eval(new_frame, e)
@@ -1442,6 +1464,27 @@ EvaluatorMgr[ExString] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
 EvaluatorMgr[ExComplexSymbol] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   return self.get_member(frame, expr.csymbol)
 
+proc call_fn_with_tco(
+  self: VirtualMachine,
+  frame: Frame,
+  target: var GeneValue,
+  fn: var Function,
+  args: var GeneValue,
+  options: var Table[FnOption, GeneValue],
+): GeneValue {.inline.} =
+  if frame.extra.kind == FrFunction:
+    while true:
+      try:
+        result = self.call_fn(frame, target, fn, args, options)
+        break
+      except TailCall as tc:
+        target = tc.target
+        fn = tc.fn
+        args = tc.args
+        options= tc.options
+  else:
+    result = self.call_fn(frame, target, fn, args, options)
+
 EvaluatorMgr[ExGene] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   var target = self.eval(frame, expr.gene_type)
   case target.kind:
@@ -1450,7 +1493,18 @@ EvaluatorMgr[ExGene] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Gen
     of GeneFunction:
       var options = Table[FnOption, GeneValue]()
       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-      result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
+      # Trigger TCO if this is the last expression, and this is inside a function
+      if expr.is_last and frame.parent != nil and frame.parent.extra.kind == FrFunction:
+        raise TailCall(
+          fn: target.internal.fn,
+          target: GeneNil,
+          args: args,
+          options: options,
+        )
+      else:
+        var v = GeneNil
+        var fn = target.internal.fn
+        result = self.call_fn_with_tco(frame, v, fn, args, options)
     of GeneMacro:
       result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
     of GeneBlock:

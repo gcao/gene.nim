@@ -10,13 +10,37 @@ import ./helpers
 #   which is caught by the caller of the original function, and the caller will
 #   invoke the nested function.
 
-# test_interpreter """
-#   (fn f [sum n]
-#     (if (n == 0)
-#       sum
-#     else
-#       (f (sum + n) (n - 1))
-#     )
-#   )
-#   (f 0 1000)
-# """, 500500
+test_interpreter """
+  (fn f [sum n]
+    (if (n == 0)
+      sum
+    else
+      (f (sum + n) (n - 1))
+    )
+  )
+  (f 0 1000)
+""", 500500
+
+test_interpreter """
+  (fn f [sum n]
+    (if (n == 0)
+      sum
+    else
+      (f (sum + n) (n - 1))
+    )
+  )
+  (f 0 10000)
+""", 50005000
+
+test_interpreter """
+  (fn f [sum n]
+    (if (n == 0)
+      sum
+    else
+      (do
+        (f (sum + n) (n - 1))
+      )
+    )
+  )
+  (f 0 10000)
+""", 50005000

@@ -593,6 +593,7 @@ type
   Expr* = ref object of RootObj
     parent*: Expr
     evaluator*: Evaluator
+    is_last*: bool
     case kind*: ExprKind
     of ExCustom:
       custom*: GeneValue
