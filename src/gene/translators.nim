@@ -151,6 +151,14 @@ proc new_if_expr*(parent: Expr, val: GeneValue): Expr =
   )
   result.if_cond = new_expr(result, val.gene.props[COND_KEY])
   result.if_then = new_group_expr(result, val.gene.props[THEN_KEY].vec)
+  if val.gene.props.has_key(ELIF_KEY):
+    var elifs = val.gene.props[ELIF_KEY]
+    var i = 0
+    while i < elifs.vec.len:
+      var cond = new_expr(result, elifs.vec[i])
+      var logic = new_group_expr(result, elifs.vec[i + 1].vec)
+      result.if_elifs.add((cond, logic))
+      i += 2
   result.if_else = new_group_expr(result, val.gene.props[ELSE_KEY].vec)
 
 proc new_do_expr*(parent: Expr, node: GeneValue): Expr =

@@ -88,6 +88,39 @@ Normalizers.add proc(self: GeneValue): bool =
           logic = @[]
         else:
           logic.add(input)
+      of IsElif:
+        if input == nil:
+          not_allowed()
+        elif input == Not:
+          state = IsElifNot
+        else:
+          elifs.add(input)
+          state = IsElifCond
+      of IsElifNot:
+        elifs.add(new_gene_gene(Not, input))
+        state = IsElifCond
+      of IsElifCond:
+        state = IsElifLogic
+        logic = @[]
+        if input == nil:
+          not_allowed()
+        elif input != Then:
+          logic.add(input)
+      of IsElifLogic:
+        if input == nil:
+          elifs.add(new_gene_vec(logic))
+          self.gene.props[ELIF_KEY] = elifs
+        elif input == Elif:
+          elifs.add(new_gene_vec(logic))
+          self.gene.props[ELIF_KEY] = elifs
+          state = IsElif
+        elif input == Else:
+          elifs.add(new_gene_vec(logic))
+          self.gene.props[ELIF_KEY] = elifs
+          state = IsElse
+          logic = @[]
+        else:
+          logic.add(input)
       of IsElse:
         if input == nil:
           self.gene.props[ELSE_KEY] = logic

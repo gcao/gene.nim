@@ -1019,6 +1019,10 @@ EvaluatorMgr[ExIf] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneV
   var v = self.eval(frame, expr.if_cond)
   if v:
     result = self.eval(frame, expr.if_then)
+  elif expr.if_elifs.len > 0:
+    for pair in expr.if_elifs:
+      if self.eval(frame, pair[0]):
+        return self.eval(frame, pair[1])
   elif expr.if_else != nil:
     result = self.eval(frame, expr.if_else)
 
