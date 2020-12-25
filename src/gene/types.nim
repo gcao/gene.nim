@@ -541,6 +541,7 @@ type
     ExBinImmediate
     ExBinAssignment
     ExIf
+    ExCase
     ExLoop
     ExBreak
     ExContinue
@@ -667,6 +668,12 @@ type
       if_then*: Expr
       if_elifs*: seq[(Expr, Expr)]
       if_else*: Expr
+    of ExCase:
+      case_input*: Expr
+      case_blks*: seq[Expr]   # Code blocks
+      case_else*: Expr        # Else block
+      case_lite_mapping*: Table[MapKey, int]  # literal -> block index
+      case_more_mapping*: seq[(Expr, int)]    # non-literal -> block index
     of ExLoop:
       loop_blk*: seq[Expr]
     of ExBreak:

@@ -831,3 +831,7 @@ TranslatorMgr[SELECTOR_PARALLEL_KEY] = proc(parent: Expr, node: GeneValue): Expr
   result.parallel_mode = true
   for item in node.gene.data:
     result.selector.add(new_expr(result, item))
+
+TranslatorMgr[CASE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExCase)
+  result.case_input = new_expr(result, node.gene.data[0])

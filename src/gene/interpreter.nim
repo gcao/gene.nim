@@ -1660,6 +1660,10 @@ EvaluatorMgr[ExSelector] = proc(self: VirtualMachine, frame: Frame, expr: Expr):
       selector_item = new_selector_item
   result = selector
 
+EvaluatorMgr[ExCase] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
+  # var input = self.eval(frame, expr.case_input)
+  todo()
+
 proc add_to_native*(name: string, fn: GeneValue) =
   var native = VM.gene_ns.internal.ns[NATIVE_KEY]
   if native.has_key(name.to_key):
