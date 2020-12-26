@@ -126,8 +126,6 @@ Normalizers.add proc(self: GeneValue): bool =
           self.gene.props[ELSE_KEY] = logic
         else:
           logic.add(input)
-      else:
-        todo($state)
 
     for item in self.gene.data:
       handler(item)

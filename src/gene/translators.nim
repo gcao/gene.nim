@@ -30,6 +30,9 @@ type
     TryCatchBody
     TryFinally
 
+  CaseState = enum
+    CsInput, CsWhen, CsWhenLogic, CsElse
+
 var TranslatorMgr* = TranslatorManager()
 var CustomTranslators*: seq[Translator]
 
@@ -833,5 +836,51 @@ TranslatorMgr[SELECTOR_PARALLEL_KEY] = proc(parent: Expr, node: GeneValue): Expr
     result.selector.add(new_expr(result, item))
 
 TranslatorMgr[CASE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
-  result = new_expr(parent, ExCase)
-  result.case_input = new_expr(result, node.gene.data[0])
+  # Create a variable because result can not be accessed from closure.
+  var expr = new_expr(parent, ExCase)
+  expr.case_input = new_expr(result, node.gene.data[0])
+
+  var state = CsInput
+  var cond: GeneValue
+  var logic: seq[GeneValue]
+  proc handler(input: GeneValue) =
+    case state:
+    of CsInput:
+      if input == When:
+        state = CsWhen
+      else:
+        not_allowed()
+    of CsWhen:
+      state = CsWhenLogic
+      cond = input
+      logic = @[]
+    of CsWhenLogic:
+      if input == nil:
+        var index = expr.case_blks.len
+        expr.case_blks.add(new_group_expr(expr, logic))
+        expr.case_more_mapping.add((new_expr(expr, cond), index))
+      elif input == When:
+        state = CsWhen
+        var index = expr.case_blks.len
+        expr.case_blks.add(new_group_expr(expr, logic))
+        expr.case_more_mapping.add((new_expr(expr, cond), index))
+      elif input == Else:
+        state = CsElse
+        var index = expr.case_blks.len
+        expr.case_blks.add(new_group_expr(expr, logic))
+        expr.case_more_mapping.add((new_expr(expr, cond), index))
+        logic = @[]
+      else:
+        logic.add(input)
+    of CsElse:
+      if input == nil:
+        expr.case_else = new_group_expr(expr, logic)
+      else:
+        logic.add(input)
+
+  var i = 1
+  while i < node.gene.data.len:
+    handler(node.gene.data[i])
+  handler(nil)
+
+  result = expr

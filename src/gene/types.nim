@@ -988,6 +988,7 @@ let
   Then*      = GeneValue(kind: GeneSymbol, symbol: "then")
   Elif*      = GeneValue(kind: GeneSymbol, symbol: "elif")
   Else*      = GeneValue(kind: GeneSymbol, symbol: "else")
+  When*      = GeneValue(kind: GeneSymbol, symbol: "when")
   Not*       = GeneValue(kind: GeneSymbol, symbol: "not")
   Equal*     = GeneValue(kind: GeneSymbol, symbol: "=")
   Try*       = GeneValue(kind: GeneSymbol, symbol: "try")
