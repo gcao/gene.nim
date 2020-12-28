@@ -1,4 +1,4 @@
-import os, strutils, tables, unicode, hashes, sets, json, asyncdispatch, times, strformat
+import os, re, strutils, tables, unicode, hashes, sets, json, asyncdispatch, times, strformat
 
 import ./map_key
 
@@ -461,7 +461,7 @@ type
     of GeneComplexSymbol:
       csymbol*: ComplexSymbol
     of GeneRegex:
-      regex*: string
+      regex*: Regex
     of GeneRange:
       range_start*: GeneValue
       range_end*: GeneValue
@@ -1550,7 +1550,7 @@ proc hash*(node: GeneValue): Hash =
   of GeneStream:
     h = h !& hash(node.stream)
   of GeneRegex:
-    h = h !& hash(node.regex)
+    todo()
   of GeneRange:
     h = h !& hash(node.range_start) !& hash(node.range_end)
   of GeneInternal:
@@ -1737,8 +1737,8 @@ proc new_gene_symbol*(name: string): GeneValue =
 proc new_gene_complex_symbol*(first: string, rest: seq[string]): GeneValue =
   return GeneValue(kind: GeneComplexSymbol, csymbol: ComplexSymbol(first: first, rest: rest))
 
-proc new_gene_regex*(regex: string): GeneValue =
-  return GeneValue(kind: GeneRegex, regex: regex)
+proc new_gene_regex*(regex: string, flags: set[RegexFlag] = {reStudy}): GeneValue =
+  return GeneValue(kind: GeneRegex, regex: re(regex, flags))
 
 proc new_gene_range*(rstart: GeneValue, rend: GeneValue): GeneValue =
   return GeneValue(

@@ -531,12 +531,25 @@ proc read_set(self: var Parser): GeneValue =
 proc read_regex(self: var Parser): GeneValue =
   var pos = self.bufpos
   var buf = self.buf
+  var flags: set[RegexFlag]
   while true:
     case buf[pos]
     of '\0':
       self.error = ErrRegexEndExpected
     of '/':
       inc(pos)
+      if buf[pos] == 'i':
+        inc(pos)
+        flags.incl(reIgnoreCase)
+        if buf[pos] == 'm':
+          inc(pos)
+          flags.incl(reMultiLine)
+      elif buf[pos] == 'm':
+        inc(pos)
+        flags.incl(reMultiLine)
+        if buf[pos] == 'i':
+          inc(pos)
+          flags.incl(reIgnoreCase)
       break;
     of '\\':
       case buf[pos+1]
@@ -593,7 +606,7 @@ proc read_regex(self: var Parser): GeneValue =
       add(self.str, buf[pos])
       inc(pos)
   self.bufpos = pos
-  result = GeneValue(kind: GeneRegex, regex: self.str)
+  result = new_gene_regex(self.str, flags)
 
 proc read_unmatched_delimiter(self: var Parser): GeneValue =
   raise new_exception(ParseError, "Unmatched delimiter: " & self.buf[self.bufpos])

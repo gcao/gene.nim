@@ -1,6 +1,6 @@
 # To run these tests, simply execute `nimble test` or `nim c -r tests/test_parser.nim`
 
-import unittest, options, tables, unicode, times
+import unittest, options, tables, unicode, times, re
 
 import gene/types
 
@@ -42,7 +42,17 @@ test_parser "\\true", new_gene_symbol("true")
 test_parser "symbol-👋", new_gene_symbol("symbol-👋")
 test_parser "+foo+", new_gene_symbol("+foo+")
 
-test_parser "#/a/", new_gene_regex("a")
+test_parser "#/b/", proc(r: GeneValue) =
+  check r.kind == GeneRegex
+  check "ab".find(r.regex) == 1
+  check "AB".find(r.regex) == -1
+
+# i: ignore case
+# m: multi-line mode, ^ and $ matches beginning and end of each line
+test_parser "#/b/i", proc(r: GeneValue) =
+  check r.kind == GeneRegex
+  check "ab".find(r.regex) == 1
+  check "AB".find(r.regex) == 1
 
 test_parser "2020-12-02", new_gene_date(2020, 12, 02)
 test_parser "2020-12-02T10:11:12Z",
