@@ -25,16 +25,30 @@ import ./helpers
 #   ...
 # )
 
-# test_interpreter """
-#   (case 2
-#   when 1
-#     _
-#     100
-#   when 2
-#     _
-#     200
-#   else
-#     _
-#     300
-#   )
-# """, 200
+test_interpreter """
+  (case 2
+  when 1
+    _
+    100
+  when 2
+    _
+    200
+  else
+    _
+    300
+  )
+""", 200
+
+test_interpreter """
+  (case 3
+  when 1
+    _
+    100
+  when 2
+    _
+    200
+  else
+    _
+    300
+  )
+""", 300

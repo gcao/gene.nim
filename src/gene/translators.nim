@@ -881,6 +881,7 @@ TranslatorMgr[CASE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
   var i = 1
   while i < node.gene.data.len:
     handler(node.gene.data[i])
+    i += 1
   handler(nil)
 
   result = expr
