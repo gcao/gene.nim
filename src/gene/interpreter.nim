@@ -1665,13 +1665,13 @@ proc case_equals(input: GeneValue, pattern: GeneValue): bool =
   of GeneInt:
     case pattern.kind:
     of GeneInt:
-      return input.int == pattern.int
+      result = input.int == pattern.int
     of GeneRange:
-      return input.int >= pattern.range_start.int and input.int < pattern.range_end.int
+      result = input.int >= pattern.range_start.int and input.int < pattern.range_end.int
     else:
-      todo($pattern.kind)
+      not_allowed($pattern.kind)
   else:
-    todo($input.kind)
+    result = input == pattern
 
 EvaluatorMgr[ExCase] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   var input = self.eval(frame, expr.case_input)
