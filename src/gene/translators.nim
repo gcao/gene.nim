@@ -843,6 +843,16 @@ TranslatorMgr[CASE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
   var state = CsInput
   var cond: GeneValue
   var logic: seq[GeneValue]
+
+  proc update_mapping(cond: GeneValue, logic: seq[GeneValue]) =
+    var index = expr.case_blks.len
+    expr.case_blks.add(new_group_expr(expr, logic))
+    if cond.kind == GeneVector:
+      for item in cond.vec:
+        expr.case_more_mapping.add((new_expr(expr, item), index))
+    else:
+      expr.case_more_mapping.add((new_expr(expr, cond), index))
+
   proc handler(input: GeneValue) =
     case state:
     of CsInput:
@@ -856,19 +866,13 @@ TranslatorMgr[CASE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
       logic = @[]
     of CsWhenLogic:
       if input == nil:
-        var index = expr.case_blks.len
-        expr.case_blks.add(new_group_expr(expr, logic))
-        expr.case_more_mapping.add((new_expr(expr, cond), index))
+        update_mapping(cond, logic)
       elif input == When:
         state = CsWhen
-        var index = expr.case_blks.len
-        expr.case_blks.add(new_group_expr(expr, logic))
-        expr.case_more_mapping.add((new_expr(expr, cond), index))
+        update_mapping(cond, logic)
       elif input == Else:
         state = CsElse
-        var index = expr.case_blks.len
-        expr.case_blks.add(new_group_expr(expr, logic))
-        expr.case_more_mapping.add((new_expr(expr, cond), index))
+        update_mapping(cond, logic)
         logic = @[]
       else:
         logic.add(input)

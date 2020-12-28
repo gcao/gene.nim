@@ -28,13 +28,10 @@ import ./helpers
 test_interpreter """
   (case 2
   when 1
-    _
     100
   when 2
-    _
     200
   else
-    _
     300
   )
 """, 200
@@ -42,13 +39,37 @@ test_interpreter """
 test_interpreter """
   (case 3
   when 1
-    _
     100
   when 2
-    _
     200
   else
-    _
+    300
+  )
+""", 300
+
+test_interpreter """
+  (case 1
+  when [1 2]
+    100
+  else
+    300
+  )
+""", 100
+
+test_interpreter """
+  (case 1
+  when (range 1 2)
+    100
+  else
+    300
+  )
+""", 100
+
+test_interpreter """
+  (case 2
+  when (range 1 2)  # By default, range is non-inclusive on the end value
+    100
+  else
     300
   )
 """, 300

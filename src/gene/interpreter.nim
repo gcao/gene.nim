@@ -1660,11 +1660,24 @@ EvaluatorMgr[ExSelector] = proc(self: VirtualMachine, frame: Frame, expr: Expr):
       selector_item = new_selector_item
   result = selector
 
+proc case_equals(input: GeneValue, pattern: GeneValue): bool =
+  case input.kind:
+  of GeneInt:
+    case pattern.kind:
+    of GeneInt:
+      return input.int == pattern.int
+    of GeneRange:
+      return input.int >= pattern.range_start.int and input.int < pattern.range_end.int
+    else:
+      todo($pattern.kind)
+  else:
+    todo($input.kind)
+
 EvaluatorMgr[ExCase] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   var input = self.eval(frame, expr.case_input)
   for pair in expr.case_more_mapping:
     var pattern = self.eval(frame, pair[0])
-    if input == pattern:
+    if input.case_equals(pattern):
       return self.eval(frame, expr.case_blks[pair[1]])
   result = self.eval(frame, expr.case_else)
 
