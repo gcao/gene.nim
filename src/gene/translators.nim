@@ -716,6 +716,21 @@ TranslatorMgr[IMPORT_NATIVE_KEY ] = new_import_expr
 TranslatorMgr[STOP_INHERITANCE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExStopInheritance)
 TranslatorMgr[CLASS_KEY         ] = new_class_expr
+TranslatorMgr[OBJECT_KEY        ] = proc(parent: Expr, node: GeneValue): Expr =
+  var name = node.gene.data[0]
+  result = Expr(
+    kind: ExObject,
+    parent: parent,
+    obj_name: name,
+  )
+  var body_start = 1
+  if node.gene.data.len > 2 and node.gene.data[1] == new_gene_symbol("<"):
+    body_start = 3
+    result.obj_super_class = new_expr(result, node.gene.data[2])
+  var body: seq[Expr] = @[]
+  for i in body_start..<node.gene.data.len:
+    body.add(new_expr(parent, node.gene.data[i]))
+  result.obj_body = body
 TranslatorMgr[METHOD_KEY        ] = new_method_expr
 TranslatorMgr[NATIVE_METHOD_KEY ] = new_method_expr
 TranslatorMgr[NEW_KEY           ] = new_new_expr
