@@ -50,3 +50,12 @@ test_interpreter """
   )
   +f "x"
 """, new_gene_string("xy")
+
+# test_interpreter """
+#   (var ns n
+#     (fn f target
+#       ("" target "y")
+#     )
+#   )
+#   +n/f "x"
+# """, new_gene_string("xy")
