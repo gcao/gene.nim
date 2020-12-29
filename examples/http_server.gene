@@ -1,13 +1,23 @@
 #!/usr/bin/env gene
 
-(fn handler req
+(var docroot "examples/www")
+
+(fn hello req
   (var name ((req .params).@name))
-  (var result
-    (if name
-      ("Hello " name)
-    else
-      "Hello world!"
-    )
+  (if name
+    ("Hello " name)
+  else
+    "Hello world!"
+  )
+)
+
+(var handlers [hello])
+
+(fn handler req
+  (var result)
+  (for h in handlers
+    (result = (h req))
+    (if result break)
   )
   (println "200 " (req .method) " " (req .url))
   result

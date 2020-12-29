@@ -29,6 +29,11 @@
     (gene/json/parse (get url params headers))
   )
 
+  (var /parse_uri gene/native/http_parse_uri)
+
+  (class Uri
+  )
+
   (class Request
     (native_method method gene/native/http_req_method)
     (native_method url gene/native/http_req_url)
