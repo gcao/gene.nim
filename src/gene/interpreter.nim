@@ -1276,6 +1276,35 @@ EvaluatorMgr[ExClass] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Ge
     discard self.eval(new_frame, e)
   result = expr.class
 
+EvaluatorMgr[ExObject] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
+  var name = expr.obj_name
+  var s: string
+  case name.kind:
+  of GeneSymbol:
+    s = name.symbol
+  of GeneComplexSymbol:
+    s = name.csymbol.rest[^1]
+  else:
+    not_allowed()
+  var class = new_class(s & "Class")
+  class.ns.parent = frame.ns
+  var super_class: Class
+  if expr.obj_super_class == nil:
+    if VM.gene_ns != nil and VM.gene_ns.internal.ns.has_key(OBJECT_CLASS_KEY):
+      super_class = VM.gene_ns.internal.ns[OBJECT_CLASS_KEY].internal.class
+  else:
+    super_class = self.eval(frame, expr.obj_super_class).internal.class
+  class.parent = super_class
+  var ns = class.ns
+  var scope = new_scope()
+  var new_frame = FrameMgr.get(FrBody, ns, scope)
+  new_frame.self = class
+  for e in expr.obj_body:
+    discard self.eval(new_frame, e)
+  var instance = new_instance(class)
+  result = new_gene_instance(instance)
+  self.def_member(frame, name, result, true)
+
 EvaluatorMgr[ExMixin] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   self.def_member(frame, expr.mix_name, expr.mix, true)
   var ns = frame.ns

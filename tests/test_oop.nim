@@ -200,3 +200,8 @@ test_core """
   ((new A) .@description)
 """, proc(r: GeneValue) =
   check r.str == "Class A"
+
+test_interpreter """
+  (object Config)
+""", proc(r: GeneValue) =
+  check r.internal.instance.class.name == "ConfigClass"

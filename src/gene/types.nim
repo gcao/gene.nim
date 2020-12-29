@@ -560,6 +560,7 @@ type
     ExAspect
     ExAdvice
     ExClass
+    ExObject
     ExMixin
     ExNew
     ExInclude
@@ -719,6 +720,10 @@ type
       class*: GeneValue
       class_name*: GeneValue # The simple name or complex name that is associated with the class
       class_body*: seq[Expr]
+    of ExObject:
+      obj_super_class*: Expr
+      obj_name*: GeneValue # The simple name or complex name that is associated with the class
+      obj_body*: seq[Expr]
     of ExMixin:
       mix*: GeneValue
       mix_name*: GeneValue
