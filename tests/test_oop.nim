@@ -205,3 +205,17 @@ test_interpreter """
   (object Config)
 """, proc(r: GeneValue) =
   check r.internal.instance.class.name == "ConfigClass"
+
+test_interpreter """
+  (class A
+    (method test _
+      ("" (.@name) ".test")
+    )
+  )
+  (object Config < A
+    (method new _
+      (@name = "Config")
+    )
+  )
+  (Config .test)
+""", "Config.test"

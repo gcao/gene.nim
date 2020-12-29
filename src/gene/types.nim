@@ -1818,6 +1818,12 @@ proc new_gene_map*(map: OrderedTable[MapKey, GeneValue]): GeneValue =
     map: map,
   )
 
+proc new_gene_gene*(): GeneValue =
+  return GeneValue(
+    kind: GeneGene,
+    gene: Gene(type: GeneNil),
+  )
+
 # proc new_gene_gene_simple*(`type`: GeneValue): GeneValue =
 #   return GeneValue(
 #     kind: GeneGene,

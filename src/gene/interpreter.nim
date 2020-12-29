@@ -1304,6 +1304,7 @@ EvaluatorMgr[ExObject] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
   var instance = new_instance(class)
   result = new_gene_instance(instance)
   self.def_member(frame, name, result, true)
+  discard self.call_method(frame, result, class, NEW_KEY, new_gene_gene())
 
 EvaluatorMgr[ExMixin] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   self.def_member(frame, expr.mix_name, expr.mix, true)
