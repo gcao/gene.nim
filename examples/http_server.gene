@@ -1,5 +1,32 @@
 #!/usr/bin/env gene
 
+# Handler: proc(req, data): nil|response
+# * Native handlers
+# * Gene handlers
+# * A default handler is included which will call a list of handlers provided
+#   by the application one by one, until a response is returned.
+# * Child handlers can be added and the order matters.
+#
+# * Response can be in a few formats:
+#   "response body"
+#   [code "response body" optional headers]
+#   Exception -> will produce a HTTP 500 response with the message as the response body
+#   What else?
+#
+# * Middlewares
+# - Middlewares usually handles authentication, authorization, response
+#   transformation etc
+# - In order to support middlewares, we'll need to separate regular handlers
+#   and middlewares.
+# - There are middlewares run before / after handlers
+#
+# * Router
+# - Router usually handles mapping between url patterns and handlers.
+# - Everything a router does can be supported by regular handlers, however
+#   a router provides some convenience, e.g. decouple routing and controller
+#   logic
+#
+
 (var docroot "examples/www")
 
 (fn hello req
