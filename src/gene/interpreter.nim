@@ -1904,6 +1904,10 @@ proc init_native*() =
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       result = self.to_json()
 
+  # add_to_native "object_to_xml",
+  #   proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
+  #     result = self.to_xml()
+
   add_to_native "ns_name",
     proc(self: GeneValue, props: OrderedTable[MapKey, GeneValue], data: seq[GeneValue]): GeneValue =
       if self.kind == GeneInternal and self.internal.kind == GeneNamespace:

@@ -1655,6 +1655,19 @@ proc `%`*(self: GeneValue): JsonNode =
 proc to_json*(self: GeneValue): string =
   return $(%self)
 
+# proc to_xml*(self: GeneValue): string =
+#   case self.kind:
+#   of GeneGene:
+#     result = "<" & $self.gene.type
+#     for k, v in self.gene.props:
+#       result &= k.to_s & $v
+#     result &= ">"
+#     for child in self.gene.data:
+#       result &= child.to_xml
+#     result &= "</" & $self.gene.type & ">"
+#   else:
+#     result = $self
+
 proc `[]`*(self: OrderedTable[MapKey, GeneValue], key: string): GeneValue =
   self[key.to_key]
 

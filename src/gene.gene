@@ -40,6 +40,8 @@
   (native_method to_s gene/native/object_to_s)
 
   (native_method to_json gene/native/object_to_json)
+
+  # (native_method to_xml gene/native/object_to_xml)
 )
 
 (class gene/Namespace
