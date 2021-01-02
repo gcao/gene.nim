@@ -4,7 +4,7 @@
 # import nimprof
 # setSamplingFrequency(1)
 
-import times, logging, os
+import times, logging, os, streams, parsecsv
 
 import gene/types
 import gene/interpreter
@@ -41,6 +41,26 @@ proc main() =
   if options.repl:
     var frame = VM.eval_prepare()
     discard repl(VM, frame, eval_only, false)
+  elif options.eval != "":
+    var frame = VM.eval_prepare()
+    if options.input_mode == ImCsv:
+      var variable = new_gene_symbol("input")
+      VM.def_member(frame, variable, GeneNil, false)
+      var parser: CsvParser
+      parser.open(new_file_stream(stdin), "<STDIN>")
+      var code = VM.prepare(options.eval)
+      while parser.read_row():
+        var val = new_gene_vec()
+        for item in parser.row:
+          val.vec.add(item)
+        VM.set_member(frame, variable, val)
+        var result = VM.eval(frame, code)
+        if options.print_result:
+          echo result.to_s
+    else:
+      var result = VM.eval_only(frame, options.eval)
+      if options.print_result:
+        echo result.to_s
   else:
     var file = options.file
     VM.init_package(parent_dir(file))

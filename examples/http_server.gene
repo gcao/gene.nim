@@ -10,6 +10,7 @@
 # * Response can be in a few formats:
 #   "response body"
 #   [code "response body" optional headers]
+#   Stream
 #   Exception -> will produce a HTTP 500 response with the message as the response body
 #   What else?
 #
@@ -25,6 +26,8 @@
 # - Everything a router does can be supported by regular handlers, however
 #   a router provides some convenience, e.g. decouple routing and controller
 #   logic
+#
+# * Asset handler
 #
 
 (var docroot "examples/www")
