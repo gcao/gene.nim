@@ -107,7 +107,7 @@ proc parseOptions*(): Options =
       of "":
         expect_args = true
       else:
-        # echo "Unknown option: ", key
+        echo "Unknown option: ", key
         discard
 
     of cmdEnd:
