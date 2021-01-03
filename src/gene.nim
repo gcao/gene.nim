@@ -32,6 +32,11 @@ proc init_vm() =
   VM.load_gene_module()
   VM.load_genex_module()
 
+proc eval_includes(vm: VirtualMachine, frame: Frame, options: Options) =
+  if options.include.len > 0:
+    for file in options.include:
+      discard vm.eval_only(frame, read_file(file))
+
 proc main() =
   var options = parse_options()
   setup_logger(options.debugging)
@@ -40,9 +45,11 @@ proc main() =
   VM.repl_on_error = options.repl_on_error
   if options.repl:
     var frame = VM.eval_prepare()
+    VM.eval_includes(frame, options)
     discard repl(VM, frame, eval_only, false)
   elif options.eval != "":
     var frame = VM.eval_prepare()
+    VM.eval_includes(frame, options)
     if options.input_mode == ImCsv:
       var code = VM.prepare(options.eval)
       var index_name = new_gene_symbol(options.index_name)

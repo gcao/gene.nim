@@ -357,6 +357,17 @@ test_interpreter """
 """, 1
 
 test_interpreter """
+  ($include "tests/fixtures/include_example.gene")
+  a
+""", 100
+
+test_interpreter """
+  [
+    ($include "tests/fixtures/include_example.gene")
+  ]
+""", @[new_gene_int(1), new_gene_int(2), new_gene_int(3)]
+
+test_interpreter """
   $app
 """, proc(r: GeneValue) =
   check r.internal.app.ns.name == "global"

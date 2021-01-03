@@ -713,6 +713,12 @@ TranslatorMgr[AFTER_KEY         ] = new_advice_expr
 TranslatorMgr[NS_KEY            ] = new_ns_expr
 TranslatorMgr[IMPORT_KEY        ] = new_import_expr
 TranslatorMgr[IMPORT_NATIVE_KEY ] = new_import_expr
+TranslatorMgr[DOLLAR_INCLUDE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = Expr(
+    kind: ExIncludeFile,
+    parent: parent,
+  )
+  result.include_file = new_expr(result, node.gene.data[0])
 TranslatorMgr[STOP_INHERITANCE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
   result = new_expr(parent, ExStopInheritance)
 TranslatorMgr[CLASS_KEY         ] = new_class_expr

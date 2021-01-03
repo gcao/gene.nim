@@ -18,11 +18,14 @@ type
     benchmark*: bool
     print_result*: bool
     filter_result*: bool
+    # `include` is different from `import`.
+    # `include` is like inserting content of one file in another.
+    `include`*: seq[string]
     eval*: string
     input_mode*: InputMode
     skip_first*: bool
-    value_name*: string
     index_name*: string
+    value_name*: string
 
 let shortNoVal = {'d'}
 let longNoVal = @[
@@ -66,6 +69,8 @@ proc parseOptions*(): Options =
       of "eval", "e":
         result.repl = false
         result.eval = value
+      of "include":
+        result.include.add(value)
       of "debug", "d":
         result.debugging = true
       of "benchmark":

@@ -1255,6 +1255,10 @@ EvaluatorMgr[ExImport] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
         self.modules[`from`.to_key] = ns
     self.import_from_ns(frame, ns, expr.import_matcher.children)
 
+EvaluatorMgr[ExIncludeFile] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
+  var file = self.eval(frame, expr.include_file).str
+  result = self.eval_only(frame, read_file(file))
+
 EvaluatorMgr[ExStopInheritance] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   frame.ns.stop_inheritance = true
 

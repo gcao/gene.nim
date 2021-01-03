@@ -573,6 +573,7 @@ type
     ExSelf
     ExGlobal
     ExImport
+    ExIncludeFile
     ExStopInheritance
     ExCall
     ExGetClass
@@ -759,6 +760,8 @@ type
       import_from*: Expr
       import_pkg*: Expr
       import_native*: bool
+    of ExIncludeFile:
+      include_file*: Expr
     of ExStopInheritance:
       discard
     of ExCall:
