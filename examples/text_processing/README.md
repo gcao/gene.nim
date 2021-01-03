@@ -11,4 +11,6 @@ gene --eval '(println "In eval")(repl)'
 
 # No space is allowed between short option and its value
 gene -e'(println "In eval")(repl)'
+
+cat src/gene.gene | gene --gene --pr --fr --eval '(if (i < 5) v)'
 ```

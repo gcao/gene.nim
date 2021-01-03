@@ -6,8 +6,8 @@ type
   InputMode* = enum
     ImDefault
     ImCsv
+    ImGene
     # ImLine
-    # ImGene
 
   Options* = ref object
     debugging*: bool
@@ -36,7 +36,7 @@ let longNoVal = @[
   "print-result", "pr",
   "filter-result", "fr",
   "csv",
-  # "gene",
+  "gene",
   # "line",
 ]
 
@@ -90,16 +90,16 @@ proc parseOptions*(): Options =
         case value:
         of "csv":
           result.input_mode = ImCsv
-        # of "gene":
-        #   result.input_mode = ImGene
+        of "gene":
+          result.input_mode = ImGene
         # of "line":
         #   result.input_mode = ImLine
         else:
           raise new_exception(ArgumentError, "Invalid input-mode: " & value)
       of "csv":
         result.input_mode = ImCsv
-      # of "gene":
-      #   result.input_mode = ImGene
+      of "gene":
+        result.input_mode = ImGene
       # of "line":
       #   result.input_mode = ImLine
       of "repl-on-error":

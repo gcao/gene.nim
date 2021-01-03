@@ -7,6 +7,7 @@
 import times, logging, os, streams, parsecsv
 
 import gene/types
+import gene/parser
 import gene/interpreter
 import gene/interpreter_extras
 import gene/repl
@@ -50,26 +51,44 @@ proc main() =
   elif options.eval != "":
     var frame = VM.eval_prepare()
     VM.eval_includes(frame, options)
-    if options.input_mode == ImCsv:
+    case options.input_mode:
+    of ImCsv, ImGene:
       var code = VM.prepare(options.eval)
       var index_name = new_gene_symbol(options.index_name)
       var value_name = new_gene_symbol(options.value_name)
       var index = 0
       VM.def_member(frame, index_name, index, false)
       VM.def_member(frame, value_name, GeneNil, false)
-      var parser: CsvParser
-      parser.open(new_file_stream(stdin), "<STDIN>")
-      while parser.read_row():
-        var val = new_gene_vec()
-        for item in parser.row:
-          val.vec.add(item)
-        VM.set_member(frame, index_name, index)
-        VM.set_member(frame, value_name, val)
-        var result = VM.eval(frame, code)
-        if options.print_result:
-          if not options.filter_result or result:
-            echo result.to_s
-        index += 1
+      if options.input_mode == ImCsv:
+        var parser: CsvParser
+        parser.open(new_file_stream(stdin), "<STDIN>")
+        while parser.read_row():
+          var val = new_gene_vec()
+          for item in parser.row:
+            val.vec.add(item)
+          VM.set_member(frame, index_name, index)
+          VM.set_member(frame, value_name, val)
+          var result = VM.eval(frame, code)
+          if options.print_result:
+            if not options.filter_result or result:
+              echo result.to_s
+          index += 1
+      elif options.input_mode == ImGene:
+        var parser = new_parser()
+        var stream = new_file_stream(stdin)
+        parser.open(stream, "<STDIN>")
+        while true:
+          var val = parser.read()
+          if val == nil:
+            break
+          VM.set_member(frame, index_name, index)
+          VM.set_member(frame, value_name, val)
+          var result = VM.eval(frame, code)
+          if options.print_result:
+            if not options.filter_result or result:
+              echo result.to_s
+          index += 1
+        parser.close()
     else:
       var result = VM.eval_only(frame, options.eval)
       if options.print_result:

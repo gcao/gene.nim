@@ -67,7 +67,7 @@ var dispatch_macros: MacroArray
 
 #################### Interfaces ##################
 
-proc read_internal(self: var Parser): GeneValue
+proc read*(self: var Parser): GeneValue
 proc skip_comment(self: var Parser)
 proc skip_block_comment(self: var Parser)
 
@@ -219,7 +219,7 @@ proc read_quoted_internal(self: var Parser, quote_name: string): GeneValue =
   if quote_name == "unquote" and self.buf[self.bufpos] == '_':
     self.bufpos.inc()
     unquote_discard = true
-  let quoted = self.read_internal()
+  let quoted = self.read()
   result = GeneValue(kind: GeneGene, gene: Gene())
   result.gene.type = new_gene_symbol(quote_name)
   result.gene.data = @[quoted]
@@ -395,7 +395,7 @@ proc read_gene_type(self: var Parser): GeneValue =
         inc(count)
         break
     else:
-      result = self.read_internal()
+      result = self.read()
       if result != nil:
         inc(count)
         break
@@ -448,7 +448,7 @@ proc read_map(self: var Parser, mode: MapKind): OrderedTable[MapKey, GeneValue] 
       elif ch == '}':
         raise new_exception(ParseError, "Expect value for " & key)
       state = PropState.PropKey
-      result[key.to_key] = self.read_internal()
+      result[key.to_key] = self.read()
 
 proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool): DelimitedListResult =
   # the bufpos should be already be past the opening paren etc.
@@ -487,7 +487,7 @@ proc read_delimited_list(self: var Parser, delimiter: char, is_recursive: bool):
         inc(count)
         list.add(node)
     else:
-      let node = self.read_internal()
+      let node = self.read()
       if node != nil:
         inc(count)
         list.add(node)
@@ -756,7 +756,7 @@ proc read_number(self: var Parser): GeneValue =
   else:
     raise new_exception(ParseError, "Error reading a number (?): " & self.str)
 
-proc read_internal(self: var Parser): GeneValue =
+proc read*(self: var Parser): GeneValue =
   setLen(self.str, 0)
   self.skip_ws()
   let ch = self.buf[self.bufpos]
@@ -803,27 +803,27 @@ proc read_document_properties(self: var Parser) =
 proc read*(self: var Parser, s: Stream, filename: string): GeneValue =
   self.open(s, filename)
   defer: self.close()
-  result = self.read_internal()
+  result = self.read()
 
 proc read*(self: var Parser, buffer: string): GeneValue =
   var s = new_string_stream(buffer)
   self.open(s, "<input>")
   defer: self.close()
-  result = self.read_internal()
+  result = self.read()
 
 proc read_all*(self: var Parser, buffer: string): seq[GeneValue] =
   var s = new_string_stream(buffer)
   self.open(s, "<input>")
   defer: self.close()
   self.read_document_properties()
-  var node = self.read_internal()
+  var node = self.read()
   while node != nil:
     result.add(node)
     self.skip_ws()
     if self.buf[self.bufpos] == EndOfFile:
       break
     else:
-      node = self.read_internal()
+      node = self.read()
 
 proc read_document*(self: var Parser, buffer: string): GeneDocument =
   self.document.data = self.read_all(buffer)
