@@ -7,7 +7,7 @@ type
     ImDefault
     ImCsv
     ImGene
-    # ImLine
+    ImLine
 
   Options* = ref object
     debugging*: bool
@@ -35,9 +35,11 @@ let longNoVal = @[
   "benchmark",
   "print-result", "pr",
   "filter-result", "fr",
+  "skip-first-line", "sf",
+  "skip-empty-line", "se",
   "csv",
   "gene",
-  # "line",
+  "line",
 ]
 
 # When running like
@@ -100,8 +102,12 @@ proc parseOptions*(): Options =
         result.input_mode = ImCsv
       of "gene":
         result.input_mode = ImGene
-      # of "line":
-      #   result.input_mode = ImLine
+      of "line":
+        result.input_mode = ImLine
+      of "skip-first-line", "sf":
+        result.skip_first = true
+      of "skip-empty-line", "se":
+        result.skip_empty = true
       of "repl-on-error":
         result.repl_on_error = true
       of "":

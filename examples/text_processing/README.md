@@ -13,4 +13,6 @@ gene --eval '(println "In eval")(repl)'
 gene -e'(println "In eval")(repl)'
 
 cat src/gene.gene | gene --gene --pr --fr --eval '(if (i < 5) v)'
+
+cat examples/io.gene | gene --line --pr --sf --se --eval 'v'
 ```
