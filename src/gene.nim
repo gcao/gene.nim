@@ -62,6 +62,8 @@ proc main() =
       if options.input_mode == ImCsv:
         var parser: CsvParser
         parser.open(new_file_stream(stdin), "<STDIN>")
+        if options.skip_first:
+          parser.readHeaderRow()
         while parser.read_row():
           var val = new_gene_vec()
           for item in parser.row:
