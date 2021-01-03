@@ -17,15 +17,19 @@ type
     args*: seq[string]
     benchmark*: bool
     print_result*: bool
+    filter_result*: bool
     eval*: string
     input_mode*: InputMode
     skip_first*: bool
+    value_name*: string
+    index_name*: string
 
 let shortNoVal = {'d'}
 let longNoVal = @[
   "debug",
   "benchmark",
   "print-result", "pr",
+  "filter-result", "fr",
   "repl-on-error",
   "csv",
 ]
@@ -40,6 +44,8 @@ let longNoVal = @[
 proc parseOptions*(): Options =
   result = Options(
     repl: true,
+    index_name: "i",
+    value_name: "v",
   )
   var expect_args = false
   for kind, key, value in getOpt(commandLineParams(), shortNoVal, longNoVal):
@@ -66,6 +72,12 @@ proc parseOptions*(): Options =
         result.benchmark = true
       of "print-result", "pr":
         result.print_result = true
+      of "filter-result", "fr":
+        result.filter_result = true
+      of "index-name", "in":
+        result.index_name = value
+      of "value-name", "vn":
+        result.value_name = value
       of "input-mode", "im":
         case value:
         of "csv":

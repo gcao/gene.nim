@@ -44,19 +44,25 @@ proc main() =
   elif options.eval != "":
     var frame = VM.eval_prepare()
     if options.input_mode == ImCsv:
-      var variable = new_gene_symbol("input")
-      VM.def_member(frame, variable, GeneNil, false)
+      var code = VM.prepare(options.eval)
+      var index_name = new_gene_symbol(options.index_name)
+      var value_name = new_gene_symbol(options.value_name)
+      var index = 0
+      VM.def_member(frame, index_name, index, false)
+      VM.def_member(frame, value_name, GeneNil, false)
       var parser: CsvParser
       parser.open(new_file_stream(stdin), "<STDIN>")
-      var code = VM.prepare(options.eval)
       while parser.read_row():
         var val = new_gene_vec()
         for item in parser.row:
           val.vec.add(item)
-        VM.set_member(frame, variable, val)
+        VM.set_member(frame, index_name, index)
+        VM.set_member(frame, value_name, val)
         var result = VM.eval(frame, code)
         if options.print_result:
-          echo result.to_s
+          if not options.filter_result or result:
+            echo result.to_s
+        index += 1
     else:
       var result = VM.eval_only(frame, options.eval)
       if options.print_result:
