@@ -5,36 +5,39 @@ import ../gene/types
 type
   InputMode* = enum
     ImDefault
-    ImLine
-    ImGene
     ImCsv
+    # ImLine
+    # ImGene
 
   Options* = ref object
     debugging*: bool
     repl*: bool
     repl_on_error*: bool
     file*: string
+    eval*: string
+    `include`*: seq[string]
     args*: seq[string]
     benchmark*: bool
     print_result*: bool
     filter_result*: bool
     # `include` is different from `import`.
     # `include` is like inserting content of one file in another.
-    `include`*: seq[string]
-    eval*: string
     input_mode*: InputMode
     skip_first*: bool
+    skip_empty*: bool
     index_name*: string
     value_name*: string
 
 let shortNoVal = {'d'}
 let longNoVal = @[
+  "repl-on-error",
   "debug",
   "benchmark",
   "print-result", "pr",
   "filter-result", "fr",
-  "repl-on-error",
   "csv",
+  # "gene",
+  # "line",
 ]
 
 # When running like
@@ -87,10 +90,18 @@ proc parseOptions*(): Options =
         case value:
         of "csv":
           result.input_mode = ImCsv
+        # of "gene":
+        #   result.input_mode = ImGene
+        # of "line":
+        #   result.input_mode = ImLine
         else:
           raise new_exception(ArgumentError, "Invalid input-mode: " & value)
       of "csv":
         result.input_mode = ImCsv
+      # of "gene":
+      #   result.input_mode = ImGene
+      # of "line":
+      #   result.input_mode = ImLine
       of "repl-on-error":
         result.repl_on_error = true
       of "":
