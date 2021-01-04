@@ -1,4 +1,4 @@
-import strutils, sequtils, tables, strutils, parsecsv, streams
+import strutils, sequtils, tables, parsecsv, streams, re, strformat
 import os, osproc, json, httpclient, base64, times, dynlib, uri
 import asyncdispatch, asyncfile, asynchttpserver
 
@@ -376,10 +376,14 @@ proc eval*(self: VirtualMachine, code: string): GeneValue =
 proc init_package*(self: VirtualMachine, dir: string) =
   self.app.pkg = new_package(dir)
 
-proc run_file*(self: VirtualMachine, file: string): GeneValue =
+proc run_file*(self: VirtualMachine, file: string, placeholders: TableRef[string, string] = nil): GeneValue =
   var module = new_module(self.app.pkg.ns, file)
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   var code = read_file(file)
+  for k, v in placeholders:
+    var pattern = re(&"#<{k}>#.*#</{k}>#")
+    var by = &"#<{k}># {v} #</{k}>#"
+    code = code.replace(pattern, by)
   discard self.eval(frame, self.prepare(code))
   if frame.ns.has_key(MAIN_KEY):
     var main = frame[MAIN_KEY]

@@ -115,7 +115,7 @@ proc main() =
     var file = options.file
     VM.init_package(parent_dir(file))
     let start = cpu_time()
-    let result = VM.run_file(file)
+    let result = VM.run_file(file, options.placeholders)
     if options.print_result:
       echo result
     if options.benchmark:

@@ -1,4 +1,4 @@
-import parseopt, os
+import parseopt, os, tables
 
 import ../gene/types
 
@@ -27,6 +27,7 @@ type
     skip_empty*: bool
     index_name*: string
     value_name*: string
+    placeholders*: TableRef[string, string]
 
 let shortNoVal = {'d'}
 let longNoVal = @[
@@ -54,6 +55,7 @@ proc parseOptions*(): Options =
     repl: true,
     index_name: "i",
     value_name: "v",
+    placeholders: new_table[string, string](),
   )
   var expect_args = false
   for kind, key, value in getOpt(commandLineParams(), shortNoVal, longNoVal):
@@ -110,6 +112,8 @@ proc parseOptions*(): Options =
         result.skip_empty = true
       of "repl-on-error":
         result.repl_on_error = true
+      of "code":
+        result.placeholders["CODE"] = value
       of "":
         expect_args = true
       else:

@@ -1,0 +1,14 @@
+#!/usr/bin/env gene
+
+#< Usage
+
+# No substitution
+gene examples/placeholder.gene
+
+# Substitute CODE with "test". Please note that strings must be double-quoted,
+# and the whole code must be quoted in single-quotes.
+gene --code '"test"' examples/placeholder.gene
+
+#>#
+
+(println "..." #<CODE># "Code will go here" #</CODE># "...")
