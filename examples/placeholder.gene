@@ -12,3 +12,5 @@ gene --code '"test"' examples/placeholder.gene
 #>#
 
 (println "..." #<CODE># "Code will go here" #</CODE># "...")
+
+(println "..." #<CODE/># "...")

@@ -114,6 +114,16 @@ proc parseOptions*(): Options =
         result.repl_on_error = true
       of "code":
         result.placeholders["CODE"] = value
+      of "code1":
+        result.placeholders["CODE1"] = value
+      of "code2":
+        result.placeholders["CODE2"] = value
+      of "code3":
+        result.placeholders["CODE3"] = value
+      of "code4":
+        result.placeholders["CODE4"] = value
+      of "code5":
+        result.placeholders["CODE5"] = value
       of "":
         expect_args = true
       else:

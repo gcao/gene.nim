@@ -381,7 +381,7 @@ proc run_file*(self: VirtualMachine, file: string, placeholders: TableRef[string
   var frame = FrameMgr.get(FrModule, module.root_ns, new_scope())
   var code = read_file(file)
   for k, v in placeholders:
-    var pattern = re(&"#<{k}>#.*#</{k}>#")
+    var pattern = re(&"#<{k}>#.*#</{k}>#|#<{k}/>#")
     var by = &"#<{k}># {v} #</{k}>#"
     code = code.replace(pattern, by)
   discard self.eval(frame, self.prepare(code))
