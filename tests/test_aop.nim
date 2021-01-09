@@ -33,6 +33,42 @@ import ./helpers
 # * postcondition
 # * invariant
 #
+# (aspect A _
+#   ^extend (do
+#     (method new _ ...)  # an aspect can be instantiated like class
+#     (method x   _ ...)  # x is defined on the aspect, not on the target class
+#   )
+#
+#   (before (fnx ...))
+# )
+# (fn f)
+#
+# (var a (A f ...))
+# ^^^ == vvv
+# (var a (new A))
+# (a f ...)
+#
+# (a .disable)
+# (a .detach)   # unwrap, unapply, ... which is the best name for this?
+#
+
+# (claspect B [target meth]
+#   ^extend (do
+#     (method new _ ...)  # an aspect can be instantiated like class
+#     (method x   _ ...)  # x is defined on the aspect, not on the target class
+#   )
+#
+#   (method m)  # m is defined on the target class
+#
+#   (before meth (fnx ...))
+# )
+# (class C)
+#
+# (var b (B C "test"))
+# ^^^ == vvv
+# (var b (new B))
+# (b C "test")
+#
 
 # test_interpreter """
 #   # claspect: define aspects that are applicable to classes
