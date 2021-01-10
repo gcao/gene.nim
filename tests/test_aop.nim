@@ -86,35 +86,35 @@ import ./helpers
 #   ((new C) .test 1)
 # """, 2
 
-test_interpreter """
-  # aspect: define aspects that are applicable to functions
-  (aspect A [target arg]
-    (before target (fnx a
-      ($set $args 0 (a + arg)) # have to update the args object
-    ))
-  )
-  (fn f a
-    a
-  )
-  (var f (A f 2)) # re-define f in current scope
-  (f 1)
-  # (f .unwrap) # return the function that was wrapped
-""", 3
+# test_interpreter """
+#   # aspect: define aspects that are applicable to functions
+#   (aspect A [target arg]
+#     (before target (fnx a
+#       ($set $args 0 (a + arg)) # have to update the args object
+#     ))
+#   )
+#   (fn f a
+#     a
+#   )
+#   (var f (A f 2)) # re-define f in current scope
+#   (f 1)
+#   # (f .unwrap) # return the function that was wrapped
+# """, 3
 
-test_interpreter """
-  # aspect: define aspects that are applicable to functions
-  (aspect A [target arg]
-    (before target (fnx a
-      ($set $args 0 (a + arg)) # have to update the args object
-    ))
-  )
-  (fn f a
-    a
-  )
-  (var f (A f 2)) # re-define f in current scope
-  (var f (A f 3)) # re-define f in current scope
-  (f 1)
-""", 6
+# test_interpreter """
+#   # aspect: define aspects that are applicable to functions
+#   (aspect A [target arg]
+#     (before target (fnx a
+#       ($set $args 0 (a + arg)) # have to update the args object
+#     ))
+#   )
+#   (fn f a
+#     a
+#   )
+#   (var f (A f 2)) # re-define f in current scope
+#   (var f (A f 3)) # re-define f in current scope
+#   (f 1)
+# """, 6
 
 # test_interpreter """
 #   # aspect: define aspects that are applicable to functions
@@ -129,3 +129,20 @@ test_interpreter """
 #   (var f (A f 2)) # re-define f in current scope
 #   (f 1)
 # """, 3
+
+test_interpreter """
+  (var /a 0)  # `a` is defined as a ns member so it's available inside the aspect
+  (claspect A [target meth]
+    (before meth (fnx _
+      (a += 1)
+    ))
+  )
+  (class C
+    (method test _)
+  )
+
+  (A C "test")
+  ((new C) .test)
+
+  a
+""", 1

@@ -708,6 +708,7 @@ TranslatorMgr[FN_KEY            ] = new_fn_expr
 TranslatorMgr[MACRO_KEY         ] = new_macro_expr
 TranslatorMgr[RETURN_KEY        ] = new_return_expr
 TranslatorMgr[ASPECT_KEY        ] = new_aspect_expr
+TranslatorMgr[CLASPECT_KEY      ] = new_aspect_expr
 TranslatorMgr[BEFORE_KEY        ] = new_advice_expr
 TranslatorMgr[AFTER_KEY         ] = new_advice_expr
 TranslatorMgr[NS_KEY            ] = new_ns_expr

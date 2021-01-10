@@ -16,6 +16,16 @@ const BINARY_OPS* = [
 ]
 
 type
+  OneOrManyKind* = enum
+    OmOne, OmMany
+
+  OneOrMany*[T] = ref object
+    case kind*: OneOrManyKind
+    of OmOne:
+      one*: T
+    of OmMany:
+      many*: seq[T]
+
   GeneException* = object of CatchableError
     instance*: GeneValue  # instance of Gene exception class
 
@@ -81,6 +91,7 @@ type
     parent*: Class
     name*: string
     methods*: Table[MapKey, Method]
+    advices*: OneOrMany[Advice]
     ns*: Namespace # Class can act like a namespace
 
   Mixin* = ref object
@@ -114,11 +125,11 @@ type
 
   AspectInstance* = ref object
     aspect*: Aspect
-    target*: GeneValue
+    # targets*: OneOrMany[GeneValue]
     # active*: bool
-    before_advices*: seq[Advice]
-    after_advices*:  seq[Advice]
-    around_advices*: seq[Advice]
+    # before_advices*: seq[Advice]
+    # after_advices*:  seq[Advice]
+    # around_advices*: seq[Advice]
 
   # Order of execution:
   # before 1
@@ -136,7 +147,7 @@ type
   # invariant 2
   AdviceKind* = enum
     AdBefore         # run before target
-    Adafter          # run after target
+    AdAfter          # run after target
     AdAround         # wrap around target
     AdCatch          # catch exception
     AdEnsure         # try...finally to ensure resources are released
@@ -156,6 +167,8 @@ type
   Advice* = ref object
     owner*: AspectInstance
     kind*: AdviceKind
+    name*: string     # Optional name for better debugging purpose
+    matcher*: seq[string] # Matcher for methods
     options*: OrderedTable[AdviceOptionKind, GeneValue]
     logic*: Function
 
@@ -830,6 +843,7 @@ type
     FrMacro
     FrMethod
     FrModule
+    FrAspect
     FrBody
 
   FrameExtra* = ref object
@@ -843,6 +857,8 @@ type
       meth*: Function
       meth_name*: MapKey
       # hierarchy*: CallHierarchy # A hierarchy object that tracks where the method is in class hierarchy
+    of FrAspect:
+      aspect_target*: Class
     else:
       discard
 
@@ -1034,6 +1050,19 @@ proc new_match_matcher*(): RootMatcher
 proc new_arg_matcher*(): RootMatcher
 proc get_member*(self: GeneValue, name: string): GeneValue
 proc parse*(self: var RootMatcher, v: GeneValue)
+
+#################### OneOrMany ###################
+
+proc add*[T](self: OneOrMany[T], v: T): OneOrMany[T] =
+  if self == nil:
+    return OneOrMany[T](kind: OmOne, one: v)
+  case self.kind:
+  of OmOne:
+    var many = @[self.one, v]
+    result = OneOrMany[T](kind: OmMany, many: many)
+  of OmMany:
+    self.many.add(v)
+    result = self
 
 ##################################################
 
@@ -1689,7 +1718,7 @@ proc new_aspect*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Aspe
 proc new_aspect_instance*(aspect: Aspect, target: GeneValue): AspectInstance =
   return AspectInstance(
     aspect: aspect,
-    target: target,
+    # target: target,
   )
 
 proc new_advice*(kind: AdviceKind, logic: Function): Advice =
@@ -1934,6 +1963,12 @@ converter new_gene_internal*(v: AspectInstance): GeneValue =
   return GeneValue(
     kind: GeneInternal,
     internal: Internal(kind: GeneAspectInstance, aspect_instance: v),
+  )
+
+converter new_gene_internal*(v: Advice): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneAdvice, advice: v),
   )
 
 converter new_gene_internal*(class: Class): GeneValue =
