@@ -1,4 +1,4 @@
-import strutils, sequtils, tables, strutils, parsecsv, streams
+import strutils, sequtils, tables, strutils, parsecsv, streams, sets
 import os, osproc, json, httpclient, base64, times, dynlib, uri
 import asyncdispatch, asyncfile, asynchttpserver
 
@@ -42,7 +42,7 @@ proc call_macro*(self: VirtualMachine, frame: Frame, target: GeneValue, mac: Mac
 proc call_block*(self: VirtualMachine, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
 proc call_aspect*(self: VirtualMachine, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
-proc call_aspect_instance*(self: VirtualMachine, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue
+# proc call_aspect_instance*(self: VirtualMachine, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue
 
 #################### Implementations #############
 
@@ -435,9 +435,21 @@ proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class
     else:
       todo("Method is missing: " & method_name.to_s)
 
+proc call_method_with_advices*(self: VirtualMachine, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args: GeneValue): GeneValue =
+  if class.advices.len > 0:
+    var options = Table[FnOption, GeneValue]()
+    options[FnClass] = class
+    var advice_group = class.advices[0]
+    for advice in advice_group.before_advices:
+      if advice.matcher.contains(method_name):
+        discard self.call_fn(frame, instance, advice.logic, args, options)
+    result = self.call_method(frame, instance, class, method_name, args)
+  else:
+    result = self.call_method(frame, instance, class, method_name, args)
+
 proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args_blk: seq[Expr]): GeneValue =
   var args = self.eval_args(frame, @[], args_blk)
-  result = self.call_method(frame, instance, class, method_name, args)
+  result = self.call_method_with_advices(frame, instance, class, method_name, args)
 
 proc eval_args*(self: VirtualMachine, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue =
   result = new_gene_gene(GeneNil)
@@ -631,6 +643,7 @@ proc call_aspect*(self: VirtualMachine, frame: Frame, aspect: Aspect, expr: Expr
 
   var target = new_frame.args[0]
   new_frame.extra.aspect_target = target.internal.class
+  target.internal.class.advices.add(AdviceGroup())
   result = new_aspect_instance(aspect, target)
   new_frame.self = result
 
@@ -643,30 +656,30 @@ proc call_aspect*(self: VirtualMachine, frame: Frame, aspect: Aspect, expr: Expr
   except Return:
     discard
 
-proc call_aspect_instance*(self: VirtualMachine, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue =
-  var aspect = instance.aspect
-  var new_scope = new_scope()
-  var new_frame = FrameMgr.get(FrBody, aspect.ns, new_scope)
-  new_frame.parent = frame
-  new_frame.args = args
+# proc call_aspect_instance*(self: VirtualMachine, frame: Frame, instance: AspectInstance, args: GeneValue): GeneValue =
+#   var aspect = instance.aspect
+#   var new_scope = new_scope()
+#   var new_frame = FrameMgr.get(FrBody, aspect.ns, new_scope)
+#   new_frame.parent = frame
+#   new_frame.args = args
 
-  # # invoke before advices
-  # var options = Table[FnOption, GeneValue]()
-  # for advice in instance.before_advices:
-  #   discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
+#   # invoke before advices
+#   var options = Table[FnOption, GeneValue]()
+#   for advice in instance.before_advices:
+#     discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
 
-  # # invoke target
-  # case instance.target.internal.kind:
-  # of GeneFunction:
-  #   result = self.call_fn(new_frame, frame.self, instance.target, new_frame.args, options)
-  # of GeneAspectInstance:
-  #   result = self.call_aspect_instance(new_frame, instance.target.internal.aspect_instance, new_frame.args)
-  # else:
-  #   todo()
+#   # invoke target
+#   case instance.target.internal.kind:
+#   of GeneFunction:
+#     result = self.call_fn(new_frame, frame.self, instance.target, new_frame.args, options)
+#   of GeneAspectInstance:
+#     result = self.call_aspect_instance(new_frame, instance.target.internal.aspect_instance, new_frame.args)
+#   else:
+#     todo()
 
-  # # invoke after advices
-  # for advice in instance.after_advices:
-  #   discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
+#   # invoke after advices
+#   for advice in instance.after_advices:
+#     discard self.call_fn(new_frame, frame.self, advice.logic, new_frame.args, options)
 
 proc call_target*(self: VirtualMachine, frame: Frame, target: GeneValue, args: GeneValue, expr: Expr): GeneValue =
   case target.kind:
@@ -1186,19 +1199,25 @@ EvaluatorMgr[ExAspect] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
 
 EvaluatorMgr[ExAdvice] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   var instance = frame.self.internal.aspect_instance
+  var target = frame.extra.aspect_target
   var advice: Advice
+  var matcher = self.eval(frame, new_expr(expr, expr.advice.gene.data[0]))
   var logic = self.eval(frame, new_expr(expr, expr.advice.gene.data[1]))
   case expr.advice.gene.type.symbol:
   of "before":
     advice = new_advice(AdBefore, logic.internal.fn)
-    # instance.before_advices.add(advice)
+    advice.owner = instance
+    advice.matcher = HashSet[MapKey]()
+    advice.matcher.incl(matcher.str.to_key)
+    target.advices[^1].before_advices.add(advice)
   of "after":
     advice = new_advice(AdAfter, logic.internal.fn)
-    # instance.after_advices.add(advice)
+    advice.owner = instance
+    advice.matcher = HashSet[MapKey]()
+    advice.matcher.incl(matcher.str.to_key)
+    target.advices[^1].after_advices.add(advice)
   else:
     todo()
-  advice.owner = instance
-  frame.extra.aspect_target.advices = frame.extra.aspect_target.advices.add(advice)
   result = advice
 
 EvaluatorMgr[ExNamespace] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
@@ -1510,9 +1529,9 @@ EvaluatorMgr[ExGene] = proc(self: VirtualMachine, frame: Frame, expr: Expr): Gen
       )
     of GeneAspect:
       result = self.call_aspect(frame, target.internal.aspect, expr)
-    of GeneAspectInstance:
-      var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
-      result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
+    # of GeneAspectInstance:
+    #   var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
+    #   result = self.call_aspect_instance(frame, target.internal.aspect_instance, args)
     of GeneNativeFn:
       var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
       result = target.internal.native_fn(args.gene.props, args.gene.data)

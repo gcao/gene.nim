@@ -91,7 +91,7 @@ type
     parent*: Class
     name*: string
     methods*: Table[MapKey, Method]
-    advices*: OneOrMany[Advice]
+    advices*: seq[AdviceGroup]
     ns*: Namespace # Class can act like a namespace
 
   Mixin* = ref object
@@ -168,9 +168,16 @@ type
     owner*: AspectInstance
     kind*: AdviceKind
     name*: string     # Optional name for better debugging purpose
-    matcher*: seq[string] # Matcher for methods
+    matcher*: HashSet[MapKey] # Matcher for methods
     options*: OrderedTable[AdviceOptionKind, GeneValue]
     logic*: Function
+
+  # group of advices that belong to the same aspect
+  AdviceGroup* = ref object
+    before_advices*: seq[Advice]
+    after_advices*:  seq[Advice]
+    around_advices*: seq[Advice]
+    methods*: Table[MapKey, bool]   # Cache which methods are impacted by this group
 
   # ClassAdviceKind* = enum
   #   ClPreProcess
