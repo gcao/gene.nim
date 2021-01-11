@@ -443,7 +443,12 @@ proc call_method_with_advices*(self: VirtualMachine, frame: Frame, instance: Gen
     for advice in advice_group.before_advices:
       if advice.matcher.contains(method_name):
         discard self.call_fn(frame, instance, advice.logic, args, options)
+
     result = self.call_method(frame, instance, class, method_name, args)
+
+    for advice in advice_group.after_advices:
+      if advice.matcher.contains(method_name):
+        discard self.call_fn(frame, instance, advice.logic, args, options)
   else:
     result = self.call_method(frame, instance, class, method_name, args)
 
@@ -1359,6 +1364,8 @@ EvaluatorMgr[ExMethod] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
   var meth = expr.meth
   if expr.meth_fn_native != nil:
     meth.internal.meth.fn_native = self.eval(frame, expr.meth_fn_native).internal.native_meth
+  else:
+    meth.internal.meth.fn.ns = frame.ns
   case frame.self.internal.kind:
   of GeneClass:
     meth.internal.meth.class = frame.self.internal.class

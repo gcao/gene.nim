@@ -146,3 +146,25 @@ test_interpreter """
 
   a
 """, 1
+
+test_core """
+  (var /a "")  # `a` is defined as a ns member so it's available inside the aspect
+  (claspect A [target meth]
+    (before meth (fnx _
+      (a .append "before")
+    ))
+    (after meth (fnx _
+      (a .append "after")
+    ))
+  )
+  (class C
+    (method test _
+      (a .append "test")
+    )
+  )
+
+  (A C "test")
+  ((new C) .test)
+
+  a
+""", "beforetestafter"
