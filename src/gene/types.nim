@@ -586,6 +586,7 @@ type
     ExInclude
     ExMethod
     ExInvokeMethod
+    ExInvoke
     ExSuper
     ExNamespace
     ExDefMember
@@ -761,6 +762,8 @@ type
       invoke_self*: Expr
       invoke_meth*: MapKey
       invoke_args*: seq[Expr]
+    of ExInvoke:
+      invoke_with_args*: bool
     of ExSuper:
       super_args*: seq[Expr]
     of ExNamespace:

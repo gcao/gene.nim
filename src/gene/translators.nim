@@ -711,6 +711,7 @@ TranslatorMgr[ASPECT_KEY        ] = new_aspect_expr
 TranslatorMgr[CLASPECT_KEY      ] = new_aspect_expr
 TranslatorMgr[BEFORE_KEY        ] = new_advice_expr
 TranslatorMgr[AFTER_KEY         ] = new_advice_expr
+TranslatorMgr[AROUND_KEY        ] = new_advice_expr
 TranslatorMgr[NS_KEY            ] = new_ns_expr
 TranslatorMgr[IMPORT_KEY        ] = new_import_expr
 TranslatorMgr[IMPORT_NATIVE_KEY ] = new_import_expr
@@ -743,6 +744,9 @@ TranslatorMgr[NATIVE_METHOD_KEY ] = new_method_expr
 TranslatorMgr[NEW_KEY           ] = new_new_expr
 TranslatorMgr[SUPER_KEY         ] = new_super_expr
 TranslatorMgr[INVOKE_METHOD_KEY ] = new_invoke_expr
+TranslatorMgr[INVOKE_WITH_ARGS_KEY] = proc(parent: Expr, node: GeneValue): Expr =
+  result = new_expr(parent, ExInvoke)
+  result.invoke_with_args = node.gene.type == new_gene_symbol("$invoke_with_args")
 TranslatorMgr[MIXIN_KEY         ] = new_mixin_expr
 TranslatorMgr[INCLUDE_KEY       ] = new_include_expr
 TranslatorMgr[PARSE_KEY         ] = proc(parent: Expr, node: GeneValue): Expr =

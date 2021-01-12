@@ -1221,6 +1221,12 @@ EvaluatorMgr[ExAdvice] = proc(self: VirtualMachine, frame: Frame, expr: Expr): G
     advice.matcher = HashSet[MapKey]()
     advice.matcher.incl(matcher.str.to_key)
     target.advices[^1].after_advices.add(advice)
+  of "around":
+    advice = new_advice(AdAround, logic.internal.fn)
+    advice.owner = instance
+    advice.matcher = HashSet[MapKey]()
+    advice.matcher.incl(matcher.str.to_key)
+    target.advices[^1].around_advices.add(advice)
   else:
     todo()
   result = advice
@@ -1380,6 +1386,9 @@ EvaluatorMgr[ExInvokeMethod] = proc(self: VirtualMachine, frame: Frame, expr: Ex
   var instance = self.eval(frame, expr.invoke_self)
   var class = instance.get_class
   result = self.call_method(frame, instance, class, expr.invoke_meth, expr.invoke_args)
+
+EvaluatorMgr[ExInvoke] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
+  todo()
 
 EvaluatorMgr[ExSuper] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
   var instance = frame.self

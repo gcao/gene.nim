@@ -168,3 +168,24 @@ test_core """
 
   a
 """, "beforetestafter"
+
+# test_core """
+#   (var /a "")
+#   (claspect A [target meth]
+#     (around meth (fnx _
+#       (a .append "before")
+#       ($invoke_with_args)
+#       (a .append "after")
+#     ))
+#   )
+#   (class C
+#     (method test _
+#       (a .append "test")
+#     )
+#   )
+
+#   (A C "test")
+#   ((new C) .test)
+
+#   a
+# """, "beforetestafter"
