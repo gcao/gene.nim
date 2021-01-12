@@ -92,6 +92,7 @@ type
     name*: string
     methods*: Table[MapKey, Method]
     advices*: seq[AdviceGroup]
+    advice_for_methods*: Table[MapKey, ref seq[AdviceGroup]]  # Populated on first call of a method
     ns*: Namespace # Class can act like a namespace
 
   Mixin* = ref object
@@ -177,7 +178,7 @@ type
     before_advices*: seq[Advice]
     after_advices*:  seq[Advice]
     around_advices*: seq[Advice]
-    methods*: Table[MapKey, bool]   # Cache which methods are impacted by this group
+    # methods*: Table[MapKey, bool]   # Cache which methods are impacted by this group
 
   # ClassAdviceKind* = enum
   #   ClPreProcess
@@ -1061,6 +1062,8 @@ proc new_arg_matcher*(): RootMatcher
 proc get_member*(self: GeneValue, name: string): GeneValue
 proc parse*(self: var RootMatcher, v: GeneValue)
 
+proc match*(self: Advice, meth: MapKey): bool
+
 #################### OneOrMany ###################
 
 proc add*[T](self: OneOrMany[T], v: T): OneOrMany[T] =
@@ -1408,6 +1411,41 @@ proc get_method*(self: Class, name: MapKey): Method =
   elif self.parent != nil:
     return self.parent.get_method(name)
 
+proc populate_advices_for_method(self: Class, name: MapKey): ref seq[AdviceGroup] =
+  var advices: seq[AdviceGroup] = @[]
+  for group in self.advices:
+    var new_group = AdviceGroup()
+    var matched = false
+    for advice in group.before_advices:
+      if advice.match(name):
+        matched = true
+        new_group.before_advices.add(advice)
+    for advice in group.around_advices:
+      if advice.match(name):
+        matched = true
+        new_group.around_advices.add(advice)
+    for advice in group.after_advices:
+      if advice.match(name):
+        matched = true
+        new_group.after_advices.add(advice)
+
+    if matched:
+      advices.add(new_group)
+
+  if advices.len > 0:
+    result.new
+    result[] = advices
+    self.advice_for_methods[name] = result
+  else:
+    self.advice_for_methods[name] = nil
+    result = nil
+
+proc get_advices*(self: Class, name: MapKey): ref seq[AdviceGroup] =
+  if not self.advice_for_methods.has_key(name):
+    result = self.populate_advices_for_method(name)
+  else:
+    result = self.advice_for_methods[name]
+
 #################### Method ######################
 
 proc new_method*(class: Class, name: string, fn: Function): Method =
@@ -1736,6 +1774,9 @@ proc new_advice*(kind: AdviceKind, logic: Function): Advice =
     kind: kind,
     logic: logic,
   )
+
+proc match*(self: Advice, meth: MapKey): bool =
+  return self.matcher.contains(meth)
 
 #################### Constructors ################
 

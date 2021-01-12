@@ -435,11 +435,24 @@ proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class
     else:
       todo("Method is missing: " & method_name.to_s)
 
-proc call_method_with_advices*(self: VirtualMachine, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args: GeneValue): GeneValue =
-  if class.advices.len > 0:
+# Get next advice group and advice to call
+proc get_next_advice_index*(class: Class, method_name: MapKey, group, advice: int): (int, int) =
+  todo()
+
+proc call_method_with_advices*(self: VirtualMachine,
+  frame: Frame,
+  instance: GeneValue,
+  class: Class,
+  method_name: MapKey,
+  args: GeneValue,
+  group: int = -1,  # Current advice group
+  advice: int = -1, # Current around advice
+): GeneValue =
+  var advices = class.get_advices(method_name)
+  if advices != nil:
     var options = Table[FnOption, GeneValue]()
     options[FnClass] = class
-    var advice_group = class.advices[0]
+    var advice_group = advices[0]
     for advice in advice_group.before_advices:
       if advice.matcher.contains(method_name):
         discard self.call_fn(frame, instance, advice.logic, args, options)
