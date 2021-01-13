@@ -437,7 +437,12 @@ proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class
 
 # Get next advice group and advice to call
 proc get_next_advice_index*(class: Class, method_name: MapKey, group, advice: int): (int, int) =
-  todo()
+  var advice_groups = class.get_advices(method_name)
+  var advice_group = advice_groups[group]
+  if advice < advice_group.around_advices.len - 1:
+    result = (group, advice + 1)
+  else:
+    result = (group + 1, 0)
 
 proc call_method_with_advices*(self: VirtualMachine,
   frame: Frame,
@@ -445,29 +450,36 @@ proc call_method_with_advices*(self: VirtualMachine,
   class: Class,
   method_name: MapKey,
   args: GeneValue,
-  group: int = -1,  # Current advice group
-  advice: int = -1, # Current around advice
+  group_index: int,  # Current advice group
+  advice_index: int, # Current around advice
 ): GeneValue =
   var advices = class.get_advices(method_name)
   if advices != nil:
-    var options = Table[FnOption, GeneValue]()
-    options[FnClass] = class
-    var advice_group = advices[0]
-    for advice in advice_group.before_advices:
-      if advice.matcher.contains(method_name):
-        discard self.call_fn(frame, instance, advice.logic, args, options)
+    if group_index < advices[].len:
+      var options = Table[FnOption, GeneValue]()
+      options[FnClass] = class
+      var advice_group = advices[group_index]
+      for advice in advice_group.before_advices:
+        if advice.matcher.contains(method_name):
+          discard self.call_fn(frame, instance, advice.logic, args, options)
 
-    result = self.call_method(frame, instance, class, method_name, args)
+      if advice_index < advice_group.around_advices.len:
+        var advice = advice_group.around_advices[advice_index]
+        result = self.call_fn(frame, instance, advice.logic, args, options)
+      else:
+        result = self.call_method(frame, instance, class, method_name, args)
 
-    for advice in advice_group.after_advices:
-      if advice.matcher.contains(method_name):
-        discard self.call_fn(frame, instance, advice.logic, args, options)
+      for advice in advice_group.after_advices:
+        if advice.matcher.contains(method_name):
+          discard self.call_fn(frame, instance, advice.logic, args, options)
+    else:
+      result = self.call_method(frame, instance, class, method_name, args)
   else:
     result = self.call_method(frame, instance, class, method_name, args)
 
 proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args_blk: seq[Expr]): GeneValue =
   var args = self.eval_args(frame, @[], args_blk)
-  result = self.call_method_with_advices(frame, instance, class, method_name, args)
+  result = self.call_method_with_advices(frame, instance, class, method_name, args, 0, 0)
 
 proc eval_args*(self: VirtualMachine, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue =
   result = new_gene_gene(GeneNil)

@@ -522,6 +522,8 @@ type
   FnOption* = enum
     FnClass
     FnMethod
+    FnAdviceGroup   # group index
+    FnAdviceIndex   # advice index
 
   NativeMethod* = proc(
     self: GeneValue,
