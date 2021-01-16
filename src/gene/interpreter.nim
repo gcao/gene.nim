@@ -32,7 +32,7 @@ proc match*(self: VirtualMachine, frame: Frame, pattern: GeneValue, val: GeneVal
 proc import_from_ns*(self: VirtualMachine, frame: Frame, source: GeneValue, group: seq[ImportMatcher])
 proc explode_and_add*(parent: GeneValue, value: GeneValue)
 
-proc eval_args*(self: VirtualMachine, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue
+proc eval_args*(self: VirtualMachine, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue {.inline.}
 
 proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args_blk: seq[Expr]): GeneValue
 proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args: GeneValue): GeneValue
@@ -481,7 +481,7 @@ proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class
   var args = self.eval_args(frame, @[], args_blk)
   result = self.call_method_with_advices(frame, instance, class, method_name, args, 0, 0)
 
-proc eval_args*(self: VirtualMachine, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue =
+proc eval_args*(self: VirtualMachine, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue {.inline.} =
   result = new_gene_gene(GeneNil)
   for e in props:
     var v = self.eval(frame, e)

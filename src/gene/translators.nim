@@ -177,12 +177,15 @@ proc new_do_expr*(parent: Expr, node: GeneValue): Expr =
     result.do_body.add(new_expr(result, item))
 
 proc new_group_expr*(parent: Expr, nodes: seq[GeneValue]): Expr =
-  result = Expr(
-    kind: ExGroup,
-    parent: parent,
-  )
-  for node in nodes:
-    result.group.add(new_expr(result, node))
+  if nodes.len == 1:
+    result = new_expr(parent, nodes[0])
+  else:
+    result = Expr(
+      kind: ExGroup,
+      parent: parent,
+    )
+    for node in nodes:
+      result.group.add(new_expr(result, node))
 
 proc new_loop_expr*(parent: Expr, val: GeneValue): Expr =
   result = Expr(
