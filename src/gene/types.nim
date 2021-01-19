@@ -24,21 +24,21 @@ type
   # index of a name in a scope
   NameIndexScope* = distinct int
 
-  Runtime* = ref object
+  Runtime* {.shallow.} = ref object
     name*: string     # default/...
     home*: string     # GENE_HOME directory
     version*: string
     features*: Table[string, GeneValue]
 
   ## This is the root of a running application
-  Application* = ref object
+  Application* {.shallow.} = ref object
     name*: string         # default to base name of command
     pkg*: Package         # Entry package for the application
     ns*: Namespace
     cmd*: string
     args*: seq[string]
 
-  Package* = ref object
+  Package* {.shallow.} = ref object
     dir*: string          # Where the package assets are installed
     adhoc*: bool          # Adhoc package is created when package.gene is not found
     ns*: Namespace
@@ -55,35 +55,35 @@ type
     name*: string
     root_ns*: Namespace
 
-  ImportMatcherRoot* = ref object
+  ImportMatcherRoot* {.shallow.} = ref object
     children*: seq[ImportMatcher]
     `from`*: GeneValue
 
-  ImportMatcher* = ref object
+  ImportMatcher* {.shallow.} = ref object
     name*: MapKey
     `as`*: MapKey
     children*: seq[ImportMatcher]
     children_only*: bool # true if self should not be imported
 
-  Namespace* = ref object
+  Namespace* {.shallow.} = ref object
     parent*: Namespace
     stop_inheritance*: bool  # When set to true, stop looking up for members
     name*: string
     members*: Table[MapKey, GeneValue]
 
-  Scope* = ref object
+  Scope* {.shallow.} = ref object
     parent*: Scope
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
     mappings*: Table[MapKey, seq[NameIndexScope]]
 
-  Class* = ref object
+  Class* {.shallow.} = ref object
     parent*: Class
     name*: string
     methods*: Table[MapKey, Method]
     ns*: Namespace # Class can act like a namespace
 
-  Mixin* = ref object
+  Mixin* {.shallow.} = ref object
     name*: string
     methods*: Table[MapKey, Method]
     # TODO: ns*: Namespace # Mixin can act like a namespace
@@ -206,7 +206,7 @@ type
   #   else:
   #     discard
 
-  Function* = ref object
+  Function* {.shallow.} = ref object
     async*: bool
     ns*: Namespace
     parent_scope*: Scope
@@ -217,7 +217,7 @@ type
     expr*: Expr # The function expression that will be the parent of body
     body_blk*: seq[Expr]
 
-  Block* = ref object
+  Block* {.shallow.} = ref object
     frame*: Frame
     parent_scope_max*: NameIndexScope
     matcher*: RootMatcher
@@ -225,14 +225,14 @@ type
     expr*: Expr # The expression that will be the parent of body
     body_blk*: seq[Expr]
 
-  Macro* = ref object
+  Macro* {.shallow.} = ref object
     ns*: Namespace
     name*: string
     matcher*: RootMatcher
     body*: seq[GeneValue]
     expr*: Expr # The expression that will be the parent of body
 
-  Enum* = ref object
+  Enum* {.shallow.} = ref object
     name*: string
     members*: OrderedTable[string, EnumMember]
 
@@ -324,7 +324,7 @@ type
     # of GeneIteratorWrapper:
     #   `iterator_wrapper`*: IteratorWrapper
 
-  ComplexSymbol* = ref object
+  ComplexSymbol* {.shallow.} = ref object
     first*: string
     rest*: seq[string]
 
@@ -336,7 +336,7 @@ type
     # include_first*: bool # always true
     include_last*: bool # default to false
 
-  Gene* {.acyclic.} = ref object
+  Gene* {.shallow, acyclic.} = ref object
     `type`*: GeneValue
     props*: OrderedTable[MapKey, GeneValue]
     data*: seq[GeneValue]
@@ -346,7 +346,7 @@ type
 
   SelectorNoResult* = object of GeneException
 
-  Selector* {.acyclic.} = ref object
+  Selector* {.shallow, acyclic.} = ref object
     children*: seq[SelectorItem]  # Each child represents a branch
     default*: GeneValue
 
@@ -354,7 +354,7 @@ type
     SiDefault
     SiSelector
 
-  SelectorItem* {.acyclic.} = ref object
+  SelectorItem* {.shallow, acyclic.} = ref object
     case kind*: SelectorItemKind
     of SiDefault:
       matchers*: seq[SelectorMatcher]
@@ -406,7 +406,7 @@ type
       all*: seq[GeneValue]
 
   # Non-date specific time object
-  GeneTime* = ref object
+  GeneTime* {.shallow.} = ref object
     hour*: int
     minute*: int
     second*: int
@@ -439,7 +439,7 @@ type
     GeneInternal
     GeneAny
 
-  GeneValue* {.acyclic.} = ref object
+  GeneValue* {.shallow, acyclic.} = ref object
     case kind*: GeneKind
     of GeneNilKind, GenePlaceholderKind:
       discard
@@ -491,7 +491,7 @@ type
     # line*: int
     # column*: int
 
-  GeneDocument* = ref object
+  GeneDocument* {.shallow.} = ref object
     `type`: GeneValue
     props*: OrderedTable[MapKey, GeneValue]
     data*: seq[GeneValue]
@@ -592,7 +592,7 @@ type
     ExAsyncCallback
     ExSelector
 
-  Expr* = ref object of RootObj
+  Expr* {.shallow.} = ref object of RootObj
     parent*: Expr
     evaluator*: Evaluator
     case kind*: ExprKind
@@ -810,7 +810,7 @@ type
       selector*: seq[Expr]
       parallel_mode*: bool
 
-  VirtualMachine* = ref object
+  VirtualMachine* {.shallow.} = ref object
     app*: Application
     modules*: OrderedTable[MapKey, Namespace]
     repl_on_error*: bool
@@ -832,7 +832,7 @@ type
     FrModule
     FrBody
 
-  FrameExtra* = ref object
+  FrameExtra* {.shallow.} = ref object
     case kind*: FrameKind
     of FrFunction:
       fn*: Function
@@ -846,7 +846,7 @@ type
     else:
       discard
 
-  Frame* = ref object
+  Frame* {.shallow.} = ref object
     parent*: Frame
     self*: GeneValue
     ns*: Namespace
@@ -888,7 +888,7 @@ type
 
   # Match the whole input or the first child (if running in ArgumentMode)
   # Can have name, match nothing, or have group of children
-  RootMatcher* = ref object
+  RootMatcher* {.shallow.} = ref object
     mode*: MatchingMode
     children*: seq[Matcher]
 
@@ -897,7 +897,7 @@ type
     MatchProp
     MatchData
 
-  Matcher* = ref object
+  Matcher* {.shallow.} = ref object
     root*: RootMatcher
     kind*: MatcherKind
     name*: MapKey
@@ -919,7 +919,7 @@ type
     value*: GeneValue # Either value_expr or value must be given
     value_expr*: Expr # Expression for calculating default value
 
-  MatchResult* = ref object
+  MatchResult* {.shallow.} = ref object
     message*: string
     kind*: MatchResultKind
     # If success
