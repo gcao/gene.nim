@@ -147,13 +147,13 @@ test_interpreter """
 """, proc(r: GeneValue) =
   check r.gene.data[0] == 1
 
-test_interpreter """
-  (fn f [a b] (a + b))
-  (fn g _
-    (f ...)
-  )
-  (g 1 2)
-""", 3
+# test_interpreter """
+#   (fn f [a b] (a + b))
+#   (fn g _
+#     (f $args...)
+#   )
+#   (g 1 2)
+# """, 3
 
 test_interpreter """
   (var f

@@ -206,6 +206,11 @@ type
   #   else:
   #     discard
 
+  FunctionMatchMode* = enum
+    FmDefault
+    FmNone    # No matcher
+    FmSimple  # One or multiple simple matchers (required, positional)
+
   Function* = ref object
     async*: bool
     ns*: Namespace
@@ -213,6 +218,7 @@ type
     parent_scope_max*: NameIndexScope
     name*: string
     matcher*: RootMatcher
+    match_mode*: FunctionMatchMode
     body*: seq[GeneValue]
     expr*: Expr # The function expression that will be the parent of body
     body_blk*: seq[Expr]
@@ -1032,6 +1038,7 @@ proc new_namespace*(): Namespace
 proc new_namespace*(parent: Namespace): Namespace
 proc new_match_matcher*(): RootMatcher
 proc new_arg_matcher*(): RootMatcher
+proc required(self: Matcher): bool
 proc get_member*(self: GeneValue, name: string): GeneValue
 proc parse*(self: var RootMatcher, v: GeneValue)
 
@@ -2142,6 +2149,16 @@ converter to_function*(node: GeneValue): Function =
 
     body = wrap_with_try(body)
     result = new_fn(name, matcher, body)
+    if matcher.children.len == 0:
+      result.match_mode = FmNone
+    else:
+      var simple = true
+      for m in matcher.children:
+        if m.kind != MatchData or not m.required or m.children.len > 0:
+          simple = false
+          break
+      if simple:
+        result.match_mode = FmSimple
     result.async = node.gene.props.get_or_default(ASYNC_KEY, false)
   else:
     not_allowed()
