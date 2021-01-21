@@ -492,7 +492,6 @@ proc call_fn_simple*(
   var i = 0
   while i < expr.gene_data.len:
     if i < fn.matcher.children.len:
-      echo fn.matcher.children[i].name.to_s
       new_frame.scope.def_member(fn.matcher.children[i].name, self.eval(frame, expr.gene_data[i]))
     else:
       discard self.eval(frame, expr.gene_data[i])
