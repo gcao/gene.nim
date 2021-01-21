@@ -22,7 +22,7 @@ type
   NotDefinedException* = object of GeneException
 
   # index of a name in a scope
-  NameIndexScope* = distinct int
+  NameIndexScope* = distinct int16
 
   Runtime* = ref object
     name*: string     # default/...
@@ -71,11 +71,15 @@ type
     name*: string
     members*: Table[MapKey, GeneValue]
 
+  ScopeMember* = ref object
+    index*: NameIndexScope
+    history*: ref seq[NameIndexScope]
+
   Scope* = ref object
     parent*: Scope
     parent_index_max*: NameIndexScope
     members*:  seq[GeneValue]
-    mappings*: Table[MapKey, seq[NameIndexScope]]
+    mappings*: Table[MapKey, ScopeMember]
 
   Class* = ref object
     parent*: Class
@@ -1214,7 +1218,7 @@ proc `[]=`*(self: var Namespace, key: string, val: GeneValue) {.inline.} =
 
 proc new_scope*(): Scope = Scope(
   members: @[],
-  mappings: Table[MapKey, seq[NameIndexScope]](),
+  mappings: Table[MapKey, ScopeMember](),
 )
 
 proc max*(self: Scope): NameIndexScope {.inline.} =
@@ -1230,8 +1234,11 @@ proc reset*(self: var Scope) {.inline.} =
 
 proc has_key(self: Scope, key: MapKey, max: int): bool {.inline.} =
   if self.mappings.has_key(key):
+    var member = self.mappings[key]
+    if member.index < max:
+      return true
     # If first >= max, all others will be >= max
-    if self.mappings[key][0] < max:
+    if member.history != nil and member.history[0] < max:
       return true
 
   if self.parent != nil:
@@ -1247,26 +1254,33 @@ proc def_member*(self: var Scope, key: MapKey, val: GeneValue) {.inline.} =
   var index = self.members.len
   self.members.add(val)
   if self.mappings.has_key(key):
-    self.mappings[key].add(index)
+    var member = self.mappings[key]
+    if member.history == nil:
+      new(member.history)
+    member.history[].add(member.index)
+    member.index = index
   else:
-    self.mappings[key] = @[cast[NameIndexScope](index)]
+    self.mappings[key] = ScopeMember(index: index)
 
 proc `[]`(self: Scope, key: MapKey, max: int): GeneValue {.inline.} =
   if self.mappings.has_key(key):
     var found = self.mappings[key]
-    var i = found.len - 1
-    while i >= 0:
-      var index: int = found[i]
-      if index < max:
-        return self.members[index]
-      i -= 1
+    if found.index < max:
+      return self.members[cast[int](found.index)]
+    elif found.history != nil:
+      var i = found.history[].len - 1
+      while i >= 0:
+        var index: int = found.history[i]
+        if index < max:
+          return self.members[index]
+        i -= 1
 
   if self.parent != nil:
     return self.parent[key, self.parent_index_max]
 
 proc `[]`*(self: Scope, key: MapKey): GeneValue {.inline.} =
   if self.mappings.has_key(key):
-    var i: int = self.mappings[key][^1]
+    var i: int = self.mappings[key].index
     return self.members[i]
   elif self.parent != nil:
     return self.parent[key, self.parent_index_max]
@@ -1274,13 +1288,17 @@ proc `[]`*(self: Scope, key: MapKey): GeneValue {.inline.} =
 proc `[]=`(self: var Scope, key: MapKey, val: GeneValue, max: int) {.inline.} =
   if self.mappings.has_key(key):
     var found = self.mappings[key]
-    var i = found.len - 1
-    while i >= 0:
-      var index: int = found[i]
-      if index < max:
-        self.members[i] = val
-        return
-      i -= 1
+    if found.index < max:
+      self.members[cast[int](found.index)] = val
+      return
+    else:
+      var i = found.history[].len - 1
+      while i >= 0:
+        var index: int = found.history[i]
+        if index < max:
+          self.members[i] = val
+          return
+        i -= 1
 
   if self.parent != nil:
     self.parent.`[]=`(key, val, self.parent_index_max)
@@ -1289,7 +1307,7 @@ proc `[]=`(self: var Scope, key: MapKey, val: GeneValue, max: int) {.inline.} =
 
 proc `[]=`*(self: var Scope, key: MapKey, val: GeneValue) {.inline.} =
   if self.mappings.has_key(key):
-    var i: int = self.mappings[key][^1]
+    var i: int = self.mappings[key].index
     self.members[i] = val
   elif self.parent != nil:
     self.parent.`[]=`(key, val, self.parent_index_max)
