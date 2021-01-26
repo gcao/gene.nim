@@ -484,7 +484,7 @@ proc call_fn_internal*(
 ): GeneValue =
   var ns: Namespace = fn.ns
   var fn_scope = new_scope()
-  if fn.expr.kind == ExFn:
+  if fn.expr.kind == ExFn and fn.parent_scope.d != nil:
     fn_scope.set_parent(fn.parent_scope, fn.parent_scope_max)
   var new_frame: Frame
   if options.has_key(FnMethod):
