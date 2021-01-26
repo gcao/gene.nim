@@ -268,10 +268,11 @@ type
     GeneSelector
     GeneNativeFn
     GeneNativeMethod
+    GeneExpr
     # GeneIterator
     # GeneIteratorWrapper
 
-  Internal* = ref object
+  Internal* = object
     case kind*: GeneInternalKind
     of GeneApplication:
       app*: Application
@@ -319,6 +320,8 @@ type
       native_fn*: NativeFn
     of GeneNativeMethod:
       native_meth*: NativeMethod
+    of GeneExpr:
+      expr*: Expr
     # of GeneIterator:
     #   `iterator`*: Iterator
     # of GeneIteratorWrapper:
@@ -598,6 +601,7 @@ type
     case kind*: ExprKind
     of ExCustom:
       custom*: GeneValue
+      custom_type*: MapKey
     of ExTodo:
       todo*: Expr
     of ExNotAllowed:
@@ -1511,7 +1515,7 @@ proc `==`*(this, that: GeneValue): bool =
       of GeneNamespace:
         return this.internal.ns == that.internal.ns
       else:
-        return this.internal == that.internal
+        todo()
 
 proc hash*(node: GeneValue): Hash =
   var h: Hash = 0
