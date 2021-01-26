@@ -71,7 +71,8 @@ type
     name*: string
     members*: Table[MapKey, GeneValue]
 
-  Scope* = object
+  Scope* = ref ScopeObj
+  ScopeObj* = object
     d*: ScopeInternal
 
   ScopeInternal* = ptr object
@@ -990,7 +991,7 @@ type
 
 var ScopeCache*: seq[ScopeInternal] = @[]
 
-proc `=destroy`*(x: var Scope) {.nimcall.} =
+proc `=destroy`*(x: var ScopeObj) {.nimcall.} =
   if x.d == nil:
     return
   if x.d.refCount == 0:
@@ -1001,13 +1002,13 @@ proc `=destroy`*(x: var Scope) {.nimcall.} =
     x.d.refCount -= 1
   x.d = nil
 
-proc `=sink`*(dst: var Scope, src: Scope) {.nimcall.} =
+proc `=sink`*(dst: var ScopeObj, src: ScopeObj) {.nimcall.} =
   if dst.d != nil:
     `=destroy`(dst)
   if src.d != nil:
     dst.d = src.d
 
-proc `=`*(dst: var Scope, src: Scope) {.nimcall.} =
+proc `=`*(dst: var ScopeObj, src: ScopeObj) {.nimcall.} =
   if src.d == dst.d:
     return
   `=destroy`(dst)
@@ -1268,13 +1269,13 @@ proc has_key(self: Scope, key: MapKey, max: int): bool {.inline.} =
     if self.d.mappings[key][0] < max:
       return true
 
-  if self.d.parent.d != nil:
+  if self.d.parent != nil:
     return self.d.parent.has_key(key, self.d.parent_index_max)
 
 proc has_key*(self: Scope, key: MapKey): bool {.inline.} =
   if self.d.mappings.has_key(key):
     return true
-  elif self.d.parent.d != nil:
+  elif self.d.parent != nil:
     return self.d.parent.has_key(key, self.d.parent_index_max)
 
 proc def_member*(self: var Scope, key: MapKey, val: GeneValue) {.inline.} =
@@ -1295,14 +1296,14 @@ proc `[]`(self: Scope, key: MapKey, max: int): GeneValue {.inline.} =
         return self.d.members[index]
       i -= 1
 
-  if self.d.parent.d != nil:
+  if self.d.parent != nil:
     return self.d.parent[key, self.d.parent_index_max]
 
 proc `[]`*(self: Scope, key: MapKey): GeneValue {.inline.} =
   if self.d.mappings.has_key(key):
     var i: int = self.d.mappings[key][^1]
     return self.d.members[i]
-  elif self.d.parent.d != nil:
+  elif self.d.parent != nil:
     return self.d.parent[key, self.d.parent_index_max]
 
 proc `[]=`(self: var Scope, key: MapKey, val: GeneValue, max: int) {.inline.} =
@@ -1316,7 +1317,7 @@ proc `[]=`(self: var Scope, key: MapKey, val: GeneValue, max: int) {.inline.} =
         return
       i -= 1
 
-  if self.d.parent.d != nil:
+  if self.d.parent != nil:
     self.d.parent.`[]=`(key, val, self.d.parent_index_max)
   else:
     not_allowed()
@@ -1325,7 +1326,7 @@ proc `[]=`*(self: var Scope, key: MapKey, val: GeneValue) {.inline.} =
   if self.d.mappings.has_key(key):
     var i: int = self.d.mappings[key][^1]
     self.d.members[i] = val
-  elif self.d.parent.d != nil:
+  elif self.d.parent != nil:
     self.d.parent.`[]=`(key, val, self.d.parent_index_max)
   else:
     not_allowed()
@@ -1339,7 +1340,7 @@ proc new_frame*(): Frame = Frame(
 proc reset*(self: var Frame) {.inline.} =
   self.self = nil
   self.ns = nil
-  # self.scope = nil
+  self.scope = nil
   self.extra = nil
 
 proc `[]`*(self: Frame, name: MapKey): GeneValue {.inline.} =
