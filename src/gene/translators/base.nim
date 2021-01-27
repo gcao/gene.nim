@@ -1,6 +1,5 @@
 import tables, strutils
 
-import ../map_key
 import ../types
 import ../normalizers
 import ../decorator
@@ -653,7 +652,6 @@ TranslatorMgr[IF_KEY            ] = new_if_expr
 TranslatorMgr[NOT_KEY           ] = new_not_expr
 TranslatorMgr[VAR_KEY           ] = new_var_expr
 TranslatorMgr[THROW_KEY         ] = new_throw_expr
-# TranslatorMgr[TRY_KEY           ] = new_try_expr
 TranslatorMgr[FN_KEY            ] = new_fn_expr
 TranslatorMgr[MACRO_KEY         ] = new_macro_expr
 TranslatorMgr[RETURN_KEY        ] = new_return_expr

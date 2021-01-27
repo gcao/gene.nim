@@ -1,6 +1,5 @@
 import unittest, strutils, dynlib, tables
 
-import gene/map_key
 import gene/types
 import gene/parser
 import gene/normalizers

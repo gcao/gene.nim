@@ -1,6 +1,5 @@
 import strutils, tables
 
-import ./map_key
 import ./types
 
 type

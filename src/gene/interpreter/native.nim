@@ -4,7 +4,6 @@ import os, osproc, times
 import base64
 import httpclient, uri
 
-import ../map_key
 import ../types
 import ./base
 

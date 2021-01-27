@@ -2,7 +2,7 @@ import os, re, strutils, tables, unicode, hashes, sets, json, asyncdispatch, tim
 
 import ./map_key
 
-export MapKey
+export map_key
 
 const DEFAULT_ERROR_MESSAGE = "Error occurred."
 const BINARY_OPS* = [
@@ -1127,15 +1127,6 @@ converter to_gene*(v: NativeMethod): GeneValue =
 
 #################### Module ######################
 
-proc new_module*(name: string): Module =
-  result = Module(
-    name: name,
-    root_ns: new_namespace(VM.app.ns),
-  )
-
-proc new_module*(): Module =
-  result = new_module("<unknown>")
-
 proc new_module*(ns: Namespace, name: string): Module =
   result = Module(
     name: name,
@@ -2199,91 +2190,6 @@ converter json_to_gene*(node: JsonNode): GeneValue =
     result = new_gene_vec()
     for elem in node.elems:
       result.vec.add(elem.json_to_gene)
-
-proc get_class*(val: GeneValue): Class =
-  case val.kind:
-  of GeneInternal:
-    case val.internal.kind:
-    of GeneApplication:
-      return VM.gene_ns.internal.ns[APPLICATION_CLASS_KEY].internal.class
-    of GenePackage:
-      return VM.gene_ns.internal.ns[PACKAGE_CLASS_KEY].internal.class
-    of GeneInstance:
-      return val.internal.instance.class
-    of GeneClass:
-      return VM.gene_ns.internal.ns[CLASS_CLASS_KEY].internal.class
-    of GeneNamespace:
-      return VM.gene_ns.internal.ns[NAMESPACE_CLASS_KEY].internal.class
-    of GeneFuture:
-      return VM.gene_ns.internal.ns[FUTURE_CLASS_KEY].internal.class
-    of GeneFile:
-      return VM.gene_ns.internal.ns[FILE_CLASS_KEY].internal.class
-    of GeneExceptionKind:
-      var ex = val.internal.exception
-      if ex is GeneException:
-        var ex = cast[GeneException](ex)
-        if ex.instance != nil:
-          return ex.instance.internal.class
-        else:
-          return GeneExceptionClass.internal.class
-      # elif ex is CatchableError:
-      #   var nim = VM.app.ns[NIM_KEY]
-      #   return nim.internal.ns[CATCHABLE_ERROR_KEY].internal.class
-      else:
-        return GeneExceptionClass.internal.class
-    else:
-      todo()
-  of GeneNilKind:
-    return VM.gene_ns.internal.ns[NIL_CLASS_KEY].internal.class
-  of GeneBool:
-    return VM.gene_ns.internal.ns[BOOL_CLASS_KEY].internal.class
-  of GeneInt:
-    return VM.gene_ns.internal.ns[INT_CLASS_KEY].internal.class
-  of GeneChar:
-    return VM.gene_ns.internal.ns[CHAR_CLASS_KEY].internal.class
-  of GeneString:
-    return VM.gene_ns.internal.ns[STRING_CLASS_KEY].internal.class
-  of GeneSymbol:
-    return VM.gene_ns.internal.ns[SYMBOL_CLASS_KEY].internal.class
-  of GeneComplexSymbol:
-    return VM.gene_ns.internal.ns[COMPLEX_SYMBOL_CLASS_KEY].internal.class
-  of GeneVector:
-    return VM.gene_ns.internal.ns[ARRAY_CLASS_KEY].internal.class
-  of GeneMap:
-    return VM.gene_ns.internal.ns[MAP_CLASS_KEY].internal.class
-  of GeneSet:
-    return VM.gene_ns.internal.ns[SET_CLASS_KEY].internal.class
-  of GeneGene:
-    return VM.gene_ns.internal.ns[GENE_CLASS_KEY].internal.class
-  of GeneRegex:
-    return VM.gene_ns.internal.ns[REGEX_CLASS_KEY].internal.class
-  of GeneRange:
-    return VM.gene_ns.internal.ns[RANGE_CLASS_KEY].internal.class
-  of GeneDate:
-    return VM.gene_ns.internal.ns[DATE_CLASS_KEY].internal.class
-  of GeneDateTime:
-    return VM.gene_ns.internal.ns[DATETIME_CLASS_KEY].internal.class
-  of GeneTimeKind:
-    return VM.gene_ns.internal.ns[TIME_CLASS_KEY].internal.class
-  of GeneTimezone:
-    return VM.gene_ns.internal.ns[TIMEZONE_CLASS_KEY].internal.class
-  of GeneAny:
-    if val.any_type == HTTP_REQUEST_KEY:
-      return VM.genex_ns.internal.ns[HTTP_KEY].internal.ns[REQUEST_CLASS_KEY].internal.class
-    else:
-      todo()
-  else:
-    todo()
-
-proc is_a*(self: GeneValue, class: Class): bool =
-  var my_class = self.get_class
-  while true:
-    if my_class == class:
-      return true
-    if my_class.parent == nil:
-      return false
-    else:
-      my_class = my_class.parent
 
 #################### Pattern Matching ############
 

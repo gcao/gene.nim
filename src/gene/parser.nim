@@ -5,7 +5,6 @@
 
 import lexbase, streams, strutils, unicode, tables, sets, times, re
 
-import ./map_key
 import ./types
 
 type
