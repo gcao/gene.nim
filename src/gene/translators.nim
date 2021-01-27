@@ -1,6 +1,7 @@
 import ./translators/base
 import "./translators/try"
 
-export base
-
 `try`.init_translators()
+
+export base.new_expr
+export base.new_group_expr
