@@ -343,11 +343,6 @@ proc init_evaluators*() =
     else:
       not_allowed()
 
-  EvaluatorMgr[ExMacro] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
-    expr.mac.internal.mac.ns = frame.ns
-    self.def_member(frame, expr.mac_name, expr.mac, true)
-    result = expr.mac
-
   EvaluatorMgr[ExBlock] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
     expr.blk.internal.blk.frame = frame
     expr.blk.internal.blk.parent_scope_max = frame.scope.max

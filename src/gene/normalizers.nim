@@ -250,9 +250,9 @@ Normalizers.add proc(self: GeneValue): bool =
 # proc normalize_symbol(self: GeneValue): GeneValue =
 #   todo()
 
-# Normalize self.vec, self.gene.data, self.map, self.gene.props etc but don't go further
-proc normalize_children*(self:  GeneValue) =
-  todo()
+# # Normalize self.vec, self.gene.data, self.map, self.gene.props etc but don't go further
+# proc normalize_children*(self:  GeneValue) =
+#   todo()
 
 proc normalize*(self:  GeneValue) =
   if self.kind != GeneGene or self.gene.normalized:

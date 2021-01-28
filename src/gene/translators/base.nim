@@ -249,16 +249,6 @@ proc new_fn_expr*(parent: Expr, val: GeneValue): Expr =
   fn.expr = result
   fn.update_matchers(fn.matcher.children)
 
-proc new_macro_expr*(parent: Expr, val: GeneValue): Expr =
-  var mac: Macro = val
-  result = Expr(
-    kind: ExMacro,
-    parent: parent,
-    mac: mac,
-    mac_name: val.gene.data[0],
-  )
-  mac.expr = result
-
 proc new_block_expr*(parent: Expr, val: GeneValue): Expr =
   var blk: Block = val
   result = Expr(
@@ -654,7 +644,6 @@ TranslatorMgr[NOT_KEY           ] = new_not_expr
 TranslatorMgr[VAR_KEY           ] = new_var_expr
 TranslatorMgr[THROW_KEY         ] = new_throw_expr
 TranslatorMgr[FN_KEY            ] = new_fn_expr
-TranslatorMgr[MACRO_KEY         ] = new_macro_expr
 TranslatorMgr[RETURN_KEY        ] = new_return_expr
 TranslatorMgr[ASPECT_KEY        ] = new_aspect_expr
 TranslatorMgr[BEFORE_KEY        ] = new_advice_expr

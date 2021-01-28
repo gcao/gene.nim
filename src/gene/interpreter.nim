@@ -4,7 +4,11 @@ import ./interpreter/base
 import ./interpreter/evaluators
 import ./interpreter/native
 
+import "./features/macro" as macro_feature
+
 init_evaluators()
+
+macro_feature.init()
 
 proc init_app_and_vm*() =
   var app = new_app()
