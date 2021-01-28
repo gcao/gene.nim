@@ -1,5 +1,6 @@
 import tables, strutils
 
+import ../map_key
 import ../types
 import ../normalizers
 import ../decorator

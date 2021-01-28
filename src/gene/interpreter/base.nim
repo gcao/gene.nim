@@ -2,6 +2,7 @@ import strutils, tables, strutils
 import asyncdispatch
 import os
 
+import ../map_key
 import ../types
 import ../parser
 import ../decorator

@@ -1,3 +1,4 @@
+import ./map_key
 import ./types
 import ./interpreter/base
 import ./interpreter/evaluators
@@ -27,7 +28,9 @@ proc load_gene_module*(self: VirtualMachine) =
 proc load_genex_module*(self: VirtualMachine) =
   discard self.import_module(GENEX_KEY, readFile(GENE_HOME & "/src/genex.gene"))
 
-export base.eval
+export base.def_member, base.set_member, base.init_package, base.import_module
+export base.eval, base.eval_only, base.eval_prepare, base.prepare
+export base.run_file
 
 when isMainModule:
   import os, times

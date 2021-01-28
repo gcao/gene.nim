@@ -1,5 +1,6 @@
 import os, sequtils
 
+import ./map_key
 import ./types
 
 # Some logics can not be put in interpreter.nim because the compiler complains

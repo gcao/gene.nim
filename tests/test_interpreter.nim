@@ -1,5 +1,6 @@
 import unittest, tables
 
+import gene/map_key
 import gene/types
 import gene/interpreter
 

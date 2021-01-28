@@ -3,6 +3,7 @@ import asyncdispatch
 import dynlib
 import os
 
+import ../map_key
 import ../types
 import ../parser
 import ../dynlib_mapping
