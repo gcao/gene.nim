@@ -306,19 +306,6 @@ proc new_ns_expr*(parent: Expr, val: GeneValue): Expr =
     body.add(new_expr(parent, val.gene.data[i]))
   result.ns_body = body
 
-proc new_import_expr*(parent: Expr, val: GeneValue): Expr =
-  var matcher = new_import_matcher(val)
-  result = Expr(
-    kind: ExImport,
-    parent: parent,
-    import_matcher: matcher,
-    import_native: val.gene.type.symbol == "import_native",
-  )
-  if matcher.from != nil:
-    result.import_from = new_expr(result, matcher.from)
-  if val.gene.props.has_key(PKG_KEY):
-    result.import_pkg = new_expr(result, val.gene.props[PKG_KEY])
-
 proc new_class_expr*(parent: Expr, val: GeneValue): Expr =
   var name = val.gene.data[0]
   var s: string
@@ -649,8 +636,6 @@ TranslatorMgr[ASPECT_KEY        ] = new_aspect_expr
 TranslatorMgr[BEFORE_KEY        ] = new_advice_expr
 TranslatorMgr[AFTER_KEY         ] = new_advice_expr
 TranslatorMgr[NS_KEY            ] = new_ns_expr
-TranslatorMgr[IMPORT_KEY        ] = new_import_expr
-TranslatorMgr[IMPORT_NATIVE_KEY ] = new_import_expr
 TranslatorMgr[DOLLAR_INCLUDE_KEY] = proc(parent: Expr, node: GeneValue): Expr =
   result = Expr(
     kind: ExIncludeFile,

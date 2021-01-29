@@ -24,7 +24,6 @@ proc def_member*(self: VirtualMachine, frame: Frame, name: GeneValue, value: Gen
 proc get_member*(self: VirtualMachine, frame: Frame, name: ComplexSymbol): GeneValue
 proc set_member*(self: VirtualMachine, frame: Frame, name: GeneValue, value: GeneValue)
 proc match*(self: VirtualMachine, frame: Frame, pattern: GeneValue, val: GeneValue, mode: MatchMode): GeneValue
-proc import_from_ns*(self: VirtualMachine, frame: Frame, source: GeneValue, group: seq[ImportMatcher])
 proc explode_and_add*(parent: GeneValue, value: GeneValue)
 
 proc eval_args*(self: VirtualMachine, frame: Frame, props: seq[Expr], data: seq[Expr]): GeneValue {.inline.}
@@ -827,18 +826,6 @@ proc match*(self: VirtualMachine, frame: Frame, pattern: GeneValue, val: GeneVal
         frame.scope.def_member(name.to_key, GeneNil)
   else:
     todo()
-
-proc import_from_ns*(self: VirtualMachine, frame: Frame, source: GeneValue, group: seq[ImportMatcher]) =
-  for m in group:
-    if m.name == MUL_KEY:
-      for k, v in source.internal.ns.members:
-        self.def_member(frame, k, v, true)
-    else:
-      var value = source.internal.ns[m.name]
-      if m.children_only:
-        self.import_from_ns(frame, value.internal.ns, m.children)
-      else:
-        self.def_member(frame, m.name, value, true)
 
 proc explode_and_add*(parent: GeneValue, value: GeneValue) =
   if value.kind == GeneInternal and value.internal.kind == GeneExplode:

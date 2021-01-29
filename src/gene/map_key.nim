@@ -10,6 +10,7 @@ converter to_key*(i: int): MapKey {.inline.} =
   result = cast[MapKey](i)
 
 proc add_key*(s: string): MapKey {.inline.} =
+  # TODO: check whether the key has been added
   result = Keys.len
   Keys.add(s)
   KeyMapping[s] = result
@@ -87,9 +88,6 @@ let ASPECT_KEY*               = add_key("aspect")
 let BEFORE_KEY*               = add_key("before")
 let AFTER_KEY*                = add_key("after")
 let NS_KEY*                   = add_key("ns")
-let IMPORT_KEY*               = add_key("import")
-let IMPORT_NATIVE_KEY*        = add_key("import_native")
-let FROM_KEY*                 = add_key("from")
 let STOP_INHERITANCE_KEY*     = add_key("$stop_inheritance")
 let CLASS_KEY*                = add_key("class")
 let OBJECT_KEY*               = add_key("object")

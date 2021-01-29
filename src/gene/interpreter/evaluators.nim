@@ -402,42 +402,6 @@ proc init_evaluators*() =
   EvaluatorMgr[ExGlobal] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
     return self.app.ns
 
-  EvaluatorMgr[ExImport] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
-    var ns: Namespace
-    var dir = ""
-    if frame.ns.has_key(PKG_KEY):
-      var pkg = frame.ns[PKG_KEY].internal.pkg
-      dir = pkg.dir & "/"
-    # TODO: load import_pkg on demand
-    # Set dir to import_pkg's root directory
-
-    var `from` = expr.import_from
-    if expr.import_native:
-      var path = self.eval(frame, `from`).str
-      let lib = load_dynlib(dir & path)
-      if lib == nil:
-        todo()
-      else:
-        for m in expr.import_matcher.children:
-          var v = lib.sym_addr(m.name.to_s)
-          if v == nil:
-            todo()
-          else:
-            self.def_member(frame, m.name, new_gene_internal(cast[NativeFn](v)), true)
-    else:
-      # If "from" is not given, import from parent of root namespace.
-      if `from` == nil:
-        ns = frame.ns.root.parent
-      else:
-        var `from` = self.eval(frame, `from`).str
-        if self.modules.has_key(`from`.to_key):
-          ns = self.modules[`from`.to_key]
-        else:
-          var code = read_file(dir & `from` & ".gene")
-          ns = self.import_module(`from`.to_key, code)
-          self.modules[`from`.to_key] = ns
-      self.import_from_ns(frame, ns, expr.import_matcher.children)
-
   EvaluatorMgr[ExIncludeFile] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
     var file = self.eval(frame, expr.include_file).str
     result = self.eval_only(frame, read_file(file))
