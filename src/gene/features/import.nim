@@ -10,8 +10,25 @@ import ../interpreter/base as interpreter_base
 let IMPORT_KEY*               = add_key("import")
 let IMPORT_NATIVE_KEY*        = add_key("import_native")
 let FROM_KEY*                 = add_key("from")
+let NAMES_KEY*                = add_key("names")
+let MODULE_KEY*               = add_key("module")
+
+proc normalize(self: GeneValue) =
+  var names: seq[GeneValue] = @[]
+  var module: GeneValue
+  var expect_module = false
+  for val in self.gene.data:
+    if expect_module:
+      module = val
+    elif val.kind == GeneSymbol and val.symbol == "from":
+      expect_module = true
+    else:
+      names.add(val)
+  self.gene.props[NAMES_KEY] = new_gene_vec(names)
+  self.gene.props[MODULE_KEY] = module
 
 proc new_import_expr(parent: Expr, val: GeneValue): Expr =
+  val.normalize()
   var matcher = new_import_matcher(val)
   result = Expr(
     kind: ExImport,

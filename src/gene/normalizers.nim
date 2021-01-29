@@ -140,24 +140,6 @@ Normalizers.add proc(self: GeneValue): bool =
     self.gene.data.reset  # Clear our gene.data as it's not needed any more
 
 Normalizers.add proc(self: GeneValue): bool =
-  var `type` = self.gene.type
-  if `type`.kind == GeneSymbol:
-    if `type`.symbol == "import" or `type`.symbol == "import_native":
-      var names: seq[GeneValue] = @[]
-      var module: GeneValue
-      var expect_module = false
-      for val in self.gene.data:
-        if expect_module:
-          module = val
-        elif val.kind == GeneSymbol and val.symbol == "from":
-          expect_module = true
-        else:
-          names.add(val)
-      self.gene.props[NAMES_KEY] = new_gene_vec(names)
-      self.gene.props[MODULE_KEY] = module
-      return true
-
-Normalizers.add proc(self: GeneValue): bool =
   if self.gene.type.kind == GeneSymbol:
     if self.gene.type.symbol == "fnx":
       self.gene.type = new_gene_symbol("fn")

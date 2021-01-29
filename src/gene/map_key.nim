@@ -10,10 +10,12 @@ converter to_key*(i: int): MapKey {.inline.} =
   result = cast[MapKey](i)
 
 proc add_key*(s: string): MapKey {.inline.} =
-  # TODO: check whether the key has been added
-  result = Keys.len
-  Keys.add(s)
-  KeyMapping[s] = result
+  if KeyMapping.has_key(s):
+    result = KeyMapping[s]
+  else:
+    result = Keys.len
+    Keys.add(s)
+    KeyMapping[s] = result
 
 proc to_key*(s: string): MapKey {.inline.} =
   if KeyMapping.has_key(s):
@@ -52,8 +54,6 @@ let COND_KEY*                 = add_key("cond")
 let THEN_KEY*                 = add_key("then")
 let ELIF_KEY*                 = add_key("elif")
 let ELSE_KEY*                 = add_key("else")
-let NAMES_KEY*                = add_key("names")
-let MODULE_KEY*               = add_key("module")
 let APP_KEY*                  = add_key("$app")
 let CUR_PKG_KEY*              = add_key("$pkg")
 let CUR_EXCEPTION_KEY*        = add_key("$ex")
