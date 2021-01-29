@@ -1,3 +1,5 @@
+import tables
+
 import ../map_key
 import ../types
 import ../translators/base as translators_base
@@ -45,3 +47,26 @@ proc init*() =
     expr.mac.internal.mac.ns = frame.ns
     self.def_member(frame, expr.mac_name, expr.mac, true)
     result = expr.mac
+
+  GeneEvaluators[ord(GeneMacro)] = proc(self: VirtualMachine, frame: Frame, expr: Expr, `type`: GeneValue): GeneValue =
+    var mac = `type`.internal.mac
+    var mac_scope = new_scope()
+    var new_frame = FrameMgr.get(FrFunction, mac.ns, mac_scope)
+    new_frame.parent = frame
+
+    new_frame.args = expr.gene
+    self.process_args(new_frame, mac.matcher, new_frame.args)
+
+    var blk: seq[Expr] = @[]
+    for item in mac.body:
+      blk.add(new_expr(mac.expr, item))
+    try:
+      for e in blk:
+        result = self.eval(new_frame, e)
+    except Return as r:
+      result = r.val
+    except CatchableError as e:
+      if self.repl_on_error:
+        result = repl_on_error(self, frame, e)
+      else:
+        raise

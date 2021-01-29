@@ -667,13 +667,15 @@ proc init_evaluators*() =
     var target = self.eval(frame, expr.gene_type)
     case target.kind:
     of GeneInternal:
+      let key = ord(target.internal.kind)
+      if GeneEvaluators.has_key(key):
+        return GeneEvaluators[key](self, frame, expr, target)
+
       case target.internal.kind:
       of GeneFunction:
         var options = Table[FnOption, GeneValue]()
         var args = self.eval_args(frame, expr.gene_props, expr.gene_data)
         result = self.call_fn(frame, GeneNil, target.internal.fn, args, options)
-      of GeneMacro:
-        result = self.call_macro(frame, GeneNil, target.internal.mac, expr)
       of GeneBlock:
         result = self.call_block(frame, GeneNil, target.internal.blk, expr)
       of GeneReturn:

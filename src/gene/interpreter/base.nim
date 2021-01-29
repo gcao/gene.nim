@@ -33,7 +33,6 @@ proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class
 proc call_method*(self: VirtualMachine, frame: Frame, instance: GeneValue, class: Class, method_name: MapKey, args: GeneValue): GeneValue
 proc call_fn*(self: VirtualMachine, frame: Frame, target: GeneValue, fn: Function, args: GeneValue, options: Table[FnOption, GeneValue]): GeneValue
 proc call_fn*(self: VirtualMachine, target: GeneValue, fn: Function, args: GeneValue): GeneValue
-proc call_macro*(self: VirtualMachine, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue
 proc call_block*(self: VirtualMachine, frame: Frame, target: GeneValue, blk: Block, expr: Expr): GeneValue
 
 proc call_aspect*(self: VirtualMachine, frame: Frame, aspect: Aspect, expr: Expr): GeneValue
@@ -535,7 +534,7 @@ proc process_args*(self: VirtualMachine, frame: Frame, matcher: RootMatcher, arg
   else:
     todo()
 
-proc repl_on_error(self: VirtualMachine, frame: Frame, e: ref CatchableError): GeneValue =
+proc repl_on_error*(self: VirtualMachine, frame: Frame, e: ref CatchableError): GeneValue =
   echo "An exception was thrown: " & e.msg
   echo "Opening debug console..."
   echo "Note: the exception can be accessed as $ex"
@@ -622,29 +621,6 @@ proc call_fn*(
   frame.args = args
   var options = Table[FnOption, GeneValue]()
   self.call_fn(frame, target, fn, args, options)
-
-proc call_macro*(self: VirtualMachine, frame: Frame, target: GeneValue, mac: Macro, expr: Expr): GeneValue =
-  var mac_scope = new_scope()
-  var new_frame = FrameMgr.get(FrFunction, mac.ns, mac_scope)
-  new_frame.parent = frame
-  new_frame.self = target
-
-  new_frame.args = expr.gene
-  self.process_args(new_frame, mac.matcher, new_frame.args)
-
-  var blk: seq[Expr] = @[]
-  for item in mac.body:
-    blk.add(new_expr(mac.expr, item))
-  try:
-    for e in blk:
-      result = self.eval(new_frame, e)
-  except Return as r:
-    result = r.val
-  except CatchableError as e:
-    if self.repl_on_error:
-      result = repl_on_error(self, frame, e)
-    else:
-      raise
 
 proc call_block*(self: VirtualMachine, frame: Frame, target: GeneValue, blk: Block, args: GeneValue): GeneValue =
   var blk_scope = new_scope()

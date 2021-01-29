@@ -823,6 +823,7 @@ type
     exception_class*: GeneValue
 
   Evaluator* = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue
+  GeneEvaluator* = proc(self: VirtualMachine, frame: Frame, expr: Expr, `type`: GeneValue): GeneValue
 
   EvaluatorManager* = ref object
     mappings*: Table[ExprKind, Evaluator]
@@ -1018,6 +1019,7 @@ var GeneClassClass*    : GeneValue
 var GeneExceptionClass*: GeneValue
 
 var EvaluatorMgr* = EvaluatorManager()
+var GeneEvaluators* = Table[int, GeneEvaluator]()
 var FrameMgr* = FrameManager()
 
 #################### Definitions #################
@@ -1324,15 +1326,6 @@ proc `[]`*(self: Frame, name: GeneValue): GeneValue {.inline.} =
 
 proc new_fn*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Function =
   return Function(
-    name: name,
-    matcher: matcher,
-    body: body,
-  )
-
-#################### Macro #######################
-
-proc new_macro*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Macro =
-  return Macro(
     name: name,
     matcher: matcher,
     body: body,
@@ -2138,24 +2131,6 @@ converter to_function*(node: GeneValue): Function =
     result.async = node.gene.props.get_or_default(ASYNC_KEY, false)
   else:
     not_allowed()
-
-converter to_macro*(node: GeneValue): Macro =
-  var first = node.gene.data[0]
-  var name: string
-  if first.kind == GeneSymbol:
-    name = first.symbol
-  elif first.kind == GeneComplexSymbol:
-    name = first.csymbol.rest[^1]
-
-  var matcher = new_arg_matcher()
-  matcher.parse(node.gene.data[1])
-
-  var body: seq[GeneValue] = @[]
-  for i in 2..<node.gene.data.len:
-    body.add node.gene.data[i]
-
-  body = wrap_with_try(body)
-  return new_macro(name, matcher, body)
 
 converter to_block*(node: GeneValue): Block =
   var matcher = new_arg_matcher()
