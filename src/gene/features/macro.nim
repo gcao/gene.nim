@@ -14,6 +14,12 @@ proc new_macro*(name: string, matcher: RootMatcher, body: seq[GeneValue]): Macro
     body: body,
   )
 
+converter new_gene_internal*(mac: Macro): GeneValue =
+  return GeneValue(
+    kind: GeneInternal,
+    internal: Internal(kind: GeneMacro, mac: mac),
+  )
+
 converter to_macro(node: GeneValue): Macro =
   var first = node.gene.data[0]
   var name: string

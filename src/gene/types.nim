@@ -1874,12 +1874,6 @@ converter new_gene_internal*(fn: Function): GeneValue =
     internal: Internal(kind: GeneFunction, fn: fn),
   )
 
-converter new_gene_internal*(mac: Macro): GeneValue =
-  return GeneValue(
-    kind: GeneInternal,
-    internal: Internal(kind: GeneMacro, mac: mac),
-  )
-
 converter new_gene_internal*(blk: Block): GeneValue =
   return GeneValue(
     kind: GeneInternal,
