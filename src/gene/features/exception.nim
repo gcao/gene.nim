@@ -1,6 +1,7 @@
 import ../map_key
 import ../types
 import ../translators
+import ../interpreter/base
 
 type
   TryParsingState = enum
@@ -72,3 +73,59 @@ proc new_try_expr*(parent: Expr, val: GeneValue): Expr =
 proc init*() =
   TranslatorMgr[THROW_KEY         ] = new_throw_expr
   TranslatorMgr[TRY_KEY           ] = new_try_expr
+
+  EvaluatorMgr[ExThrow] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
+    if expr.throw_type != nil:
+      var class = self.eval(frame, expr.throw_type)
+      if expr.throw_mesg != nil:
+        var message = self.eval(frame, expr.throw_mesg)
+        var instance = new_instance(class.internal.class)
+        raise new_gene_exception(message.str, instance)
+      elif class.kind == GeneInternal and class.internal.kind == GeneClass:
+        var instance = new_instance(class.internal.class)
+        raise new_gene_exception(instance)
+      elif class.kind == GeneInternal and class.internal.kind == GeneExceptionKind:
+        raise class.internal.exception
+      elif class.kind == GeneString:
+        var instance = new_instance(GeneExceptionClass.internal.class)
+        raise new_gene_exception(class.str, instance)
+      else:
+        todo()
+    else:
+      # Create instance of gene/Exception
+      var class = GeneExceptionClass
+      var instance = new_instance(class.internal.class)
+      # Create nim exception of GeneException type
+      raise new_gene_exception(instance)
+
+  EvaluatorMgr[ExTry] = proc(self: VirtualMachine, frame: Frame, expr: Expr): GeneValue =
+    try:
+      for e in expr.try_body:
+        result = self.eval(frame, e)
+    except GeneException as ex:
+      self.def_member(frame, CUR_EXCEPTION_KEY, error_to_gene(ex), false)
+      var handled = false
+      if expr.try_catches.len > 0:
+        for catch in expr.try_catches:
+          # check whether the thrown exception matches exception in catch statement
+          var class = self.eval(frame, catch[0])
+          if class == GenePlaceholder:
+            # class = GeneExceptionClass
+            handled = true
+            for e in catch[1]:
+              result = self.eval(frame, e)
+            break
+          if ex.instance == nil:
+            raise
+          if ex.instance.is_a(class.internal.class):
+            handled = true
+            for e in catch[1]:
+              result = self.eval(frame, e)
+            break
+      for e in expr.try_finally:
+        try:
+          discard self.eval(frame, e)
+        except Return, Break:
+          discard
+      if not handled:
+        raise
