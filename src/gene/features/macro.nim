@@ -2,8 +2,8 @@ import tables
 
 import ../map_key
 import ../types
-import ../translators/base as translators_base
-import ../interpreter/base as interpreter_base
+import ../translators
+import ../interpreter/base
 
 let MACRO_KEY* = add_key("macro")
 

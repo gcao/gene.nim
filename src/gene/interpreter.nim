@@ -6,11 +6,13 @@ import ./interpreter/native
 
 import "./features/macro" as macro_feature
 import "./features/import" as import_feature
+import "./features/exception" as exception_feature
 
 init_evaluators()
 
 macro_feature.init()
 import_feature.init()
+exception_feature.init()
 
 proc init_app_and_vm*() =
   var app = new_app()

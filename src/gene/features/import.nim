@@ -4,14 +4,62 @@ import dynlib
 import ../map_key
 import ../types
 import ../dynlib_mapping
-import ../translators/base as translators_base
-import ../interpreter/base as interpreter_base
+import ../translators
+import ../interpreter/base
 
 let IMPORT_KEY*               = add_key("import")
 let IMPORT_NATIVE_KEY*        = add_key("import_native")
 let FROM_KEY*                 = add_key("from")
 let NAMES_KEY*                = add_key("names")
 let MODULE_KEY*               = add_key("module")
+
+proc parse*(self: ImportMatcherRoot, input: GeneValue, group: ptr seq[ImportMatcher]) =
+  var data: seq[GeneValue]
+  case input.kind:
+  of GeneGene:
+    data = input.gene.data
+  of GeneVector:
+    data = input.vec
+  else:
+    todo()
+
+  var i = 0
+  while i < data.len:
+    var item = data[i]
+    i += 1
+    case item.kind:
+    of GeneSymbol:
+      if item.symbol == "from":
+        self.from = data[i]
+        i += 1
+      else:
+        group[].add(ImportMatcher(name: item.symbol.to_key))
+    of GeneComplexSymbol:
+      var names: seq[string] = @[]
+      names.add(item.csymbol.first)
+      for item in item.csymbol.rest:
+        names.add(item)
+
+      var matcher: ImportMatcher
+      var my_group = group
+      var j = 0
+      while j < names.len:
+        var name = names[j]
+        j += 1
+        if name == "": # TODO: throw error if "" is not the last
+          self.parse(data[i], matcher.children.addr)
+          i += 1
+        else:
+          matcher = ImportMatcher(name: name.to_key)
+          matcher.children_only = j < names.len
+          my_group[].add(matcher)
+          my_group = matcher.children.addr
+    else:
+      todo()
+
+proc new_import_matcher*(v: GeneValue): ImportMatcherRoot =
+  result = ImportMatcherRoot()
+  result.parse(v, result.children.addr)
 
 proc normalize(self: GeneValue) =
   var names: seq[GeneValue] = @[]
