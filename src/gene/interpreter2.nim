@@ -8,7 +8,7 @@ proc prepare*(self: VirtualMachine, code: string): GeneValue =
 
 proc eval*(self: VirtualMachine, frame: Frame, expr: GeneValue): GeneValue =
   case expr.kind:
-  of GeneWithType:
+  of GeneByKey:
     todo()
   else:
     result = expr   # TODO: return a copy

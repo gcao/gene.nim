@@ -9,6 +9,9 @@ proc translate*(stmt: GeneValue): GeneValue =
   case stmt.kind:
   of GeneNilKind, GeneInt, GeneString:
     result = stmt
+  of GeneByType:
+    # TODO: check whether its type is a symbol of "#Expr"
+    todo()
   else:
     todo()
 
@@ -19,4 +22,4 @@ proc translate*(stmts: seq[GeneValue]): GeneValue =
   of 1:
     result = translate(stmts[0])
   else:
-    result = new_gene_with_type(EX_GROUP)
+    result = new_gene_by_key(EX_GROUP)
