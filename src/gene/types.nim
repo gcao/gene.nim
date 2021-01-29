@@ -439,6 +439,7 @@ type
     GeneSet
     GeneGene
     GeneStream
+    GeneWithType
     GeneInternal
     GeneAny
 
@@ -486,6 +487,9 @@ type
       gene*: Gene
     of GeneStream:
       stream*: seq[GeneValue]
+    of GeneWithType:
+      value_type*: int
+      value*: GeneValue
     of GeneInternal:
       internal*: Internal
     of GeneAny:
@@ -1510,6 +1514,8 @@ proc `==`*(this, that: GeneValue): bool =
              this.range_end        == that.range_end        and
              this.range_incl_start == that.range_incl_start and
              this.range_incl_end   == that.range_incl_end
+    of GeneWithType:
+      return this.value_type == that.value_type and this.value == that.value
     of GeneInternal:
       case this.internal.kind:
       of GeneNamespace:
@@ -1565,6 +1571,8 @@ proc hash*(node: GeneValue): Hash =
     todo()
   of GeneRange:
     h = h !& hash(node.range_start) !& hash(node.range_end)
+  of GeneWithType:
+    h = h !& hash(node.value_type) !& hash(node.value)
   of GeneInternal:
     todo($node.internal.kind)
   result = !$h
@@ -1860,6 +1868,19 @@ proc new_gene_gene*(`type`: GeneValue, props: OrderedTable[MapKey, GeneValue], d
   return GeneValue(
     kind: GeneGene,
     gene: Gene(type: `type`, props: props, data: @data),
+  )
+
+proc new_gene_with_type*(t: int): GeneValue =
+  return GeneValue(
+    kind: GeneWithType,
+    value_type: t,
+  )
+
+proc new_gene_with_type*(t: int, v: GeneValue): GeneValue =
+  return GeneValue(
+    kind: GeneWithType,
+    value_type: t,
+    value: v,
   )
 
 converter new_gene_internal*(e: Enum): GeneValue =
