@@ -4,12 +4,14 @@ import ./interpreter/base
 import ./interpreter/evaluators
 import ./interpreter/native
 
+import "./features/case" as case_feature
 import "./features/macro" as macro_feature
 import "./features/import" as import_feature
 import "./features/exception" as exception_feature
 
 init_evaluators()
 
+case_feature.init()
 macro_feature.init()
 import_feature.init()
 exception_feature.init()
