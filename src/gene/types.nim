@@ -415,6 +415,9 @@ type
     second*: int
     timezone*: Timezone
 
+  MyDateTime* = ref object
+    date*: DateTime
+
   GeneKind* = enum
     GeneNilKind
     GenePlaceholderKind
@@ -471,7 +474,7 @@ type
       range_incl_start*: bool
       range_incl_end*: bool
     of GeneDate, GeneDateTime:
-      date*: DateTime
+      date_internal: MyDateTime
     of GeneTimeKind:
       time*: GeneTime
     of GeneTimezone:
@@ -1066,6 +1069,9 @@ proc new_gene_exception*(instance: GeneValue): ref Exception =
 
 proc new_gene_exception*(): ref Exception =
   return new_gene_exception(DEFAULT_ERROR_MESSAGE, nil)
+
+proc date*(self: GeneValue): DateTime =
+  self.date_internal.date
 
 #################### Converters ##################
 
@@ -1777,19 +1783,19 @@ proc new_gene_range*(rstart: GeneValue, rend: GeneValue): GeneValue =
 proc new_gene_date*(year, month, day: int): GeneValue =
   return GeneValue(
     kind: GeneDate,
-    date: init_date_time(day, cast[Month](month), year, 0, 0, 0, utc()),
+    date_internal: MyDateTime(date: init_date_time(day, cast[Month](month), year, 0, 0, 0, utc())),
   )
 
 proc new_gene_date*(date: DateTime): GeneValue =
   return GeneValue(
     kind: GeneDate,
-    date: date,
+    date_internal: MyDateTime(date: date),
   )
 
 proc new_gene_datetime*(date: DateTime): GeneValue =
   return GeneValue(
     kind: GeneDateTime,
-    date: date,
+    date_internal: MyDateTime(date: date),
   )
 
 proc new_gene_time*(hour, min, sec: int): GeneValue =
