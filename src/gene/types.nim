@@ -850,7 +850,11 @@ type
     else:
       discard
 
-  Frame* = ref object
+  Frame* = object
+    d: FrameInternal
+
+  FrameInternal* = ptr object
+    refCount*: int
     parent*: Frame
     self*: GeneValue
     ns*: Namespace
@@ -989,6 +993,7 @@ type
     failure*: string  # if kind == AmFailure
 
 var ScopeCache*: seq[ScopeInternal] = @[]
+var FrameCache*: seq[FrameInternal] = @[]
 
 proc `=destroy`*(x: var Scope) {.nimcall.} =
   if x.d == nil:
@@ -1332,20 +1337,28 @@ proc `[]=`*(self: var Scope, key: MapKey, val: GeneValue) {.inline.} =
 
 #################### Frame #######################
 
-proc new_frame*(): Frame = Frame(
-  self: GeneNil,
-)
+let FrameSize = sizeof(typeof(default(FrameInternal)[]))
+
+proc new_frame*(): Frame =
+  var internal: FrameInternal
+  if FrameCache.len > 0:
+    internal = FrameCache.pop()
+  else:
+    internal = cast[FrameInternal](alloc0(FrameSize))
+  internal.refCount = 1
+  internal.self = GeneNil
+  Frame(d: internal)
 
 proc reset*(self: var Frame) {.inline.} =
-  self.self = nil
-  self.ns = nil
-  # self.scope = nil
-  self.extra = nil
+  self.d.self = nil
+  self.d.ns = nil
+  self.d.scope = Scope()
+  self.d.extra = nil
 
 proc `[]`*(self: Frame, name: MapKey): GeneValue {.inline.} =
-  result = self.scope[name]
+  result = self.d.scope[name]
   if result == nil:
-    return self.ns[name]
+    return self.d.ns[name]
 
 proc `[]`*(self: Frame, name: GeneValue): GeneValue {.inline.} =
   case name.kind:
@@ -1360,7 +1373,7 @@ proc `[]`*(self: Frame, name: GeneValue): GeneValue {.inline.} =
     elif csymbol.first == "genex":
       result = VM.genex_ns
     elif csymbol.first == "":
-      result = self.ns
+      result = self.d.ns
     else:
       result = self[csymbol.first.to_key]
     for csymbol in csymbol.rest:
@@ -2586,10 +2599,10 @@ proc get*(self: var FrameManager, kind: FrameKind, ns: Namespace, scope: Scope):
     result = self.cache.pop()
   else:
     result = new_frame()
-  result.parent = nil
-  result.ns = ns
-  result.scope = scope
-  result.extra = FrameExtra(kind: kind)
+  # result.d.parent = nil
+  result.d.ns = ns
+  result.d.scope = scope
+  result.d.extra = FrameExtra(kind: kind)
 
 proc free*(self: var FrameManager, frame: var Frame) {.inline.} =
   frame.reset()
