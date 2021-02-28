@@ -851,7 +851,7 @@ type
       discard
 
   Frame* = object
-    d: FrameInternal
+    d*: FrameInternal
 
   FrameInternal* = ptr object
     refCount*: int
@@ -998,7 +998,7 @@ var FrameCache*: seq[FrameInternal] = @[]
 proc `=destroy`*(x: var Scope) {.nimcall.} =
   if x.d == nil:
     return
-  if x.d.refCount == 0:
+  if x.d.refCount == 1:
     # We have the last reference
     x.d[].wasMoved()
     ScopeCache.add(x.d)
@@ -1013,6 +1013,33 @@ proc `=sink`*(dst: var Scope, src: Scope) {.nimcall.} =
     dst.d = src.d
 
 proc `=`*(dst: var Scope, src: Scope) {.nimcall.} =
+  if src.d == dst.d:
+    return
+  `=destroy`(dst)
+  if src.d == nil:
+    dst.d = nil
+  else:
+    src.d.refCount += 1
+    dst.d = src.d
+
+proc `=destroy`*(x: var Frame) {.nimcall.} =
+  if x.d == nil:
+    return
+  if x.d.refCount == 1:
+    # We have the last reference
+    x.d[].wasMoved()
+    FrameCache.add(x.d)
+  else:
+    x.d.refCount -= 1
+  x.d = nil
+
+proc `=sink`*(dst: var Frame, src: Frame) {.nimcall.} =
+  if dst.d != nil:
+    `=destroy`(dst)
+  if src.d != nil:
+    dst.d = src.d
+
+proc `=`*(dst: var Frame, src: Frame) {.nimcall.} =
   if src.d == dst.d:
     return
   `=destroy`(dst)
